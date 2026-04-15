@@ -59,13 +59,13 @@ export interface ModeToggle {
 		systemPrompt?: string
 	):
 		| {
-				message?: {
-					customType: string;
-					content: string;
-					display: true;
-				};
-				systemPrompt?: string;
-		  }
+			message?: {
+				customType: string;
+				content: string;
+				display: true;
+			};
+			systemPrompt?: string;
+		}
 		| undefined;
 }
 
@@ -148,11 +148,11 @@ const resolveStateFile = (
 			const gitBranch = resolveGitBranch(ctx.cwd);
 			return gitBranch
 				? join(
-						projectStateRoot,
-						'branch',
-						encodePathSegment(gitBranch),
-						encodedModeId
-					)
+					projectStateRoot,
+					'branch',
+					encodePathSegment(gitBranch),
+					encodedModeId
+				)
 				: join(projectStateRoot, 'project', encodedModeId);
 		}
 		case 'global':
@@ -174,7 +174,7 @@ const readPersistedState = (
 		) as Partial<PersistedModeState>;
 		return typeof parsed.enabled === 'boolean' ? parsed.enabled : undefined;
 	} catch (error) {
-		const record = error as { code?: string };
+		const record = error as { code?: string; };
 		if (record.code === 'ENOENT') return undefined;
 		throw error;
 	}
@@ -189,8 +189,9 @@ const writePersistedState = (
 	const filePath = resolveStateFile(modeId, scope, ctx);
 	if (!filePath) return;
 
-	const gitBranch =
-		scope === 'branch' ? resolveGitBranch(ctx.cwd) : undefined;
+	const gitBranch = scope === 'branch'
+		? resolveGitBranch(ctx.cwd)
+		: undefined;
 	const payload: PersistedModeState = {
 		enabled,
 		modeId,
@@ -300,12 +301,12 @@ export const createModeToggle = (
 			emitRegistration();
 			syncStatus(ctx);
 			lastPromptEnabled = ctx.sessionManager
-				.getBranch()
-				.some(
-					(entry) =>
-						entry.type === 'message' &&
-						entry.message.role === 'user'
-				)
+					.getBranch()
+					.some(
+						(entry) =>
+							entry.type === 'message' &&
+							entry.message.role === 'user'
+					)
 				? enabled
 				: undefined;
 		},
@@ -314,8 +315,7 @@ export const createModeToggle = (
 			ctx.ui.setStatus(options.id, undefined);
 		},
 		beforeAgentStart: (event, systemPrompt) => {
-			const statusChanged =
-				lastPromptEnabled !== undefined &&
+			const statusChanged = lastPromptEnabled !== undefined &&
 				lastPromptEnabled !== enabled;
 			lastPromptEnabled = enabled;
 
@@ -324,17 +324,17 @@ export const createModeToggle = (
 			return {
 				...(statusChanged
 					? {
-							message: {
-								customType: options.id,
-								content: getStatusMessage(),
-								display: true as const
-							}
+						message: {
+							customType: options.id,
+							content: getStatusMessage(),
+							display: true as const
 						}
+					}
 					: {}),
 				...(enabled && systemPrompt
 					? {
-							systemPrompt: `${event.systemPrompt}\n\n${systemPrompt}`
-						}
+						systemPrompt: `${event.systemPrompt}\n\n${systemPrompt}`
+					}
 					: {})
 			};
 		}

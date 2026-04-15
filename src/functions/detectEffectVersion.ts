@@ -17,7 +17,7 @@ export const detectEffectVersion = (projectDir: string): string => {
 			'package.json'
 		);
 		const content = fs.readFileSync(pkgPath, 'utf-8');
-		const pkg: { version?: string } = JSON.parse(content);
+		const pkg: { version?: string; } = JSON.parse(content);
 		return pkg.version ?? DEFAULT_VERSION;
 	} catch {
 		return DEFAULT_VERSION;

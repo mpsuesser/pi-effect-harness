@@ -16,22 +16,22 @@ import {
 	SKILL_LOADED_ENTRY,
 	WRITE_TOOLS
 } from './constants.ts';
-import { ensureReferenceClone } from './functions/ensureReferenceClone.ts';
 import { detectEffectVersion } from './functions/detectEffectVersion.ts';
+import { ensureReferenceClone } from './functions/ensureReferenceClone.ts';
 import { projectToolInput, projectToolResult } from './inspectors.ts';
 import { createModeToggle } from './mode-toggle.ts';
+import {
+	getPatterns,
+	matches,
+	type PatternDefinition,
+	sortByLevel
+} from './patterns.ts';
 import {
 	buildDenyReason,
 	buildPatternBlock,
 	buildPolicyHeader,
 	buildSkillGateReason
 } from './policy.ts';
-import {
-	getPatterns,
-	matches,
-	sortByLevel,
-	type PatternDefinition
-} from './patterns.ts';
 import {
 	buildEffectSkillIndex,
 	getLoadedEffectSkillsFromSession,
@@ -174,7 +174,7 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 		if (skillIndex.length === 0) rebuildSkillIndex();
 
 		if (event.toolName === 'read') {
-			const readInput = event.input as { path?: unknown };
+			const readInput = event.input as { path?: unknown; };
 			if (typeof readInput.path === 'string') {
 				const absPath = normalizePath(readInput.path, ctx.cwd);
 				const matchedSkill = matchEffectSkillForPath(
@@ -195,10 +195,9 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 		>;
 
 		if (WRITE_TOOLS.has(event.toolName)) {
-			const matchableContent =
-				typeof projectedInput.content === 'string'
-					? projectedInput.content
-					: '';
+			const matchableContent = typeof projectedInput.content === 'string'
+				? projectedInput.content
+				: '';
 			if (EFFECT_CODE_RE.test(matchableContent)) {
 				const loadedCount = getLoadedSkillCountWithPendingReads();
 				if (loadedCount < MIN_EFFECT_SKILLS) {
@@ -236,7 +235,7 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 			const pendingSkill = pendingSkillReads.get(event.toolCallId);
 			pendingSkillReads.delete(event.toolCallId);
 			if (!event.isError && pendingSkill) {
-				const readInput = event.input as { path?: unknown };
+				const readInput = event.input as { path?: unknown; };
 				if (
 					typeof readInput.path === 'string' &&
 					!loadedSkills.has(pendingSkill)

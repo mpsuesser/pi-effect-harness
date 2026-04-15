@@ -31,13 +31,15 @@ type PatternEvent = typeof PatternEvent.Type;
 const PatternAction = Schema.Literals(['context', 'ask', 'deny'] as const);
 type PatternAction = typeof PatternAction.Type;
 
-const PatternLevel = Schema.Literals([
-	'critical',
-	'high',
-	'medium',
-	'warning',
-	'info'
-] as const);
+const PatternLevel = Schema.Literals(
+	[
+		'critical',
+		'high',
+		'medium',
+		'warning',
+		'info'
+	] as const
+);
 type PatternLevel = typeof PatternLevel.Type;
 
 const PatternDetector = Schema.Literals(['regex', 'ast'] as const);
@@ -70,9 +72,10 @@ const PatternFrontmatter = Schema.Struct({
 	)
 });
 
-export interface PatternDefinition extends Readonly<
-	typeof PatternFrontmatter.Type
-> {
+export interface PatternDefinition extends
+	Readonly<
+		typeof PatternFrontmatter.Type
+	> {
 	readonly body: string;
 	readonly filePath: string;
 }
@@ -231,14 +234,14 @@ const testAst = (
 		const root = parse(lang, text).root();
 		const nodes = pattern.inside
 			? root.findAll({
-					rule: {
-						pattern: pattern.pattern,
-						inside: {
-							pattern: pattern.inside,
-							stopBy: 'end'
-						}
+				rule: {
+					pattern: pattern.pattern,
+					inside: {
+						pattern: pattern.inside,
+						stopBy: 'end'
 					}
-				})
+				}
+			})
 			: root.findAll(pattern.pattern);
 		return nodes.length > 0;
 	} catch {

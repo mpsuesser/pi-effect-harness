@@ -17,8 +17,11 @@ bun install
 ## Development Workflow
 
 ```sh
-bun run check       # lint + format + typecheck (auto-fix)
+bun run check       # format + lint + typecheck
 bun run test        # run all tests
+bun run fmt         # dprint format
+bun run fmt:check   # dprint check (no write)
+bun run lint        # oxlint
 bun run typecheck   # tsgo type-check only
 ```
 
@@ -33,9 +36,9 @@ bunx vitest run -t "some test name"
 
 1. Fork the repo and create a branch from `main`.
 2. Add or update tests for any changed behavior.
-3. Make sure all three checks pass:
+3. Make sure checks and tests pass:
     ```sh
-    bun run check && bun run test && bun run typecheck
+    bun run check && bun run test
     ```
 4. Open a pull request with a clear description of the change.
 

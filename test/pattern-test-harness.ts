@@ -47,7 +47,7 @@ const VALID_EVENTS = new Set(['before', 'after']);
 const readPatternFromFile = (
 	filePath: string
 ): Effect.Effect<PatternDefinition | null, never, FileSystem.FileSystem> =>
-	Effect.gen(function* () {
+	Effect.gen(function*() {
 		const fs = yield* FileSystem.FileSystem;
 		const content = yield* fs
 			.readFileString(filePath)
@@ -64,25 +64,29 @@ const readPatternFromFile = (
 
 		if (!VALID_LEVELS.has(level)) {
 			throw new Error(
-				`Pattern "${fm.name as string}" has invalid level "${level}". ` +
+				`Pattern "${fm
+					.name as string}" has invalid level "${level}". ` +
 					`Valid: ${[...VALID_LEVELS].join(', ')}`
 			);
 		}
 		if (!VALID_ACTIONS.has(action)) {
 			throw new Error(
-				`Pattern "${fm.name as string}" has invalid action "${action}". ` +
+				`Pattern "${fm
+					.name as string}" has invalid action "${action}". ` +
 					`Valid: ${[...VALID_ACTIONS].join(', ')}`
 			);
 		}
 		if (!VALID_DETECTORS.has(detector)) {
 			throw new Error(
-				`Pattern "${fm.name as string}" has invalid detector "${detector}". ` +
+				`Pattern "${fm
+					.name as string}" has invalid detector "${detector}". ` +
 					`Valid: ${[...VALID_DETECTORS].join(', ')}`
 			);
 		}
 		if (!VALID_EVENTS.has(event)) {
 			throw new Error(
-				`Pattern "${fm.name as string}" has invalid event "${event}". ` +
+				`Pattern "${fm
+					.name as string}" has invalid event "${event}". ` +
 					`Valid: ${[...VALID_EVENTS].join(', ')}`
 			);
 		}
@@ -112,48 +116,47 @@ const walkAndCollectPatterns = (
 	PatternDefinition[],
 	never,
 	FileSystem.FileSystem | Path.Path
-> =>
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const p = yield* Path.Path;
+> => Effect.gen(function*() {
+	const fs = yield* FileSystem.FileSystem;
+	const p = yield* Path.Path;
 
-		const dirExists = yield* fs
-			.exists(dir)
-			.pipe(Effect.catch(() => Effect.succeed(false)));
-		if (!dirExists) return [];
+	const dirExists = yield* fs
+		.exists(dir)
+		.pipe(Effect.catch(() => Effect.succeed(false)));
+	if (!dirExists) return [];
 
-		const entries = yield* fs
-			.readDirectory(dir)
-			.pipe(Effect.catch(() => Effect.succeed([] as string[])));
+	const entries = yield* fs
+		.readDirectory(dir)
+		.pipe(Effect.catch(() => Effect.succeed([] as string[])));
 
-		const results: PatternDefinition[] = [];
+	const results: PatternDefinition[] = [];
 
-		for (const entry of entries) {
-			const fullPath = p.join(dir, entry);
-			const info = yield* fs
-				.stat(fullPath)
-				.pipe(
-					Effect.catch(() =>
-						Effect.succeed(null as { type: string } | null)
-					)
-				);
-			if (!info) continue;
+	for (const entry of entries) {
+		const fullPath = p.join(dir, entry);
+		const info = yield* fs
+			.stat(fullPath)
+			.pipe(
+				Effect.catch(() =>
+					Effect.succeed(null as { type: string; } | null)
+				)
+			);
+		if (!info) continue;
 
-			if (info.type === 'Directory') {
-				const subPatterns = yield* walkAndCollectPatterns(fullPath);
-				results.push(...subPatterns);
-			} else if (
-				entry.endsWith('.md') &&
-				!entry.startsWith('CLAUDE') &&
-				!entry.startsWith('README')
-			) {
-				const pattern = yield* readPatternFromFile(fullPath);
-				if (pattern) results.push(pattern);
-			}
+		if (info.type === 'Directory') {
+			const subPatterns = yield* walkAndCollectPatterns(fullPath);
+			results.push(...subPatterns);
+		} else if (
+			entry.endsWith('.md') &&
+			!entry.startsWith('CLAUDE') &&
+			!entry.startsWith('README')
+		) {
+			const pattern = yield* readPatternFromFile(fullPath);
+			if (pattern) results.push(pattern);
 		}
+	}
 
-		return results;
-	});
+	return results;
+});
 
 // ─── Module-level Pattern Loading ─────────────────────────────
 
@@ -161,7 +164,7 @@ const walkAndCollectPatterns = (
 // Single Effect.runPromise call: resolves services, walks directories,
 // reads and parses every pattern file.
 const _allPatterns = await Effect.runPromise(
-	Effect.gen(function* () {
+	Effect.gen(function*() {
 		const p = yield* Path.Path;
 		const patternsDir = p.join(
 			import.meta.dirname ?? '.',
@@ -191,14 +194,14 @@ const testAstMatch = (input: string, pattern: PatternDefinition): boolean => {
 		const root = parse(Lang.TypeScript, input).root();
 		const nodes = pattern.inside
 			? root.findAll({
-					rule: {
-						pattern: pattern.pattern,
-						inside: {
-							pattern: pattern.inside,
-							stopBy: 'end'
-						}
+				rule: {
+					pattern: pattern.pattern,
+					inside: {
+						pattern: pattern.inside,
+						stopBy: 'end'
 					}
-				})
+				}
+			})
 			: root.findAll(pattern.pattern);
 		return nodes.length > 0;
 	} catch {
@@ -229,15 +232,14 @@ export const testPattern = (opts: TestPatternOptions) => {
 		});
 
 		if (pattern) {
-			const testMatch =
-				pattern.detector === 'ast'
-					? (input: string) => testAstMatch(input, pattern)
-					: (input: string) =>
-							new RegExp(pattern.pattern).test(
-								pattern.matchInComments
-									? input
-									: stripComments(input)
-							);
+			const testMatch = pattern.detector === 'ast'
+				? (input: string) => testAstMatch(input, pattern)
+				: (input: string) =>
+					new RegExp(pattern.pattern).test(
+						pattern.matchInComments
+							? input
+							: stripComments(input)
+					);
 
 			describe('shouldMatch', () => {
 				for (const input of opts.shouldMatch) {

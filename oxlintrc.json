@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "import", "unicorn", "vitest"],
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-non-null-assertion": "error",
+    "@typescript-eslint/no-extra-non-null-assertion": "error",
+    "vitest/require-to-throw-message": "off",
+    "jest/valid-expect": "off"
+  },
+  "ignorePatterns": [".references/**"]
+}
