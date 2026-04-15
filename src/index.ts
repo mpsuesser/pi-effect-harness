@@ -11,26 +11,20 @@ import {
 	EFFECT_CODE_RE,
 	EFFECT_STATUS,
 	MIN_EFFECT_SKILLS,
-	PATTERN_CONTEXT_TYPE,
-	PATTERN_WARNING_TYPE,
 	SKILL_LOADED_ENTRY,
 	WRITE_TOOLS
 } from './constants.ts';
 import { detectEffectVersion } from './functions/detectEffectVersion.ts';
 import { ensureReferenceClone } from './functions/ensureReferenceClone.ts';
-import { projectToolInput, projectToolResult } from './inspectors.ts';
+import { projectToolInput } from './inspectors.ts';
 import { createModeToggle } from './mode-toggle.ts';
+import { getPatterns, matches, type PatternDefinition } from './patterns.ts';
 import {
-	getPatterns,
-	matches,
-	type PatternDefinition,
-	sortByLevel
-} from './patterns.ts';
-import {
+	buildAskReason,
 	buildDenyReason,
-	buildPatternBlock,
 	buildPolicyHeader,
-	buildSkillGateReason
+	buildSkillGateReason,
+	selectBlockingPatterns
 } from './policy.ts';
 import {
 	buildEffectSkillIndex,
@@ -45,43 +39,6 @@ const EFFECT_MODE_ID = 'effect';
 const EFFECT_MODE_COLOR = '#d4af37';
 const EFFECT_MODE_DESCRIPTION =
 	'Enable Effect v4 guidance, skill gating, and pattern checks';
-
-const queuePatternMessages = (
-	pi: ExtensionAPI,
-	patterns: ReadonlyArray<PatternDefinition>
-): void => {
-	const askPatterns = sortByLevel(
-		patterns.filter((pattern) => pattern.action === 'ask')
-	);
-	if (askPatterns.length > 0) {
-		pi.sendMessage({
-			customType: PATTERN_WARNING_TYPE,
-			content: askPatterns
-				.map((pattern) => buildPatternBlock('pattern-warning', pattern))
-				.join('\n\n'),
-			display: true,
-			details: {
-				patterns: askPatterns.map((pattern) => pattern.name)
-			}
-		});
-	}
-
-	const contextPatterns = sortByLevel(
-		patterns.filter((pattern) => pattern.action === 'context')
-	);
-	if (contextPatterns.length > 0) {
-		pi.sendMessage({
-			customType: PATTERN_CONTEXT_TYPE,
-			content: contextPatterns
-				.map((pattern) => buildPatternBlock('code-smell', pattern))
-				.join('\n\n'),
-			display: false,
-			details: {
-				patterns: contextPatterns.map((pattern) => pattern.name)
-			}
-		});
-	}
-};
 
 export default function effectEnforcer(pi: ExtensionAPI): void {
 	let cwd = process.cwd();
@@ -122,22 +79,21 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 		mode.syncStatus(ctx);
 	};
 
+	const runBeforePatterns = (
+		toolName: string,
+		projectedInput: Record<string, unknown>
+	): PatternDefinition[] => {
+		return getPatterns().filter((pattern) =>
+			matches(toolName, projectedInput, 'before', pattern)
+		);
+	};
+
 	const getLoadedSkillCountWithPendingReads = (): number => {
 		const combined = new Set(loadedSkills);
 		for (const name of pendingSkillReads.values()) {
 			combined.add(name);
 		}
 		return combined.size;
-	};
-
-	const runPatterns = (
-		eventType: 'before' | 'after',
-		toolName: string,
-		projectedInput: Record<string, unknown>
-	): PatternDefinition[] => {
-		return getPatterns().filter((pattern) =>
-			matches(toolName, projectedInput, eventType, pattern)
-		);
 	};
 
 	pi.on('session_start', async (_event, ctx) => {
@@ -209,59 +165,41 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 			}
 		}
 
-		const matchedPatterns = runPatterns(
-			'before',
+		const matchedPatterns = runBeforePatterns(
 			event.toolName,
 			projectedInput
 		);
 		if (matchedPatterns.length === 0) return undefined;
 
-		const denyPattern = sortByLevel(
-			matchedPatterns.filter((pattern) => pattern.action === 'deny')
-		)[0];
-		if (denyPattern) {
-			return {
-				block: true,
-				reason: buildDenyReason(denyPattern)
-			};
-		}
+		const blockingPatterns = selectBlockingPatterns(matchedPatterns);
+		if (!blockingPatterns) return undefined;
 
-		queuePatternMessages(pi, matchedPatterns);
-		return undefined;
+		return {
+			block: true,
+			reason: blockingPatterns.action === 'deny'
+				? buildDenyReason(blockingPatterns.patterns)
+				: buildAskReason(blockingPatterns.patterns)
+		};
 	});
 
 	pi.on('tool_result', async (event, ctx) => {
-		if (event.toolName === 'read') {
-			const pendingSkill = pendingSkillReads.get(event.toolCallId);
-			pendingSkillReads.delete(event.toolCallId);
-			if (!event.isError && pendingSkill) {
-				const readInput = event.input as { path?: unknown; };
-				if (
-					typeof readInput.path === 'string' &&
-					!loadedSkills.has(pendingSkill)
-				) {
-					const absPath = normalizePath(readInput.path, ctx.cwd);
-					loadedSkills.add(pendingSkill);
-					pi.appendEntry<SkillLoadedEntryData>(SKILL_LOADED_ENTRY, {
-						name: pendingSkill,
-						path: absPath
-					});
-				}
-			}
+		if (event.toolName !== 'read') return;
+
+		const pendingSkill = pendingSkillReads.get(event.toolCallId);
+		pendingSkillReads.delete(event.toolCallId);
+		if (event.isError || !pendingSkill) return;
+
+		const readInput = event.input as { path?: unknown; };
+		if (
+			typeof readInput.path === 'string' &&
+			!loadedSkills.has(pendingSkill)
+		) {
+			const absPath = normalizePath(readInput.path, ctx.cwd);
+			loadedSkills.add(pendingSkill);
+			pi.appendEntry<SkillLoadedEntryData>(SKILL_LOADED_ENTRY, {
+				name: pendingSkill,
+				path: absPath
+			});
 		}
-
-		if (!mode.isEnabled()) return;
-
-		const projectedInput = projectToolResult(
-			event.input,
-			event.content
-		) as Record<string, unknown>;
-		const matchedPatterns = runPatterns(
-			'after',
-			event.toolName,
-			projectedInput
-		);
-		if (matchedPatterns.length === 0) return;
-		queuePatternMessages(pi, matchedPatterns);
 	});
 }

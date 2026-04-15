@@ -1,6 +1,6 @@
 import { MIN_EFFECT_SKILLS } from './constants.ts';
 import type { PatternDefinition } from './patterns.ts';
-import { bodyWithSkillHints } from './patterns.ts';
+import { bodyWithSkillHints, sortByLevel } from './patterns.ts';
 
 const EFFECT_REFERENCE_HINTS = [
 	'.references/effect-v4/LLMS.md',
@@ -49,17 +49,68 @@ export const buildSkillGateReason = (loadedCount: number): string => {
 	].join(' ');
 };
 
-export const buildPatternBlock = (
-	tag: 'pattern-warning' | 'code-smell',
-	pattern: PatternDefinition
-): string => {
-	return `<${tag} name="${pattern.name}" level="${pattern.level}">\n${
-		bodyWithSkillHints(pattern)
-	}\n</${tag}>`;
+export interface BlockingPatternDecision {
+	readonly action: 'ask' | 'deny';
+	readonly patterns: ReadonlyArray<PatternDefinition>;
+}
+
+export const selectBlockingPatterns = (
+	patterns: ReadonlyArray<PatternDefinition>
+): BlockingPatternDecision | null => {
+	const denyPatterns = sortByLevel(
+		patterns.filter((pattern) => pattern.action === 'deny')
+	);
+	if (denyPatterns.length > 0) {
+		return {
+			action: 'deny',
+			patterns: denyPatterns
+		};
+	}
+
+	const askPatterns = sortByLevel(
+		patterns.filter((pattern) => pattern.action === 'ask')
+	);
+	if (askPatterns.length > 0) {
+		return {
+			action: 'ask',
+			patterns: askPatterns
+		};
+	}
+
+	return null;
 };
 
-export const buildDenyReason = (pattern: PatternDefinition): string => {
-	return `[DENIED] ${pattern.name}: ${pattern.description}\n\n${
-		bodyWithSkillHints(pattern)
-	}`;
+const buildBlockingReason = (
+	action: 'ask' | 'deny',
+	patterns: ReadonlyArray<PatternDefinition>
+): string => {
+	const matchedPatterns = patterns.map(
+		(pattern) =>
+			`- ${pattern.name} [${pattern.level}]: ${pattern.description}`
+	);
+	const guidance = patterns.map(
+		(pattern) => `## ${pattern.name}\n${bodyWithSkillHints(pattern)}`
+	);
+
+	const intro = action === 'deny'
+		? 'pi-effect-enforcer denied this write because it matched prohibited patterns. Rewrite the change to comply before retrying.'
+		: 'pi-effect-enforcer blocked this write so you can revise it before writing. Update the change to address the matched patterns, then retry.';
+
+	return [
+		intro,
+		'',
+		'Matched patterns:',
+		...matchedPatterns,
+		'',
+		'Relevant guidance:',
+		...guidance
+	].join('\n');
 };
+
+export const buildAskReason = (
+	patterns: ReadonlyArray<PatternDefinition>
+): string => buildBlockingReason('ask', patterns);
+
+export const buildDenyReason = (
+	patterns: ReadonlyArray<PatternDefinition>
+): string => buildBlockingReason('deny', patterns);

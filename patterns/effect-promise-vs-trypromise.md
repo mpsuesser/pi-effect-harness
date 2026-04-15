@@ -1,5 +1,5 @@
 ---
-action: context
+action: ask
 tool: (edit|write)
 event: before
 name: effect-promise-vs-trypromise

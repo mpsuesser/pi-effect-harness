@@ -69,33 +69,3 @@ export const projectToolInput = (input: unknown): PatternInputProjection => {
 		...(typeof record.prompt === 'string' ? { prompt: record.prompt } : {})
 	};
 };
-
-export const extractToolResultText = (content: unknown): string => {
-	if (typeof content === 'string') return content;
-	if (!Array.isArray(content)) return '';
-
-	const parts: string[] = [];
-	for (const block of content) {
-		const record = getRecord(block);
-		if (record.type === 'text' && typeof record.text === 'string') {
-			parts.push(record.text);
-		}
-	}
-	return parts.join('\n');
-};
-
-export const projectToolResult = (
-	input: unknown,
-	content: unknown
-): PatternInputProjection => {
-	const projected = projectToolInput(input);
-	const resultText = extractToolResultText(content);
-	if (!resultText) return projected;
-
-	return {
-		...projected,
-		content: projected.content
-			? `${projected.content}\n${resultText}`
-			: resultText
-	};
-};

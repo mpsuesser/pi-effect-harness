@@ -1,25 +1,23 @@
 /**
- * Meta-test: ensures every pattern definition in patterns/ has a
+ * Meta-test: ensures every loaded pattern definition has a
  * corresponding test file in test/ and vice-versa.
  */
 
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-const testDir = import.meta.dirname ?? '.';
-const patternsDir = path.join(testDir, '..', 'patterns');
+import { getPatterns } from '../src/patterns.ts';
 
-const patternNames = fs
-	.readdirSync(patternsDir)
-	.filter((f) => f.endsWith('.md'))
-	.map((f) => f.replace(/\.md$/, ''));
+const testDir = import.meta.dirname ?? '.';
+
+const patternNames = getPatterns().map((pattern) => pattern.name);
 
 /** Test files that are not pattern-specific (infra/meta tests). */
 const nonPatternTests = new Set([
 	'all-patterns-covered.test.ts',
-	'comment-string-false-positives.test.ts'
+	'comment-string-false-positives.test.ts',
+	'pattern-enforcement.test.ts'
 ]);
 
 const testNames = fs
@@ -28,7 +26,7 @@ const testNames = fs
 	.map((f) => f.replace(/\.test\.ts$/, ''));
 
 describe('pattern-to-test coverage', () => {
-	it('every pattern .md has a corresponding .test.ts', () => {
+	it('every loaded pattern has a corresponding .test.ts', () => {
 		const missing = patternNames.filter((p) => !testNames.includes(p));
 		expect(
 			missing,
@@ -36,7 +34,7 @@ describe('pattern-to-test coverage', () => {
 		).toEqual([]);
 	});
 
-	it('every pattern .test.ts has a corresponding .md', () => {
+	it('every pattern .test.ts has a corresponding loaded pattern', () => {
 		const orphaned = testNames.filter((t) => !patternNames.includes(t));
 		expect(
 			orphaned,

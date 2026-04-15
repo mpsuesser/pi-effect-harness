@@ -28,11 +28,5 @@ export const STATUS_KEY = 'pi-effect-enforcer';
 /** Footer label shown while Effect mode is enabled. */
 export const EFFECT_STATUS = '\x1b[1;38;2;212;175;55meffect\x1b[0m';
 
-/** Custom message type for hidden code-smell guidance. */
-export const PATTERN_CONTEXT_TYPE = 'pi-effect-enforcer:context';
-
-/** Custom message type for visible warnings. */
-export const PATTERN_WARNING_TYPE = 'pi-effect-enforcer:warning';
-
 /** Markdown files to skip when walking pattern directories. */
 export const SKIPPED_FILES = ['CLAUDE', 'AGENTS', 'GEMINI', 'README'];

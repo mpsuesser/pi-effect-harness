@@ -1,5 +1,5 @@
 ---
-action: context
+action: deny
 tool: (edit|write)
 event: before
 name: throw-in-effect-gen
