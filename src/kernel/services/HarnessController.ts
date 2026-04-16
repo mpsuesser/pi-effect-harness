@@ -1,9 +1,9 @@
 import { Context, Effect, Layer, Option, Predicate, Schema } from 'effect';
 
 import { ActiveBranch } from '../../ActiveBranch.ts';
-import { SKILL_LOADED_ENTRY } from '../../constants.ts';
 import { Decision } from '../../Decision.ts';
 import { activeBranchLoadedEffectSkills } from '../../effect/atoms/active-branch/activeBranchLoadedEffectSkills.ts';
+import { SKILL_LOADED_ENTRY } from '../../effect/constants.ts';
 import { EffectVersion } from '../../effect/services/EffectVersion.ts';
 import { ModeState } from '../../effect/services/ModeState.ts';
 import { PendingSkillReads } from '../../effect/services/PendingSkillReads.ts';

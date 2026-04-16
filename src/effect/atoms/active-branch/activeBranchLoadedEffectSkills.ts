@@ -1,7 +1,7 @@
 import { make } from 'effect/unstable/reactivity/Atom';
 
 import { ActiveBranch } from '../../../ActiveBranch.ts';
-import { SKILL_LOADED_ENTRY } from '../../../constants.ts';
+import { SKILL_LOADED_ENTRY } from '../../constants.ts';
 
 const loadedSkillName = (
 	entry: ActiveBranch.Value['entries'][number]

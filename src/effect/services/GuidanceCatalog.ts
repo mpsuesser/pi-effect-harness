@@ -1,8 +1,8 @@
 import { Context, Effect, Layer, Match, Option, Order } from 'effect';
 import { sort } from 'effect/Array';
 
-import { MIN_EFFECT_SKILLS } from '../../constants.ts';
 import { Pattern } from '../../Pattern.ts';
+import { MIN_EFFECT_SKILLS } from '../constants.ts';
 
 const EFFECT_REFERENCE_HINTS = [
 	'.references/effect-v4/LLMS.md',

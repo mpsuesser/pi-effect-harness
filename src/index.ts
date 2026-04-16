@@ -8,8 +8,8 @@
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Effect, ManagedRuntime, Schema } from 'effect';
 
-import { EFFECT_STATUS } from './constants.ts';
 import { Decision } from './Decision.ts';
+import { EFFECT_STATUS } from './effect/constants.ts';
 import { EffectHarnessLayer } from './effect/layers/EffectHarnessLayer.ts';
 import { EffectVersion } from './effect/services/EffectVersion.ts';
 import { ModePersistence } from './effect/services/ModePersistence.ts';

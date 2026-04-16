@@ -6,7 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { DEFAULT_VERSION } from '../constants.ts';
+import { DEFAULT_VERSION } from '../effect/constants.ts';
 
 export const detectEffectVersion = (projectDir: string): string => {
 	try {

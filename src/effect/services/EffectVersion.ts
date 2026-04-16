@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Ref } from 'effect';
 
-import { DEFAULT_VERSION } from '../../constants.ts';
 import { detectEffectVersion } from '../../functions/detectEffectVersion.ts';
+import { DEFAULT_VERSION } from '../constants.ts';
 
 export namespace EffectVersion {
 	export interface Interface {

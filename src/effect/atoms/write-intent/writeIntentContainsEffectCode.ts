@@ -2,8 +2,8 @@ import { Schema } from 'effect';
 import { make } from 'effect/unstable/reactivity/Atom';
 
 import { writeIntentContentRaw } from '../../../atoms/write-intent/writeIntentContentRaw.ts';
-import { EFFECT_CODE_RE } from '../../../constants.ts';
 import { WriteIntent } from '../../../WriteIntent.ts';
+import { EFFECT_CODE_RE } from '../../constants.ts';
 
 type WriteIntentValue = Schema.Schema.Type<typeof WriteIntent.Value>;
 

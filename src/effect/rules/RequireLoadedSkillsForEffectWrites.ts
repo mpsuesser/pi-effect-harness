@@ -1,11 +1,11 @@
 import { Effect, Option, Schema } from 'effect';
 
 import { ActiveBranch } from '../../ActiveBranch.ts';
-import { EFFECT_CODE_RE, MIN_EFFECT_SKILLS } from '../../constants.ts';
 import { Decision } from '../../Decision.ts';
 import { WriteProjection } from '../../kernel/services/WriteProjection.ts';
 import { WriteIntent } from '../../WriteIntent.ts';
 import { activeBranchLoadedEffectSkills } from '../atoms/active-branch/activeBranchLoadedEffectSkills.ts';
+import { EFFECT_CODE_RE, MIN_EFFECT_SKILLS } from '../constants.ts';
 import { GuidanceCatalog } from '../services/GuidanceCatalog.ts';
 import { PendingSkillReads } from '../services/PendingSkillReads.ts';
 

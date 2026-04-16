@@ -5,8 +5,8 @@
 import { describe, expect, it } from '@effect/vitest';
 import { Effect, Option } from 'effect';
 
-import { EFFECT_CODE_RE } from '../src/constants.ts';
 import { EditReplacement } from '../src/EditReplacement.ts';
+import { EFFECT_CODE_RE } from '../src/effect/constants.ts';
 import { WriteIntent } from '../src/WriteIntent.ts';
 import { projectProspectiveEffect, withTempFile } from './helpers/kernel.ts';
 

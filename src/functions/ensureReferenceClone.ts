@@ -13,7 +13,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 
-import { GITHUB_REPO } from '../constants.ts';
+import { GITHUB_REPO } from '../effect/constants.ts';
 
 const execFileAsync = promisify(execFile);
 
