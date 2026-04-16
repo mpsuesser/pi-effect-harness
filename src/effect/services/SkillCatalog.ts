@@ -6,6 +6,7 @@ import {
 	Option,
 	Order,
 	Path,
+	Predicate,
 	Ref
 } from 'effect';
 import { sort } from 'effect/Array';
@@ -26,17 +27,34 @@ const chooseLongestPath = (
 		? right
 		: left;
 
-export namespace SkillCatalog {
-	export interface CommandInfo {
-		readonly source: string;
-		readonly sourceInfo?: {
-			readonly path?: string;
-		};
-	}
+interface CommandInfo {
+	readonly source: string;
+	readonly sourceInfo?: {
+		readonly path?: string;
+	};
+}
 
+const commandInfoFromUnknown = (value: unknown): CommandInfo | undefined => {
+	if (!Predicate.isReadonlyObject(value)) {
+		return undefined;
+	}
+	const source = value.source;
+	if (typeof source !== 'string') {
+		return undefined;
+	}
+	if (!Predicate.isReadonlyObject(value.sourceInfo)) {
+		return { source };
+	}
+	const path = value.sourceInfo.path;
+	return typeof path === 'string'
+		? { source, sourceInfo: { path } }
+		: { source };
+};
+
+export namespace SkillCatalog {
 	export interface Interface {
 		readonly rebuild: (
-			commands: ReadonlyArray<CommandInfo>,
+			commands: ReadonlyArray<unknown>,
 			cwd: string
 		) => Effect.Effect<void>;
 		readonly entries: Effect.Effect<ReadonlyArray<SkillIndexEntry.Value>>;
@@ -86,11 +104,15 @@ export namespace SkillCatalog {
 					);
 
 			const rebuild = Effect.fn('SkillCatalog.rebuild')(function*(
-				commands: ReadonlyArray<CommandInfo>,
+				commands: ReadonlyArray<unknown>,
 				cwd: string
 			) {
+				const typedCommands = commands.flatMap((command) => {
+					const info = commandInfoFromUnknown(command);
+					return info === undefined ? [] : [info];
+				});
 				const resolvedEntries = yield* Effect.forEach(
-					commands,
+					typedCommands,
 					(command) => toIndexEntry(cwd, command)
 				).pipe(
 					Effect.map((options) =>
