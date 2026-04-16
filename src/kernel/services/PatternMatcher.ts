@@ -4,7 +4,7 @@ import picomatch from 'picomatch';
 import { Context, Effect, Layer, Option } from 'effect';
 
 import { Pattern } from '../../Pattern.ts';
-import { PatternInputProjection } from '../PatternInputProjection.ts';
+import { MatcherInput } from '../MatcherInput.ts';
 
 const regexOption = Option.liftThrowable((pattern: string) =>
 	new RegExp(pattern)
@@ -14,7 +14,7 @@ const astRoot = Option.liftThrowable((lang: Lang, source: string) =>
 	parse(lang, source).root()
 );
 
-const values = (projection: PatternInputProjection.Value) =>
+const values = (projection: MatcherInput.Value) =>
 	[
 		projection.command,
 		projection.content,
@@ -29,10 +29,9 @@ const values = (projection: PatternInputProjection.Value) =>
 		})
 	);
 
-const filePath = (projection: PatternInputProjection.Value) =>
-	projection.filePath;
+const filePath = (projection: MatcherInput.Value) => projection.filePath;
 
-const matchableContent = (projection: PatternInputProjection.Value): string => {
+const matchableContent = (projection: MatcherInput.Value): string => {
 	const parts = values(projection);
 	return parts.length === 0 ? '' : parts.join('\n');
 };
@@ -129,7 +128,7 @@ const toolMatches = (pattern: Pattern.Value, toolName: string): boolean =>
 
 const globMatches = (
 	pattern: Pattern.Value,
-	projection: PatternInputProjection.Value
+	projection: MatcherInput.Value
 ): boolean => {
 	const glob = pattern.glob;
 	if (glob === undefined) {
@@ -169,7 +168,7 @@ const langFromPath = (value: string): Option.Option<Lang> =>
 const astMatches = (
 	pattern: Pattern.AstDetector,
 	source: string,
-	projection: PatternInputProjection.Value
+	projection: MatcherInput.Value
 ): boolean =>
 	Option.match(filePath(projection), {
 		onNone: () => false,
@@ -197,7 +196,7 @@ const astMatches = (
 
 export const matchesPattern = (
 	toolName: string,
-	projection: PatternInputProjection.Value,
+	projection: MatcherInput.Value,
 	eventType: 'before' | 'after',
 	pattern: Pattern.Value
 ): boolean => {
@@ -224,7 +223,7 @@ export namespace PatternMatcher {
 	export interface Interface {
 		readonly matches: (
 			toolName: string,
-			projection: PatternInputProjection.Value,
+			projection: MatcherInput.Value,
 			eventType: 'before' | 'after',
 			pattern: Pattern.Value
 		) => Effect.Effect<boolean>;
@@ -239,7 +238,7 @@ export namespace PatternMatcher {
 		Service.of({
 			matches: (
 				toolName: string,
-				projection: PatternInputProjection.Value,
+				projection: MatcherInput.Value,
 				eventType: 'before' | 'after',
 				pattern: Pattern.Value
 			) => Effect.succeed(

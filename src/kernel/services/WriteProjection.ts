@@ -12,8 +12,8 @@ import { sort } from 'effect/Array';
 
 import { EditReplacement } from '../../EditReplacement.ts';
 import { WriteIntent } from '../../WriteIntent.ts';
+import { MatcherInput } from '../MatcherInput.ts';
 import { normalizePath } from '../path/normalizePath.ts';
-import { PatternInputProjection } from '../PatternInputProjection.ts';
 
 type WriteIntentValue = Schema.Schema.Type<typeof WriteIntent.Value>;
 
@@ -61,7 +61,7 @@ const buildProjection = (input: {
 	readonly query: Option.Option<string>;
 	readonly url: Option.Option<string>;
 }) =>
-	new PatternInputProjection.Value({
+	new MatcherInput.Value({
 		filePath: input.filePath,
 		content: input.content,
 		command: input.command,
@@ -74,7 +74,7 @@ const buildProjection = (input: {
 const withFilePath = (
 	filePath: Option.Option<string>,
 	content: Option.Option<string>
-): PatternInputProjection.Value =>
+): MatcherInput.Value =>
 	buildProjection({
 		filePath,
 		command: none(),
@@ -85,7 +85,7 @@ const withFilePath = (
 		url: none()
 	});
 
-const rawProjection = (input: unknown): PatternInputProjection.Value => {
+const rawProjection = (input: unknown): MatcherInput.Value => {
 	const edits = property(input, 'edits');
 	const editContent = Array.isArray(edits)
 		? edits.reduce<ReadonlyArray<string>>((parts, edit) => {
@@ -211,15 +211,15 @@ export namespace WriteProjection {
 	export interface Interface {
 		readonly raw: (
 			input: unknown
-		) => Effect.Effect<PatternInputProjection.Value>;
+		) => Effect.Effect<MatcherInput.Value>;
 		readonly prospective: (
 			cwd: string,
 			intent: WriteIntentValue
-		) => Effect.Effect<PatternInputProjection.Value>;
+		) => Effect.Effect<MatcherInput.Value>;
 		readonly actual: (
 			cwd: string,
 			intent: WriteIntentValue
-		) => Effect.Effect<PatternInputProjection.Value>;
+		) => Effect.Effect<MatcherInput.Value>;
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(

@@ -1,8 +1,8 @@
 import { Context, Layer, Option, Schema } from 'effect';
 import { runtime } from 'effect/unstable/reactivity/Atom';
 
-export namespace PatternInputProjection {
-	export class Value extends Schema.Class<Value>('PatternInputProjection')({
+export namespace MatcherInput {
+	export class Value extends Schema.Class<Value>('MatcherInput')({
 		filePath: Schema.Option(Schema.String),
 		content: Schema.Option(Schema.String),
 		command: Schema.Option(Schema.String),
@@ -13,7 +13,7 @@ export namespace PatternInputProjection {
 	}) {}
 
 	export class Current extends Context.Service<Current, Value>()(
-		'pi-effect-enforcer/kernel/PatternInputProjection/Current'
+		'pi-effect-enforcer/kernel/MatcherInput/Current'
 	) {}
 
 	export const empty = () =>

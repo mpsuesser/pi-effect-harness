@@ -11,7 +11,7 @@
 import { describe, expect, it } from '@effect/vitest';
 import { Effect, Option, Schema } from 'effect';
 
-import { PatternInputProjection } from '../src/kernel/PatternInputProjection.ts';
+import { MatcherInput } from '../src/kernel/MatcherInput.ts';
 import {
 	matchesPattern,
 	stripComments
@@ -46,7 +46,7 @@ const requirePatternEffect = (name: string) =>
 	});
 
 const writeProjection = (content: string, filePath = 'src/app.ts') =>
-	new PatternInputProjection.Value({
+	new MatcherInput.Value({
 		filePath: Option.some(filePath),
 		content: Option.some(content),
 		command: Option.none(),
