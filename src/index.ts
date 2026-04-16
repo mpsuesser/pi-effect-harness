@@ -16,15 +16,14 @@ import {
 } from './constants.ts';
 import { detectEffectVersion } from './functions/detectEffectVersion.ts';
 import { ensureReferenceClone } from './functions/ensureReferenceClone.ts';
-import { projectToolInput } from './inspectors.ts';
+import { projectToolOutputInput } from './inspectors.ts';
 import { createModeToggle } from './mode-toggle.ts';
 import { getPatterns, matches, type PatternDefinition } from './patterns.ts';
 import {
-	buildAskReason,
-	buildDenyReason,
+	buildPatternFeedbackMessage,
 	buildPolicyHeader,
 	buildSkillGateReason,
-	selectBlockingPatterns
+	selectPatternFeedback
 } from './policy.ts';
 import {
 	buildEffectSkillIndex,
@@ -79,12 +78,13 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 		mode.syncStatus(ctx);
 	};
 
-	const runBeforePatterns = (
+	const runPatterns = (
+		eventType: 'before' | 'after',
 		toolName: string,
 		projectedInput: Record<string, unknown>
 	): PatternDefinition[] => {
 		return getPatterns().filter((pattern) =>
-			matches(toolName, projectedInput, 'before', pattern)
+			matches(toolName, projectedInput, eventType, pattern)
 		);
 	};
 
@@ -130,7 +130,7 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 		if (skillIndex.length === 0) rebuildSkillIndex();
 
 		if (event.toolName === 'read') {
-			const readInput = event.input as { path?: unknown; };
+			const readInput = event.input as { path?: unknown };
 			if (typeof readInput.path === 'string') {
 				const absPath = normalizePath(readInput.path, ctx.cwd);
 				const matchedSkill = matchEffectSkillForPath(
@@ -145,15 +145,16 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 
 		if (!mode.isEnabled()) return undefined;
 
-		const projectedInput = projectToolInput(event.input) as Record<
+		const projectedOutputInput = projectToolOutputInput(event.input) as Record<
 			string,
 			unknown
 		>;
 
 		if (WRITE_TOOLS.has(event.toolName)) {
-			const matchableContent = typeof projectedInput.content === 'string'
-				? projectedInput.content
-				: '';
+			const matchableContent =
+				typeof projectedOutputInput.content === 'string'
+					? projectedOutputInput.content
+					: '';
 			if (EFFECT_CODE_RE.test(matchableContent)) {
 				const loadedCount = getLoadedSkillCountWithPendingReads();
 				if (loadedCount < MIN_EFFECT_SKILLS) {
@@ -165,41 +166,52 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 			}
 		}
 
-		const matchedPatterns = runBeforePatterns(
-			event.toolName,
-			projectedInput
-		);
-		if (matchedPatterns.length === 0) return undefined;
-
-		const blockingPatterns = selectBlockingPatterns(matchedPatterns);
-		if (!blockingPatterns) return undefined;
-
-		return {
-			block: true,
-			reason: blockingPatterns.action === 'deny'
-				? buildDenyReason(blockingPatterns.patterns)
-				: buildAskReason(blockingPatterns.patterns)
-		};
+		return undefined;
 	});
 
 	pi.on('tool_result', async (event, ctx) => {
-		if (event.toolName !== 'read') return;
-
-		const pendingSkill = pendingSkillReads.get(event.toolCallId);
-		pendingSkillReads.delete(event.toolCallId);
-		if (event.isError || !pendingSkill) return;
-
-		const readInput = event.input as { path?: unknown; };
-		if (
-			typeof readInput.path === 'string' &&
-			!loadedSkills.has(pendingSkill)
-		) {
-			const absPath = normalizePath(readInput.path, ctx.cwd);
-			loadedSkills.add(pendingSkill);
-			pi.appendEntry<SkillLoadedEntryData>(SKILL_LOADED_ENTRY, {
-				name: pendingSkill,
-				path: absPath
-			});
+		if (event.toolName === 'read') {
+			const pendingSkill = pendingSkillReads.get(event.toolCallId);
+			pendingSkillReads.delete(event.toolCallId);
+			if (!event.isError && pendingSkill) {
+				const readInput = event.input as { path?: unknown };
+				if (
+					typeof readInput.path === 'string' &&
+					!loadedSkills.has(pendingSkill)
+				) {
+					const absPath = normalizePath(readInput.path, ctx.cwd);
+					loadedSkills.add(pendingSkill);
+					pi.appendEntry<SkillLoadedEntryData>(SKILL_LOADED_ENTRY, {
+						name: pendingSkill,
+						path: absPath
+					});
+				}
+			}
 		}
+
+		if (!mode.isEnabled() || event.isError) return;
+		if (!WRITE_TOOLS.has(event.toolName)) return;
+
+		const projectedInput = projectToolOutputInput(event.input) as Record<
+			string,
+			unknown
+		>;
+		const matchedPatterns = selectPatternFeedback(
+			runPatterns('after', event.toolName, projectedInput)
+		);
+		if (matchedPatterns.length === 0) return;
+
+		const feedbackMessage = buildPatternFeedbackMessage(
+			matchedPatterns,
+			typeof projectedInput.filePath === 'string'
+				? projectedInput.filePath
+				: undefined
+		);
+		if (ctx.isIdle()) {
+			pi.sendUserMessage(feedbackMessage);
+			return;
+		}
+
+		pi.sendUserMessage(feedbackMessage, { deliverAs: 'steer' });
 	});
 }

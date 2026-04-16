@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-fs-promises
 description: Wrap fs/promises with Effect instead of using directly
 glob: '**/*.{ts,tsx}'

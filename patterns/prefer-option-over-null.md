@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: prefer-option-over-null
 description: Consider using Option instead of union with null
 glob: '**/*.{ts,tsx}'

@@ -26,33 +26,41 @@ const getFilePath = (input: Record<string, unknown>): string | undefined => {
 
 const collectEditContent = (
 	input: Record<string, unknown>,
-	parts: string[]
+	parts: string[],
+	mode: 'before' | 'after'
 ): void => {
 	const edits = input.edits;
 	if (!Array.isArray(edits)) return;
 
 	for (const edit of edits) {
 		const block = getRecord(edit);
-		pushString(parts, block.oldText);
+		if (mode === 'before') {
+			pushString(parts, block.oldText);
+		}
 		pushString(parts, block.newText);
 	}
 };
 
-export const projectToolInput = (input: unknown): PatternInputProjection => {
+const buildProjection = (
+	input: unknown,
+	mode: 'before' | 'after'
+): PatternInputProjection => {
 	const record = getRecord(input);
 	const parts: string[] = [];
 
 	pushString(parts, record.content);
-	pushString(parts, record.oldText);
+	if (mode === 'before') {
+		pushString(parts, record.oldText);
+		pushString(parts, record.oldString);
+	}
 	pushString(parts, record.newText);
-	pushString(parts, record.oldString);
 	pushString(parts, record.newString);
 	pushString(parts, record.command);
 	pushString(parts, record.pattern);
 	pushString(parts, record.query);
 	pushString(parts, record.url);
 	pushString(parts, record.prompt);
-	collectEditContent(record, parts);
+	collectEditContent(record, parts, mode);
 
 	const filePath = getFilePath(record);
 	return {
@@ -69,3 +77,10 @@ export const projectToolInput = (input: unknown): PatternInputProjection => {
 		...(typeof record.prompt === 'string' ? { prompt: record.prompt } : {})
 	};
 };
+
+export const projectToolInput = (input: unknown): PatternInputProjection =>
+	buildProjection(input, 'before');
+
+export const projectToolOutputInput = (
+	input: unknown
+): PatternInputProjection => buildProjection(input, 'after');

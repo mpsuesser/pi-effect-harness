@@ -49,55 +49,34 @@ export const buildSkillGateReason = (loadedCount: number): string => {
 	].join(' ');
 };
 
-export interface BlockingPatternDecision {
-	readonly action: 'ask' | 'deny';
-	readonly patterns: ReadonlyArray<PatternDefinition>;
-}
-
-export const selectBlockingPatterns = (
+export const selectPatternFeedback = (
 	patterns: ReadonlyArray<PatternDefinition>
-): BlockingPatternDecision | null => {
-	const denyPatterns = sortByLevel(
-		patterns.filter((pattern) => pattern.action === 'deny')
-	);
-	if (denyPatterns.length > 0) {
-		return {
-			action: 'deny',
-			patterns: denyPatterns
-		};
-	}
+): ReadonlyArray<PatternDefinition> => sortByLevel([...patterns]);
 
-	const askPatterns = sortByLevel(
-		patterns.filter((pattern) => pattern.action === 'ask')
-	);
-	if (askPatterns.length > 0) {
-		return {
-			action: 'ask',
-			patterns: askPatterns
-		};
-	}
-
-	return null;
-};
-
-const buildBlockingReason = (
-	action: 'ask' | 'deny',
-	patterns: ReadonlyArray<PatternDefinition>
+export const buildPatternFeedbackMessage = (
+	patterns: ReadonlyArray<PatternDefinition>,
+	filePath?: string
 ): string => {
-	const matchedPatterns = patterns.map(
+	const feedbackPatterns = selectPatternFeedback(patterns);
+	const matchedPatterns = feedbackPatterns.map(
 		(pattern) =>
 			`- ${pattern.name} [${pattern.level}]: ${pattern.description}`
 	);
-	const guidance = patterns.map(
+	const guidance = feedbackPatterns.map(
 		(pattern) => `## ${pattern.name}\n${bodyWithSkillHints(pattern)}`
 	);
-
-	const intro = action === 'deny'
-		? 'pi-effect-enforcer denied this write because it matched prohibited patterns. Rewrite the change to comply before retrying.'
-		: 'pi-effect-enforcer blocked this write so you can revise it before writing. Update the change to address the matched patterns, then retry.';
+	const pathLine = filePath
+		? `File: \`${filePath}\``
+		: 'File: (path unavailable)';
 
 	return [
-		intro,
+		'pi-effect-enforcer review request:',
+		pathLine,
+		'',
+		'I noticed potential Effect-pattern issues in the write you just completed.',
+		'Please inspect this change now.',
+		'If the warning is valid, revise the code before continuing.',
+		'If you believe it is a false positive or an intentional exception, briefly say so and continue with your work.',
 		'',
 		'Matched patterns:',
 		...matchedPatterns,
@@ -106,11 +85,3 @@ const buildBlockingReason = (
 		...guidance
 	].join('\n');
 };
-
-export const buildAskReason = (
-	patterns: ReadonlyArray<PatternDefinition>
-): string => buildBlockingReason('ask', patterns);
-
-export const buildDenyReason = (
-	patterns: ReadonlyArray<PatternDefinition>
-): string => buildBlockingReason('deny', patterns);

@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: stream-large-files
 description: Consider streaming large files instead of reading into memory
 glob: '**/*.{ts,tsx}'

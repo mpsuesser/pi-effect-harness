@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: use-path-service
 description: Use Path service instead of direct Node.js path imports
 glob: '**/*.{ts,tsx}'

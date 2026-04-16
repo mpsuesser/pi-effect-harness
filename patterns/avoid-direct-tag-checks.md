@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-direct-tag-checks
 description: Avoid direct _tag property checks; use exported refinements/predicates
 glob: '**/*.{ts,tsx}'

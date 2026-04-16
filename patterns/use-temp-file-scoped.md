@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: use-temp-file-scoped
 description: Use makeTempFileScoped/makeTempDirectoryScoped instead of os.tmpdir() or non-scoped variants
 glob: '**/*.{ts,tsx}'

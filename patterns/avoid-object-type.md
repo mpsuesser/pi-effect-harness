@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-object-type
 description: Avoid using Object or {} as types
 glob: '**/*.{ts,tsx}'

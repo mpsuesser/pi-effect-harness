@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-expect-in-if
 description: Avoid nesting expect() calls inside if blocks in tests
 glob: '**/*.{test,spec}.{ts,tsx}'

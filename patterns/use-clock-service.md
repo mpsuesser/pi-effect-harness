@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: use-clock-service
 description: Use Effect DateTime instead of JS Date
 glob: '**/*.{ts,tsx}'

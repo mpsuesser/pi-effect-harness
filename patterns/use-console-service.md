@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: use-console-service
 description: Use Effect Console or Effect.log instead of console
 glob: '**/*.{ts,tsx}'

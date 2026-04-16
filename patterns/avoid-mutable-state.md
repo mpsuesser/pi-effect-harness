@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-mutable-state
 description: Prefer Ref over let bindings for mutable state in Effect services
 glob: '**/*.ts'

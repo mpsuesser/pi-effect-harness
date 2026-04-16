@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-data-tagged-error
 description: Use Schema.TaggedErrorClass instead of Data.TaggedError for serialization and RPC compatibility
 glob: '**/*.{ts,tsx}'

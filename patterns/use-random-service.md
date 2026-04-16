@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: use-random-service
 description: Use Random service instead of Math.random()
 glob: '**/*.{ts,tsx}'

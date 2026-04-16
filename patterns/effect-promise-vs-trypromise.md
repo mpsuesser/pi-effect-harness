@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: effect-promise-vs-trypromise
 description: Use Effect.tryPromise instead of Effect.promise for error handling
 glob: '**/*.{ts,tsx}'

@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: casting-awareness
 description: Type assertions bypass the compiler — use type-safe alternatives
 glob: '**/*.{ts,tsx}'

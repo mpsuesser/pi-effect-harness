@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: prefer-match-over-switch
 description: Use Match from Effect instead of native switch statements
 glob: '**/*.{ts,tsx}'

@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-platform-coupling
 description: Binding packages should not import platform-specific packages like @effect/platform-bun
 glob: 'packages/*/binding/**/*.{ts,tsx}'

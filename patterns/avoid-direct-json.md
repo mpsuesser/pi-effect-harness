@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-direct-json
 description: Consider using Schema.fromJsonString or Schema.UnknownFromJsonString instead of direct JSON methods
 glob: '**/*.{ts,tsx}'

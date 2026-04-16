@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: effect-run-in-body
 description: Effect.runSync/runPromise should only be at entry points
 glob: '**/*.{ts,tsx}'

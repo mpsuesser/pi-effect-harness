@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: prefer-effect-fn
 description: Service methods should use Effect.fn for automatic tracing instead of plain Effect.gen wrappers
 glob: '**/*.{ts,tsx}'

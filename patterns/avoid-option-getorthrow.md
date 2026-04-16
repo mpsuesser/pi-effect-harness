@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-option-getorthrow
 description: Avoid Option.getOrThrow - use Option.match or Option.getOrElse for safe unwrapping
 glob: '**/*.{ts,tsx}'

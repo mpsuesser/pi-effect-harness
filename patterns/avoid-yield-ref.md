@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-yield-ref
 description: Do not yield* Ref/Deferred/Fiber/Latch directly — use explicit method calls
 glob: '**/*.ts'

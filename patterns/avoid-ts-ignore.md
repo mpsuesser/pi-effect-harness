@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-ts-ignore
 description: Avoid using @ts-ignore or @ts-expect-error to silence type errors
 glob: '**/*.{ts,tsx}'

@@ -1,7 +1,7 @@
 ---
-action: deny
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: throw-in-effect-gen
 description: Do not throw inside Effect.gen - use yield* Effect.fail() instead
 glob: '**/*.{ts,tsx}'

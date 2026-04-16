@@ -1,7 +1,7 @@
 ---
-action: deny
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: vm-in-wrong-file
 description: View Model definitions must be in .vm.ts files - detected VM pattern outside of proper location
 glob: '**/!(*.vm).{ts,tsx}'

@@ -1,14 +1,17 @@
 /**
- * Regression tests for blocking pattern policy.
+ * Regression tests for post-write pattern feedback policy.
  *
- * High-signal patterns should stop a write immediately so the agent can
- * revise the change before it lands on disk.
+ * Pattern matches should never block writes directly. Instead they are
+ * emitted as immediate review feedback after the write completes.
  */
 
 import { describe, expect, it } from 'vitest';
 
 import { getPatterns } from '../src/patterns.ts';
-import { selectBlockingPatterns } from '../src/policy.ts';
+import {
+	buildPatternFeedbackMessage,
+	selectPatternFeedback
+} from '../src/policy.ts';
 
 const patterns = getPatterns();
 
@@ -20,97 +23,63 @@ const findPattern = (name: string) => {
 	return pattern;
 };
 
-describe('pattern action policy', () => {
-	it('has at least one ask pattern and one deny pattern', () => {
-		expect(patterns.some((pattern) => pattern.action === 'ask')).toBe(true);
-		expect(patterns.some((pattern) => pattern.action === 'deny')).toBe(
+describe('pattern feedback policy', () => {
+	it('has at least one pattern', () => {
+		expect(patterns.length).toBeGreaterThan(0);
+	});
+
+	it('treats all patterns as post-write context feedback', () => {
+		expect(patterns.every((pattern) => pattern.action === 'context')).toBe(
+			true
+		);
+		expect(patterns.every((pattern) => pattern.event === 'after')).toBe(
 			true
 		);
 	});
 
-	it('treats critical patterns as deny patterns', () => {
-		const criticalPatterns = patterns.filter(
-			(pattern) => pattern.level === 'critical'
-		);
-		expect(criticalPatterns.length).toBeGreaterThan(0);
+	it('has no remaining blocking ask/deny patterns', () => {
 		expect(
-			criticalPatterns.every((pattern) => pattern.action === 'deny')
-		).toBe(true);
-	});
-
-	it('treats high-severity patterns as blocking ask/deny patterns', () => {
-		const highPatterns = patterns.filter((pattern) =>
-			pattern.level === 'high'
-		);
-		expect(highPatterns.length).toBeGreaterThan(0);
-		expect(
-			highPatterns.every(
+			patterns.some(
 				(pattern) =>
 					pattern.action === 'ask' || pattern.action === 'deny'
 			)
-		).toBe(true);
-	});
-
-	it('treats warning patterns as ask patterns, not hidden context', () => {
-		const warningPatterns = patterns.filter(
-			(pattern) => pattern.level === 'warning'
-		);
-		expect(warningPatterns.length).toBeGreaterThan(0);
-		expect(
-			warningPatterns.every((pattern) => pattern.action === 'ask')
-		).toBe(true);
-	});
-
-	it('treats info patterns as ask patterns too', () => {
-		const infoPatterns = patterns.filter((pattern) =>
-			pattern.level === 'info'
-		);
-		expect(infoPatterns.length).toBeGreaterThan(0);
-		expect(infoPatterns.every((pattern) => pattern.action === 'ask')).toBe(
-			true
-		);
-	});
-
-	it('has no remaining context-only patterns', () => {
-		expect(patterns.some((pattern) => pattern.action === 'context')).toBe(
-			false
-		);
-	});
-
-	it('has no after-only patterns', () => {
-		expect(patterns.some((pattern) => pattern.event === 'after')).toBe(
-			false
-		);
+		).toBe(false);
 	});
 });
 
-describe('selectBlockingPatterns', () => {
-	it('prioritizes deny patterns over ask/context patterns', () => {
-		const result = selectBlockingPatterns([
+describe('selectPatternFeedback', () => {
+	it('returns matched patterns sorted by severity', () => {
+		const result = selectPatternFeedback([
 			findPattern('avoid-any'),
 			findPattern('avoid-react-hooks'),
 			findPattern('throw-in-effect-gen')
 		]);
-		expect(result?.action).toBe('deny');
-		expect(result?.patterns.map((pattern) => pattern.name)).toEqual([
-			'throw-in-effect-gen'
-		]);
-	});
-
-	it('returns all ask patterns when no deny patterns match', () => {
-		const result = selectBlockingPatterns([
-			findPattern('avoid-any'),
-			findPattern('avoid-sync-fs')
-		]);
-		expect(result?.action).toBe('ask');
-		expect(result?.patterns.map((pattern) => pattern.name)).toEqual([
-			'avoid-sync-fs',
+		expect(result.map((pattern) => pattern.name)).toEqual([
+			'throw-in-effect-gen',
+			'avoid-react-hooks',
 			'avoid-any'
 		]);
 	});
 
-	it('returns null when no patterns match', () => {
-		const result = selectBlockingPatterns([]);
-		expect(result).toBeNull();
+	it('returns an empty array when nothing matched', () => {
+		expect(selectPatternFeedback([])).toEqual([]);
+	});
+});
+
+describe('buildPatternFeedbackMessage', () => {
+	it('builds a review-oriented message that permits intentional exceptions', () => {
+		const message = buildPatternFeedbackMessage(
+			[findPattern('avoid-any'), findPattern('throw-in-effect-gen')],
+			'src/example.ts'
+		);
+
+		expect(message).toContain('pi-effect-enforcer review request:');
+		expect(message).toContain('File: `src/example.ts`');
+		expect(message).toContain(
+			'If you believe it is a false positive or an intentional exception, briefly say so and continue with your work.'
+		);
+		expect(message.indexOf('throw-in-effect-gen')).toBeLessThan(
+			message.indexOf('avoid-any')
+		);
 	});
 });

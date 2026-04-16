@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-schema-suffix
 description: Schema constants should be named after the domain type, not suffixed with Schema
 glob: '**/*.{ts,tsx}'

@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-process-env
 description: Avoid process.env - use Effect Config.* for environment variable access
 glob: '**/*.{ts,tsx}'

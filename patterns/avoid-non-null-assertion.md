@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-non-null-assertion
 description: Avoid using ! non-null assertion operator
 glob: '**/*.{ts,tsx}'

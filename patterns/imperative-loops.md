@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: imperative-loops
 description: Use functional transformations instead of imperative loops
 glob: '**/*.{ts,tsx}'

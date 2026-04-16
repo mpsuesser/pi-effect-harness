@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: use-filesystem-service
 description: Use FileSystem service instead of direct Node.js fs imports
 glob: '**/*.{ts,tsx}'

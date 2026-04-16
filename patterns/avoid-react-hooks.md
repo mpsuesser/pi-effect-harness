@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-react-hooks
 description: React hooks (useState, useEffect, useReducer, etc.) should be avoided - use View Models with Effect Atom instead
 glob: '**/*.{ts,tsx}'

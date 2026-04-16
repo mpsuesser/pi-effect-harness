@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-node-imports
 description: Use @effect/platform abstractions instead of node: imports
 glob: '**/*.{ts,tsx}'

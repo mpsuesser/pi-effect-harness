@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: prefer-schema-class
 description: Use Schema.Class instead of Schema.Struct for object/domain schemas
 glob: '**/*.{ts,tsx}'

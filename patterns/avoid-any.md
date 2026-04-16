@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-any
 description: Avoid using 'as any' or 'as unknown as' type assertions
 glob: '**/*.{ts,tsx}'

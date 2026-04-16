@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: effect-catchall-default
 description: Avoid broad Effect.catch defaults in domain logic - use catchTag unless this is an explicit boundary fallback
 glob: '**/*.{ts,tsx}'

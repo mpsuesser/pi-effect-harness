@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-native-fetch
 description: Use Effect HTTP modules instead of native fetch
 glob: '**/*.{ts,tsx}'

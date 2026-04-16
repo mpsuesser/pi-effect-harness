@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-sync-fs
 description: Avoid synchronous filesystem operations
 glob: '**/*.{ts,tsx}'

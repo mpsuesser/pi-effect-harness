@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: yield-in-for-loop
 description: Use Effect.forEach or STM.forEach instead of yield* in for loops
 glob: '**/*.{ts,tsx}'

@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: use-context-service
 description: Use Context.Service instead of legacy ServiceMap.Service APIs
 glob: '**/*.ts'

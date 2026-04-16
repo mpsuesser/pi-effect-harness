@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-try-catch
 description: Avoid try-catch blocks in Effect code - use Effect.try or typed errors
 glob: '**/*.{ts,tsx}'

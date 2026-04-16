@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: avoid-untagged-errors
 description: Avoid instanceof Error and new Error for recoverable domain failures - use Schema.TaggedErrorClass for typed errors
 glob: '**/*.{ts,tsx}'

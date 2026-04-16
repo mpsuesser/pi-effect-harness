@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: context-tag-extends
 description: Avoid class *Tag extends Context.Tag naming - use Context.Service instead
 glob: '**/*.{ts,tsx}'

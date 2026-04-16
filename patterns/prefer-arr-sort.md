@@ -1,7 +1,7 @@
 ---
-action: ask
+action: context
 tool: (edit|write)
-event: before
+event: after
 name: prefer-arr-sort
 description: Use Arr.sort with explicit Order instead of native Array.prototype.sort
 glob: '**/*.{ts,tsx}'
