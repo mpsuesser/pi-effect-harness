@@ -14,6 +14,7 @@ const testDir = import.meta.dirname ?? '.';
 const nonPatternTests = new Set([
 	'all-patterns-covered.test.ts',
 	'comment-string-false-positives.test.ts',
+	'guidance-docs-injection.test.ts',
 	'mode-persistence.test.ts',
 	'pattern-enforcement.test.ts',
 	'prospective-tool-input.test.ts',

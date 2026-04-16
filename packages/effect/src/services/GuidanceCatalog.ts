@@ -1,7 +1,16 @@
-import { Context, Effect, Layer, Match, Option, Order } from 'effect';
+import {
+	Context,
+	Effect,
+	FileSystem,
+	Layer,
+	Match,
+	Option,
+	Order,
+	Path
+} from 'effect';
 import { sort } from 'effect/Array';
-
 import { Pattern } from 'pi-harness-kit/Pattern.ts';
+
 import { MIN_EFFECT_SKILLS } from '../constants.ts';
 
 const EFFECT_REFERENCE_HINTS = [
@@ -120,6 +129,45 @@ export const buildPatternFeedbackMessage = (
 	].join('\n');
 };
 
+const emptyEntries: ReadonlyArray<string> = [];
+
+const loadGuidanceDocs = (guidanceDir: string) =>
+	Effect.gen(function*() {
+		const fileSystem = yield* FileSystem.FileSystem;
+		const path = yield* Path.Path;
+
+		const entries = yield* fileSystem.readDirectory(guidanceDir).pipe(
+			Effect.catchTag('PlatformError', () => Effect.succeed(emptyEntries))
+		);
+		const sortedMarkdownFiles = sort(
+			entries.filter((entry) => entry.endsWith('.md')),
+			Order.String
+		);
+
+		const docs = yield* Effect.forEach(
+			sortedMarkdownFiles,
+			(entry) =>
+				fileSystem.readFileString(path.join(guidanceDir, entry)).pipe(
+					Effect.map((content) => content.trim()),
+					Effect.catchTag(
+						'PlatformError',
+						() => Effect.succeed('')
+					)
+				)
+		);
+		return docs.filter((doc) => doc.length > 0);
+	});
+
+export const buildPolicyHeaderWithDocs = (
+	docs: ReadonlyArray<string>,
+	loadedSkills: ReadonlySet<string>
+): string =>
+	docs.length === 0
+		? buildPolicyHeader(loadedSkills)
+		: [...docs, buildPolicyHeader(loadedSkills)].join(
+			'\n\n---\n\n'
+		);
+
 export namespace GuidanceCatalog {
 	export interface Interface {
 		readonly policyHeader: (
@@ -141,19 +189,28 @@ export namespace GuidanceCatalog {
 		'pi-effect-enforcer/effect/GuidanceCatalog'
 	) {}
 
-	export const layer = Layer.succeed(
-		Service,
-		Service.of({
-			policyHeader: (loadedSkills: ReadonlySet<string>) =>
-				Effect.succeed(buildPolicyHeader(loadedSkills)),
-			skillGateReason: (loadedCount: number) =>
-				Effect.succeed(buildSkillGateReason(loadedCount)),
-			selectPatternFeedback: (patterns: ReadonlyArray<Pattern.Value>) =>
-				Effect.succeed(selectPatternFeedback(patterns)),
-			patternFeedbackMessage: (
-				patterns: ReadonlyArray<Pattern.Value>,
-				filePath: Option.Option<string>
-			) => Effect.succeed(buildPatternFeedbackMessage(patterns, filePath))
-		})
-	);
+	export const layer = (guidanceDir: string) =>
+		Layer.effect(
+			Service,
+			Effect.gen(function*() {
+				const docs = yield* loadGuidanceDocs(guidanceDir);
+				return Service.of({
+					policyHeader: (loadedSkills) =>
+						Effect.succeed(
+							buildPolicyHeaderWithDocs(docs, loadedSkills)
+						),
+					skillGateReason: (loadedCount: number) =>
+						Effect.succeed(buildSkillGateReason(loadedCount)),
+					selectPatternFeedback: (
+						patterns: ReadonlyArray<Pattern.Value>
+					) => Effect.succeed(selectPatternFeedback(patterns)),
+					patternFeedbackMessage: (
+						patterns: ReadonlyArray<Pattern.Value>,
+						filePath: Option.Option<string>
+					) => Effect.succeed(
+						buildPatternFeedbackMessage(patterns, filePath)
+					)
+				});
+			})
+		);
 }

@@ -38,16 +38,27 @@ export namespace EffectHarnessLayer {
 		)
 	);
 
+	const packageRootSegments = [import.meta.dirname ?? '.', '..', '..'];
+
 	const kernelLayer = Layer.unwrap(
 		Effect.gen(function*() {
 			const path = yield* Path.Path;
 			const patternsDir = path.resolve(
-				import.meta.dirname ?? '.',
-				'..',
-				'..',
+				...packageRootSegments,
 				'patterns'
 			);
 			return KernelLayer.layer(patternsDir);
+		})
+	).pipe(Layer.provide(nodePlatformLayer));
+
+	const guidanceCatalogLayer = Layer.unwrap(
+		Effect.gen(function*() {
+			const path = yield* Path.Path;
+			const guidanceDir = path.resolve(
+				...packageRootSegments,
+				'guidance'
+			);
+			return GuidanceCatalog.layer(guidanceDir);
 		})
 	).pipe(Layer.provide(nodePlatformLayer));
 
@@ -68,7 +79,7 @@ export namespace EffectHarnessLayer {
 		PendingSkillReads.layer,
 		EffectVersion.layer,
 		gitBranchLayer,
-		GuidanceCatalog.layer,
+		guidanceCatalogLayer,
 		modePersistenceLayer,
 		ModeState.layer,
 		ReferenceClone.layer,
