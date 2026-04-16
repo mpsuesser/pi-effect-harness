@@ -2,7 +2,7 @@ import { make } from 'effect/unstable/reactivity/Atom';
 
 import { Pattern } from '../../Pattern.ts';
 
-export const globMatches = (
+export const patternGlobMatchesFilePath = (
 	pattern: Pattern.Value,
 	filePath?: string
 ): boolean => {
@@ -15,5 +15,7 @@ export const globMatches = (
 	return pattern.glob === filePath || filePath.endsWith(pattern.glob);
 };
 
-export const atom = (pattern: Pattern.Value, filePath?: string) =>
-	make(globMatches(pattern, filePath));
+export const patternGlobMatchesFilePathAtom = (
+	pattern: Pattern.Value,
+	filePath?: string
+) => make(patternGlobMatchesFilePath(pattern, filePath));

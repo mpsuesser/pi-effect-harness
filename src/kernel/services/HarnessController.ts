@@ -3,7 +3,7 @@ import { Context, Effect, Layer, Option, Predicate, Schema } from 'effect';
 import { ActiveBranch } from '../../ActiveBranch.ts';
 import { SKILL_LOADED_ENTRY } from '../../constants.ts';
 import { Decision } from '../../Decision.ts';
-import { loadedEffectSkills } from '../../effect/atoms/active-branch/loadedEffectSkills.ts';
+import { activeBranchLoadedEffectSkills } from '../../effect/atoms/active-branch/activeBranchLoadedEffectSkills.ts';
 import { EffectVersion } from '../../effect/services/EffectVersion.ts';
 import { ModeState } from '../../effect/services/ModeState.ts';
 import { PendingSkillReads } from '../../effect/services/PendingSkillReads.ts';
@@ -147,9 +147,10 @@ export namespace HarnessController {
 					const appendSkillDecision = !input.isError &&
 							pendingSkill !== undefined &&
 							readPath !== undefined &&
-							!loadedEffectSkills(input.activeBranch).has(
-								pendingSkill
-							)
+							!activeBranchLoadedEffectSkills(input.activeBranch)
+								.has(
+									pendingSkill
+								)
 						? [
 							new Decision.AppendCustomEntry({
 								customType: SKILL_LOADED_ENTRY,

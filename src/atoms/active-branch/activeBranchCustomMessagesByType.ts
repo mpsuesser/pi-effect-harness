@@ -2,7 +2,7 @@ import { make } from 'effect/unstable/reactivity/Atom';
 
 import { ActiveBranch } from '../../ActiveBranch.ts';
 
-export const customMessagesByType = (branch: ActiveBranch.Value) =>
+export const activeBranchCustomMessagesByType = (branch: ActiveBranch.Value) =>
 	branch.entries
 		.filter(
 			(entry): entry is ActiveBranch.CustomMessageEntry =>
@@ -19,5 +19,6 @@ export const customMessagesByType = (branch: ActiveBranch.Value) =>
 			new Map<string, ReadonlyArray<ActiveBranch.CustomMessageEntry>>()
 		);
 
-export const atom = (branch: ActiveBranch.Value) =>
-	make(customMessagesByType(branch));
+export const activeBranchCustomMessagesByTypeAtom = (
+	branch: ActiveBranch.Value
+) => make(activeBranchCustomMessagesByType(branch));

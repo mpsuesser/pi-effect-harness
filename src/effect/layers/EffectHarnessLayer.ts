@@ -15,28 +15,27 @@ import { PendingSkillReads } from '../services/PendingSkillReads.ts';
 import { ReferenceClone } from '../services/ReferenceClone.ts';
 import { SkillCatalog } from '../services/SkillCatalog.ts';
 
-export namespace EffectHarnessLayer
-{
+export namespace EffectHarnessLayer {
 	const nodePlatformLayer = NodeChildProcessSpawner.layer.pipe(
 		Layer.provideMerge(
-			Layer.mergeAll(NodeFileSystem.layer, NodePath.layer),
-		),
+			Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)
+		)
 	);
 
 	const kernelLayer = KernelLayer.layer.pipe(
-		Layer.provide(nodePlatformLayer),
+		Layer.provide(nodePlatformLayer)
 	);
 
 	const gitBranchLayer = GitBranch.layer.pipe(
-		Layer.provide(nodePlatformLayer),
+		Layer.provide(nodePlatformLayer)
 	);
 
 	const modePersistenceLayer = ModePersistence.layer.pipe(
-		Layer.provide(Layer.mergeAll(nodePlatformLayer, gitBranchLayer)),
+		Layer.provide(Layer.mergeAll(nodePlatformLayer, gitBranchLayer))
 	);
 
 	const skillCatalogLayer = SkillCatalog.layer.pipe(
-		Layer.provide(nodePlatformLayer),
+		Layer.provide(nodePlatformLayer)
 	);
 
 	const baseLayer = Layer.mergeAll(
@@ -48,20 +47,20 @@ export namespace EffectHarnessLayer
 		modePersistenceLayer,
 		ModeState.layer,
 		ReferenceClone.layer,
-		skillCatalogLayer,
+		skillCatalogLayer
 	);
 
 	const ruleEngineLayer = RuleEngine.layer.pipe(
-		Layer.provideMerge(baseLayer),
+		Layer.provideMerge(baseLayer)
 	);
 
 	const harnessControllerLayer = HarnessController.layer.pipe(
-		Layer.provideMerge(Layer.mergeAll(baseLayer, ruleEngineLayer)),
+		Layer.provideMerge(Layer.mergeAll(baseLayer, ruleEngineLayer))
 	);
 
 	export const layer = Layer.mergeAll(
 		baseLayer,
 		ruleEngineLayer,
-		harnessControllerLayer,
+		harnessControllerLayer
 	);
 }

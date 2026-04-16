@@ -1,9 +1,9 @@
 import { make } from 'effect/unstable/reactivity/Atom';
 
 import { EditReplacement } from '../../EditReplacement.ts';
-import { occurrenceCount } from './occurrenceCount.ts';
+import { editReplacementOccurrenceCount } from './editReplacementOccurrenceCount.ts';
 
-export const resolution = (
+export const editReplacementResolution = (
 	replacement: EditReplacement.Value,
 	source: string
 ) => {
@@ -11,7 +11,7 @@ export const resolution = (
 		return new EditReplacement.EmptyOldText({});
 	}
 
-	const count = occurrenceCount(replacement, source);
+	const count = editReplacementOccurrenceCount(replacement, source);
 	if (count === 0) {
 		return new EditReplacement.MissingMatch({});
 	}
@@ -28,5 +28,7 @@ export const resolution = (
 	});
 };
 
-export const atom = (replacement: EditReplacement.Value, source: string) =>
-	make(resolution(replacement, source));
+export const editReplacementResolutionAtom = (
+	replacement: EditReplacement.Value,
+	source: string
+) => make(editReplacementResolution(replacement, source));

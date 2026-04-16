@@ -2,7 +2,7 @@ import { make } from 'effect/unstable/reactivity/Atom';
 
 import { EditReplacement } from '../../EditReplacement.ts';
 
-export const occurrenceCount = (
+export const editReplacementOccurrenceCount = (
 	replacement: EditReplacement.Value,
 	source: string
 ): number =>
@@ -10,5 +10,7 @@ export const occurrenceCount = (
 		? 0
 		: source.split(replacement.oldText).length - 1;
 
-export const atom = (replacement: EditReplacement.Value, source: string) =>
-	make(occurrenceCount(replacement, source));
+export const editReplacementOccurrenceCountAtom = (
+	replacement: EditReplacement.Value,
+	source: string
+) => make(editReplacementOccurrenceCount(replacement, source));

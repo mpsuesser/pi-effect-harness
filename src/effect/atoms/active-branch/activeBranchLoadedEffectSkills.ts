@@ -24,7 +24,7 @@ const loadedSkillName = (
 		: undefined;
 };
 
-export const loadedEffectSkills = (
+export const activeBranchLoadedEffectSkills = (
 	branch: ActiveBranch.Value
 ): ReadonlySet<string> =>
 	new Set(
@@ -34,5 +34,6 @@ export const loadedEffectSkills = (
 		})
 	);
 
-export const atom = (branch: ActiveBranch.Value) =>
-	make(loadedEffectSkills(branch));
+export const activeBranchLoadedEffectSkillsAtom = (
+	branch: ActiveBranch.Value
+) => make(activeBranchLoadedEffectSkills(branch));

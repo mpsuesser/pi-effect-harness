@@ -2,7 +2,7 @@ import { make } from 'effect/unstable/reactivity/Atom';
 
 import { ActiveBranch } from '../../ActiveBranch.ts';
 
-export const customEntriesByType = (branch: ActiveBranch.Value) =>
+export const activeBranchCustomEntriesByType = (branch: ActiveBranch.Value) =>
 	branch.entries
 		.filter(
 			(entry): entry is ActiveBranch.CustomEntry =>
@@ -17,5 +17,6 @@ export const customEntriesByType = (branch: ActiveBranch.Value) =>
 			new Map<string, ReadonlyArray<ActiveBranch.CustomEntry>>()
 		);
 
-export const atom = (branch: ActiveBranch.Value) =>
-	make(customEntriesByType(branch));
+export const activeBranchCustomEntriesByTypeAtom = (
+	branch: ActiveBranch.Value
+) => make(activeBranchCustomEntriesByType(branch));
