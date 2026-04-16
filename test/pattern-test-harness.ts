@@ -1,53 +1,76 @@
 /**
  * Test harness for pattern definitions.
  *
- * Provides utilities to test that pattern regex matches expected inputs
- * without requiring the full plugin infrastructure.
+ * `testPattern` exercises detector logic only, matching the historical test
+ * semantics. `testFilePathPattern` exercises the full live matcher including
+ * glob constraints.
  */
 
 import { Lang, parse } from '@ast-grep/napi';
 import { describe, expect, it } from '@effect/vitest';
-// @ts-expect-error - no type declarations available
-import picomatch from 'picomatch';
+import { Effect, Option, Schema } from 'effect';
 
+import { PatternInputProjection } from '../src/kernel/PatternInputProjection.ts';
 import {
-	getPatterns,
-	type PatternDefinition,
+	matchesPattern,
 	stripComments
-} from '../src/patterns.ts';
+} from '../src/kernel/services/PatternMatcher.ts';
+import { Pattern } from '../src/Pattern.ts';
+import { loadPatternsEffect } from './helpers/kernel.ts';
 
-const allPatterns = getPatterns();
-
-const findPatternByName = (name: string): PatternDefinition | null => {
-	return allPatterns.find((pattern) => pattern.name === name) ?? null;
-};
-
-const testGlob = (filePath: string, glob: string): boolean => {
-	try {
-		return picomatch(glob)(filePath);
-	} catch {
-		return false;
+class MissingPattern extends Schema.TaggedErrorClass<MissingPattern>()(
+	'MissingPattern',
+	{
+		name: Schema.String
 	}
-};
+) {}
 
-const testAstMatch = (input: string, pattern: PatternDefinition): boolean => {
-	try {
+const preview = (value: string): string =>
+	value.replaceAll('\n', '\\n').slice(0, 80);
+
+const requirePatternEffect = (name: string) =>
+	Effect.gen(function*() {
+		const pattern = (yield* loadPatternsEffect).find(
+			(candidate) => candidate.name === name
+		);
+		if (pattern === undefined) {
+			return yield* new MissingPattern({ name });
+		}
+		return pattern;
+	});
+
+const projection = (content: string, filePath = 'src/app.ts') =>
+	new PatternInputProjection.Value({
+		filePath: Option.some(filePath),
+		content: Option.some(content),
+		command: Option.none(),
+		pattern: Option.none(),
+		query: Option.none(),
+		url: Option.none(),
+		prompt: Option.none()
+	});
+
+const matchesDetector = (pattern: Pattern.Value, input: string): boolean => {
+	if (pattern.detector instanceof Pattern.AstDetector) {
 		const root = parse(Lang.TypeScript, input).root();
-		const nodes = pattern.inside
-			? root.findAll({
+		const nodes = pattern.detector.inside === undefined
+			? root.findAll(pattern.detector.pattern)
+			: root.findAll({
 				rule: {
-					pattern: pattern.pattern,
+					pattern: pattern.detector.pattern,
 					inside: {
-						pattern: pattern.inside,
+						pattern: pattern.detector.inside,
 						stopBy: 'end'
 					}
 				}
-			})
-			: root.findAll(pattern.pattern);
+			});
 		return nodes.length > 0;
-	} catch {
-		return false;
 	}
+
+	const source = pattern.detector.matchInComments
+		? input
+		: stripComments(input);
+	return new RegExp(pattern.detector.pattern).test(source);
 };
 
 interface TestPatternOptions {
@@ -60,42 +83,31 @@ interface TestPatternOptions {
 
 export const testPattern = (opts: TestPatternOptions) => {
 	describe(`Pattern: ${opts.name}`, () => {
-		const pattern = findPatternByName(opts.name);
+		it.live('should load pattern definition', () =>
+			Effect.gen(function*() {
+				const pattern = yield* requirePatternEffect(opts.name);
+				expect(pattern.name).toBe(opts.name);
+			}));
 
-		it('should load pattern definition', () => {
-			expect(pattern).not.toBeNull();
-			if (pattern === null) {
-				throw new Error(`Missing pattern: ${opts.name}`);
-			}
-			expect(pattern.name).toBe(opts.name);
+		describe('shouldMatch', () => {
+			opts.shouldMatch.forEach((input) => {
+				it.live(`should match: ${preview(input)}`, () =>
+					Effect.gen(function*() {
+						const pattern = yield* requirePatternEffect(opts.name);
+						expect(matchesDetector(pattern, input)).toBe(true);
+					}));
+			});
 		});
 
-		if (pattern) {
-			const testMatch = pattern.detector === 'ast'
-				? (input: string) => testAstMatch(input, pattern)
-				: (input: string) =>
-					new RegExp(pattern.pattern).test(
-						pattern.matchInComments
-							? input
-							: stripComments(input)
-					);
-
-			describe('shouldMatch', () => {
-				for (const input of opts.shouldMatch) {
-					it(`should match: ${JSON.stringify(input).slice(0, 80)}`, () => {
-						expect(testMatch(input)).toBe(true);
-					});
-				}
+		describe('shouldNotMatch', () => {
+			opts.shouldNotMatch.forEach((input) => {
+				it.live(`should NOT match: ${preview(input)}`, () =>
+					Effect.gen(function*() {
+						const pattern = yield* requirePatternEffect(opts.name);
+						expect(matchesDetector(pattern, input)).toBe(false);
+					}));
 			});
-
-			describe('shouldNotMatch', () => {
-				for (const input of opts.shouldNotMatch) {
-					it(`should NOT match: ${JSON.stringify(input).slice(0, 80)}`, () => {
-						expect(testMatch(input)).toBe(false);
-					});
-				}
-			});
-		}
+		});
 	});
 };
 
@@ -114,38 +126,53 @@ interface TestFilePathPatternOptions {
 
 export const testFilePathPattern = (opts: TestFilePathPatternOptions) => {
 	describe(`File+Code Pattern: ${opts.name}`, () => {
-		const pattern = findPatternByName(opts.name);
+		it.live('should load pattern definition', () =>
+			Effect.gen(function*() {
+				const pattern = yield* requirePatternEffect(opts.name);
+				expect(pattern.name).toBe(opts.name);
+			}));
 
-		it('should load pattern definition', () => {
-			expect(pattern).not.toBeNull();
+		describe('shouldMatch', () => {
+			opts.shouldMatch.forEach(({ code, filePath }) => {
+				it.live(`should match code=${preview(code)} in file=${filePath}`, () =>
+					Effect.gen(function*() {
+						const pattern = yield* requirePatternEffect(opts.name);
+						expect(
+							matchesPattern(
+								'write',
+								projection(code, filePath),
+								pattern.event,
+								pattern
+							)
+						).toBe(true);
+					}));
+			});
 		});
 
-		if (pattern) {
-			const regex = new RegExp(pattern.pattern);
-
-			describe('shouldMatch', () => {
-				for (const { code, filePath } of opts.shouldMatch) {
-					it(`should match code=${JSON.stringify(code)} in file=${filePath}`, () => {
-						const codeMatches = regex.test(stripComments(code));
-						const globMatches = pattern.glob
-							? testGlob(filePath, pattern.glob)
-							: true;
-						expect(codeMatches && globMatches).toBe(true);
-					});
-				}
+		describe('shouldNotMatch', () => {
+			opts.shouldNotMatch.forEach(({ code, filePath }) => {
+				it.live(
+					`should NOT match code=${
+						preview(code)
+					} in file=${filePath}`,
+					() =>
+						Effect.gen(function*() {
+							const pattern = yield* requirePatternEffect(
+								opts.name
+							);
+							expect(
+								matchesPattern(
+									'write',
+									projection(code, filePath),
+									pattern.event,
+									pattern
+								)
+							).toBe(false);
+						})
+				);
 			});
-
-			describe('shouldNotMatch', () => {
-				for (const { code, filePath } of opts.shouldNotMatch) {
-					it(`should NOT match code=${JSON.stringify(code)} in file=${filePath}`, () => {
-						const codeMatches = regex.test(stripComments(code));
-						const globMatches = pattern.glob
-							? testGlob(filePath, pattern.glob)
-							: true;
-						expect(codeMatches && globMatches).toBe(false);
-					});
-				}
-			});
-		}
+		});
 	});
 };
+
+export { stripComments };

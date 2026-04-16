@@ -5,27 +5,72 @@
  * String literals are intentionally NOT stripped because many patterns
  * match import specifiers, tag comparisons, and other string content.
  *
- * These tests exercise the full matches() pipeline, not just the regex.
+ * These tests exercise the full matcher pipeline, not just the regex.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from '@effect/vitest';
+import { Effect, Option, Schema } from 'effect';
 
-import { getPatterns, matches, stripComments } from '../src/patterns.ts';
+import { PatternInputProjection } from '../src/kernel/PatternInputProjection.ts';
+import {
+	matchesPattern,
+	stripComments
+} from '../src/kernel/services/PatternMatcher.ts';
+import { Pattern } from '../src/Pattern.ts';
+import { loadPatternsEffect } from './helpers/kernel.ts';
 
-// ─── Helpers ──────────────────────────────────────────────────
+class MissingPattern extends Schema.TaggedErrorClass<MissingPattern>()(
+	'MissingPattern',
+	{
+		name: Schema.String
+	}
+) {}
 
-const patterns = getPatterns();
+class RegexDetectorExpected
+	extends Schema.TaggedErrorClass<RegexDetectorExpected>()(
+		'RegexDetectorExpected',
+		{
+			name: Schema.String
+		}
+	) {}
 
-const findPattern = (name: string) => {
-	const p = patterns.find((p) => p.name === name);
-	if (!p) throw new Error(`Pattern not found: ${name}`);
-	return p;
-};
+const requirePatternEffect = (name: string) =>
+	Effect.gen(function*() {
+		const pattern = (yield* loadPatternsEffect).find(
+			(candidate) => candidate.name === name
+		);
+		if (pattern === undefined) {
+			return yield* new MissingPattern({ name });
+		}
+		return pattern;
+	});
 
-/** Simulate a write tool call with the given content. */
-const writeArgs = (content: string, filePath = 'src/app.ts') => ({
-	content,
-	filePath
+const writeProjection = (content: string, filePath = 'src/app.ts') =>
+	new PatternInputProjection.Value({
+		filePath: Option.some(filePath),
+		content: Option.some(content),
+		command: Option.none(),
+		pattern: Option.none(),
+		query: Option.none(),
+		url: Option.none(),
+		prompt: Option.none()
+	});
+
+const expectPatternMatch = (
+	name: string,
+	content: string,
+	expected: boolean,
+	filePath?: string
+) => Effect.gen(function*() {
+	const pattern = yield* requirePatternEffect(name);
+	expect(
+		matchesPattern(
+			'write',
+			writeProjection(content, filePath),
+			pattern.event,
+			pattern
+		)
+	).toBe(expected);
 });
 
 // ─── stripComments unit tests ─────────────────────────────────
@@ -100,187 +145,213 @@ describe('stripComments', () => {
 // ─── Single-line comment false positives ──────────────────────
 
 describe('single-line comment false positives', () => {
-	it('casting-awareness: "as" in comment should not match', () => {
-		const p = findPattern('casting-awareness');
-		const content = '// used as a standalone binary\nconst x = 5;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('casting-awareness: "as" in comment should not match', () =>
+		expectPatternMatch(
+			'casting-awareness',
+			'// used as a standalone binary\nconst x = 5;',
+			false
+		));
 
-	it('avoid-mutable-state: "let" in comment should not match', () => {
-		const p = findPattern('avoid-mutable-state');
-		const content = "// Don't let errors go unhandled\nconst x = 5;";
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('avoid-mutable-state: "let" in comment should not match', () =>
+		expectPatternMatch(
+			'avoid-mutable-state',
+			"// Don't let errors go unhandled\nconst x = 5;",
+			false
+		));
 
-	it('avoid-try-catch: "try {" in comment should not match', () => {
-		const p = findPattern('avoid-try-catch');
-		const content =
-			'// use try { Effect.tryPromise } instead\nconst x = 5;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('avoid-try-catch: "try {" in comment should not match', () =>
+		expectPatternMatch(
+			'avoid-try-catch',
+			'// use try { Effect.tryPromise } instead\nconst x = 5;',
+			false
+		));
 
-	it('imperative-loops: "for (" in comment should not match', () => {
-		const p = findPattern('imperative-loops');
-		const content = '// Wait for (approximately) 5 seconds\nconst x = 5;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('imperative-loops: "for (" in comment should not match', () =>
+		expectPatternMatch(
+			'imperative-loops',
+			'// Wait for (approximately) 5 seconds\nconst x = 5;',
+			false
+		));
 
-	it('prefer-match-over-switch: "switch (" in comment should not match', () => {
-		const p = findPattern('prefer-match-over-switch');
-		const content = '// We should switch (to Match) instead\nconst x = 5;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('prefer-match-over-switch: "switch (" in comment should not match', () =>
+		expectPatternMatch(
+			'prefer-match-over-switch',
+			'// We should switch (to Match) instead\nconst x = 5;',
+			false
+		));
 
-	it('avoid-any: "as any" in comment should not match', () => {
-		const p = findPattern('avoid-any');
-		const content = '// This works just as any other service\nconst x = 5;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('avoid-any: "as any" in comment should not match', () =>
+		expectPatternMatch(
+			'avoid-any',
+			'// This works just as any other service\nconst x = 5;',
+			false
+		));
 
-	it('use-console-service: "console.log(" in comment should not match', () => {
-		const p = findPattern('use-console-service');
-		const content = '// Replace console.log( with Effect.log\nconst x = 5;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('use-console-service: "console.log(" in comment should not match', () =>
+		expectPatternMatch(
+			'use-console-service',
+			'// Replace console.log( with Effect.log\nconst x = 5;',
+			false
+		));
 
-	it('avoid-untagged-errors: "new Error(" in comment should not match', () => {
-		const p = findPattern('avoid-untagged-errors');
-		const content = "// Don't use new Error( directly\nconst x = 5;";
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('avoid-untagged-errors: "new Error(" in comment should not match', () =>
+		expectPatternMatch(
+			'avoid-untagged-errors',
+			"// Don't use new Error( directly\nconst x = 5;",
+			false
+		));
 });
 
 // ─── Multi-line comment false positives ───────────────────────
 
 describe('multi-line comment false positives', () => {
-	it('casting-awareness: "as" in block comment should not match', () => {
-		const p = findPattern('casting-awareness');
-		const content = '/* used as a fallback */\nconst x = 5;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('casting-awareness: "as" in block comment should not match', () =>
+		expectPatternMatch(
+			'casting-awareness',
+			'/* used as a fallback */\nconst x = 5;',
+			false
+		));
 
-	it('casting-awareness: "as" in JSDoc should not match', () => {
-		const p = findPattern('casting-awareness');
-		const content =
-			'/** Not exported — used as a standalone binary. */\nconst x = 5;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('casting-awareness: "as" in JSDoc should not match', () =>
+		expectPatternMatch(
+			'casting-awareness',
+			'/** Not exported — used as a standalone binary. */\nconst x = 5;',
+			false
+		));
 
-	it('avoid-try-catch: "try {" in multi-line comment should not match', () => {
-		const p = findPattern('avoid-try-catch');
-		const content =
-			'/**\n * Example:\n * try {\n *   something()\n * }\n */\nconst x = 5;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('avoid-try-catch: "try {" in multi-line comment should not match', () =>
+		expectPatternMatch(
+			'avoid-try-catch',
+			'/**\n * Example:\n * try {\n *   something()\n * }\n */\nconst x = 5;',
+			false
+		));
 
-	it('avoid-direct-json: "JSON.parse(" in block comment should not match', () => {
-		const p = findPattern('avoid-direct-json');
-		const content =
-			'/* Replace JSON.parse( with Schema.parseJson */\nconst x = 5;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('avoid-direct-json: "JSON.parse(" in block comment should not match', () =>
+		expectPatternMatch(
+			'avoid-direct-json',
+			'/* Replace JSON.parse( with Schema.parseJson */\nconst x = 5;',
+			false
+		));
 });
 
 // ─── matchInComments opt-in ───────────────────────────────────
 
 describe('matchInComments opt-in', () => {
-	it('avoid-ts-ignore: @ts-ignore in comment SHOULD match (matchInComments: true)', () => {
-		const p = findPattern('avoid-ts-ignore');
-		expect(p.matchInComments).toBe(true);
-		const content = '// @ts-ignore\nconst x: any = 5;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(true);
-	});
+	it.live('avoid-ts-ignore: @ts-ignore in comment SHOULD match (matchInComments: true)', () =>
+		Effect.gen(function*() {
+			const pattern = yield* requirePatternEffect('avoid-ts-ignore');
+			const detector = pattern.detector;
+			expect(detector instanceof Pattern.RegexDetector).toBe(true);
+			if (!(detector instanceof Pattern.RegexDetector)) {
+				return yield* new RegexDetectorExpected({ name: pattern.name });
+			}
+			expect(detector.matchInComments).toBe(true);
+			expect(
+				matchesPattern(
+					'write',
+					writeProjection('// @ts-ignore\nconst x: any = 5;'),
+					pattern.event,
+					pattern
+				)
+			).toBe(true);
+		}));
 
-	it('avoid-ts-ignore: @ts-expect-error in block comment SHOULD match', () => {
-		const p = findPattern('avoid-ts-ignore');
-		const content = '/* @ts-expect-error */\nconst x: any = 5;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(true);
-	});
+	it.live('avoid-ts-ignore: @ts-expect-error in block comment SHOULD match', () =>
+		expectPatternMatch(
+			'avoid-ts-ignore',
+			'/* @ts-expect-error */\nconst x: any = 5;',
+			true
+		));
 });
 
 // ─── Real code should still match ─────────────────────────────
 
 describe('real code still matches (no regressions)', () => {
-	it('casting-awareness: actual "as Type" in code should match', () => {
-		const p = findPattern('casting-awareness');
-		const content = 'const x = value as string;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(true);
-	});
+	it.live('casting-awareness: actual "as Type" in code should match', () =>
+		expectPatternMatch(
+			'casting-awareness',
+			'const x = value as string;',
+			true
+		));
 
-	it('avoid-mutable-state: actual "let x =" in code should match', () => {
-		const p = findPattern('avoid-mutable-state');
-		const content = 'let count = 0;';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(true);
-	});
+	it.live('avoid-mutable-state: actual "let x =" in code should match', () =>
+		expectPatternMatch('avoid-mutable-state', 'let count = 0;', true));
 
-	it('avoid-try-catch: actual "try {" in code should match', () => {
-		const p = findPattern('avoid-try-catch');
-		const content = 'try {\n  something();\n}';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(true);
-	});
+	it.live('avoid-try-catch: actual "try {" in code should match', () =>
+		expectPatternMatch(
+			'avoid-try-catch',
+			'try {\n  something();\n}',
+			true
+		));
 
-	it('imperative-loops: actual "for (" in code should match', () => {
-		const p = findPattern('imperative-loops');
-		const content = 'for (const item of items) {}';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(true);
-	});
+	it.live('imperative-loops: actual "for (" in code should match', () =>
+		expectPatternMatch(
+			'imperative-loops',
+			'for (const item of items) {}',
+			true
+		));
 
-	it('use-console-service: actual console.log in code should match', () => {
-		const p = findPattern('use-console-service');
-		const content = 'console.log("hello");';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(true);
-	});
+	it.live('use-console-service: actual console.log in code should match', () =>
+		expectPatternMatch(
+			'use-console-service',
+			'console.log("hello");',
+			true
+		));
 
-	it('casting-awareness: "as const" should NOT match (existing exclusion)', () => {
-		const p = findPattern('casting-awareness');
-		const content = "const x = 'openai' as const;";
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('casting-awareness: "as const" should NOT match (existing exclusion)', () =>
+		expectPatternMatch(
+			'casting-awareness',
+			"const x = 'openai' as const;",
+			false
+		));
 
-	it('avoid-node-imports: import with string specifier should match', () => {
-		const p = findPattern('avoid-node-imports');
-		const content = "import * as fs from 'node:fs';";
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(true);
-	});
+	it.live('avoid-node-imports: import with string specifier should match', () =>
+		expectPatternMatch(
+			'avoid-node-imports',
+			"import * as fs from 'node:fs';",
+			true
+		));
 
-	it('avoid-direct-tag-checks: tag check with string should match', () => {
-		const p = findPattern('avoid-direct-tag-checks');
-		const content = "if (event._tag === 'FactRecorded') {}";
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(true);
-	});
+	it.live('avoid-direct-tag-checks: tag check with string should match', () =>
+		expectPatternMatch(
+			'avoid-direct-tag-checks',
+			"if (event._tag === 'FactRecorded') {}",
+			true
+		));
 });
 
 // ─── Mixed content: code + comments ───────────────────────────
 
 describe('mixed content: real code with comments', () => {
-	it('should match real code even when comments also present', () => {
-		const p = findPattern('avoid-try-catch');
-		const content =
-			'// this is fine\ntry {\n  something();\n}\n// another comment';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(true);
-	});
+	it.live('should match real code even when comments also present', () =>
+		expectPatternMatch(
+			'avoid-try-catch',
+			'// this is fine\ntry {\n  something();\n}\n// another comment',
+			true
+		));
 
-	it('should NOT match when trigger only in comment, real code is clean', () => {
-		const p = findPattern('avoid-try-catch');
-		const content =
-			'// Instead of try { use Effect.try\nconst result = Effect.try({ try: () => something() });';
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('should NOT match when trigger only in comment, real code is clean', () =>
+		expectPatternMatch(
+			'avoid-try-catch',
+			'// Instead of try { use Effect.try\nconst result = Effect.try({ try: () => something() });',
+			false
+		));
 });
 
 // ─── Edge cases ───────────────────────────────────────────────
 
 describe('edge cases', () => {
-	it('// inside a string should not start a comment', () => {
-		const p = findPattern('casting-awareness');
-		const content =
-			"const url = 'https://example.com'; const x = value as string;";
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(true);
-	});
+	it.live('// inside a string should not start a comment', () =>
+		expectPatternMatch(
+			'casting-awareness',
+			"const url = 'https://example.com'; const x = value as string;",
+			true
+		));
 
-	it('quote inside comment should not start a string', () => {
-		const p = findPattern('avoid-mutable-state');
-		const content = "// don't let x = 5\nconst y = 10;";
-		expect(matches('write', writeArgs(content), p.event, p)).toBe(false);
-	});
+	it.live('quote inside comment should not start a string', () =>
+		expectPatternMatch(
+			'avoid-mutable-state',
+			"// don't let x = 5\nconst y = 10;",
+			false
+		));
 });

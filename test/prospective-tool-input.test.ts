@@ -5,199 +5,217 @@
  * mixed blob of deleted and inserted edit text.
  */
 
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
+import { describe, expect, it } from '@effect/vitest';
+import { Effect, Option } from 'effect';
 
-import { describe, expect, it } from 'vitest';
-
+import { EditReplacement } from '../src/EditReplacement.ts';
+import { WriteIntent } from '../src/WriteIntent.ts';
 import {
-	projectToolOutputInput,
-	projectToolResultInput
-} from '../src/inspectors.ts';
+	projectActualEffect,
+	projectProspectiveEffect,
+	withTempFile
+} from './helpers/kernel.ts';
 
-const withTempFile = <A>(
+const contentOf = (projection: { readonly content: Option.Option<string>; }) =>
+	Option.getOrElse(projection.content, () => '');
+
+const filePathOf = (
+	projection: { readonly filePath: Option.Option<string>; }
+) => Option.getOrElse(projection.filePath, () => '');
+
+const editIntent = (
+	filePath: string,
+	edits: ReadonlyArray<
+		{ readonly oldText: string; readonly newText: string; }
+	>,
+	phase: 'tool_call' | 'tool_result' = 'tool_call'
+) => new WriteIntent.EditFile({
+	phase,
+	filePath,
+	replacements: edits.map(
+		(edit) => new EditReplacement.Value(edit)
+	)
+});
+
+const writeIntent = (
+	filePath: string,
 	content: string,
-	run: (fixture: { readonly cwd: string; readonly filePath: string; }) => A
-): A => {
-	const cwd = fs.mkdtempSync(
-		path.join(os.tmpdir(), 'pi-effect-enforcer-inspectors-')
-	);
-	const filePath = 'src/app.ts';
-	const absolutePath = path.join(cwd, filePath);
-	fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-	fs.writeFileSync(absolutePath, content, 'utf8');
+	phase: 'tool_call' | 'tool_result' = 'tool_call'
+) => new WriteIntent.WriteFile({ phase, filePath, content });
 
-	try {
-		return run({ cwd, filePath });
-	} finally {
-		fs.rmSync(cwd, { recursive: true, force: true });
-	}
-};
-
-const getContent = (projection: { readonly content?: string; }): string =>
-	projection.content ?? '';
-
-describe('projectToolOutputInput', () => {
-	it('projects write content exactly as the prospective output', () => {
-		const projection = projectToolOutputInput(
-			'write',
-			{
-				path: 'src/new-file.ts',
-				content: 'export const value = 1;\n'
-			},
-			process.cwd()
-		);
-
-		expect(projection.filePath).toBe('src/new-file.ts');
-		expect(projection.content).toBe('export const value = 1;\n');
-	});
-
-	it('reconstructs single-edit output from the current file contents', () => {
-		withTempFile('const value = 1;\n', ({ cwd, filePath }) => {
-			const projection = projectToolOutputInput(
-				'edit',
-				{
-					path: filePath,
-					edits: [{
-						oldText: 'const value = 1;',
-						newText: 'const value = 2;'
-					}]
-				},
-				cwd
+describe('WriteProjection.prospective', () => {
+	it.live('projects write content exactly as the prospective output', () =>
+		Effect.gen(function*() {
+			const projection = yield* projectProspectiveEffect(
+				process.cwd(),
+				writeIntent('src/new-file.ts', 'export const value = 1;\n')
 			);
 
-			expect(projection.filePath).toBe(filePath);
-			expect(projection.content).toBe('const value = 2;\n');
-		});
-	});
+			expect(filePathOf(projection)).toBe('src/new-file.ts');
+			expect(contentOf(projection)).toBe('export const value = 1;\n');
+		}));
 
-	it('reconstructs multiple edits against the original file, not incrementally', () => {
-		withTempFile('const a = 1;\nconst b = 2;\n', ({ cwd, filePath }) => {
-			const projection = projectToolOutputInput(
-				'edit',
-				{
-					path: filePath,
-					edits: [
-						{ oldText: 'const a = 1;', newText: 'const a = 10;' },
-						{ oldText: 'const b = 2;', newText: 'const b = 20;' }
-					]
-				},
-				cwd
-			);
-
-			expect(projection.content).toBe('const a = 10;\nconst b = 20;\n');
-		});
-	});
-
-	it('does not include deleted text when removing a violating construct', () => {
+	it.live('reconstructs single-edit output from the current file contents', () =>
 		withTempFile(
+			'pi-effect-enforcer-inspectors-',
+			'src/app.ts',
+			'const value = 1;\n',
+			({ cwd, filePath }) =>
+				Effect.gen(function*() {
+					const projection = yield* projectProspectiveEffect(
+						cwd,
+						editIntent(filePath, [
+							{
+								oldText: 'const value = 1;',
+								newText: 'const value = 2;'
+							}
+						])
+					);
+
+					expect(filePathOf(projection)).toBe(filePath);
+					expect(contentOf(projection)).toBe('const value = 2;\n');
+				})
+		));
+
+	it.live(
+		'reconstructs multiple edits against the original file, not incrementally',
+		() =>
+			withTempFile(
+				'pi-effect-enforcer-inspectors-',
+				'src/app.ts',
+				'const a = 1;\nconst b = 2;\n',
+				({ cwd, filePath }) =>
+					Effect.gen(function*() {
+						const projection = yield* projectProspectiveEffect(
+							cwd,
+							editIntent(filePath, [
+								{
+									oldText: 'const a = 1;',
+									newText: 'const a = 10;'
+								},
+								{
+									oldText: 'const b = 2;',
+									newText: 'const b = 20;'
+								}
+							])
+						);
+
+						expect(contentOf(projection)).toBe(
+							'const a = 10;\nconst b = 20;\n'
+						);
+					})
+			)
+	);
+
+	it.live('does not include deleted text when removing a violating construct', () =>
+		withTempFile(
+			'pi-effect-enforcer-inspectors-',
+			'src/app.ts',
 			'const parsed = JSON.parse(raw);\n',
-			({ cwd, filePath }) => {
-				const projection = projectToolOutputInput(
-					'edit',
-					{
-						path: filePath,
-						edits: [
+			({ cwd, filePath }) =>
+				Effect.gen(function*() {
+					const projection = yield* projectProspectiveEffect(
+						cwd,
+						editIntent(filePath, [
 							{
 								oldText: 'const parsed = JSON.parse(raw);',
 								newText: 'const parsed = raw;'
 							}
-						]
-					},
-					cwd
-				);
+						])
+					);
 
-				expect(getContent(projection)).toContain('const parsed = raw;');
-				expect(getContent(projection)).not.toContain('JSON.parse');
-			}
-		);
-	});
+					expect(contentOf(projection)).toContain(
+						'const parsed = raw;'
+					);
+					expect(contentOf(projection)).not.toContain('JSON.parse');
+				})
+		));
 
-	it('falls back to new text only when the target file cannot be read', () => {
-		const projection = projectToolOutputInput(
-			'edit',
-			{
-				path: 'src/missing.ts',
-				edits: [{
-					oldText: 'const value = 1;',
-					newText: 'const value = 2;'
-				}]
-			},
-			path.join(process.cwd(), 'definitely-missing-directory')
-		);
-
-		expect(projection.filePath).toBe('src/missing.ts');
-		expect(projection.content).toBe('const value = 2;');
-	});
-
-	it('falls back to new text only when oldText is ambiguous', () => {
-		withTempFile(
-			'const value = 1;\nconst value = 1;\n',
-			({ cwd, filePath }) => {
-				const projection = projectToolOutputInput(
-					'edit',
-					{
-						path: filePath,
-						edits: [{
-							oldText: 'const value = 1;',
-							newText: 'const value = 2;'
-						}]
-					},
-					cwd
-				);
-
-				expect(projection.content).toBe('const value = 2;');
-				expect(getContent(projection)).not.toContain(
-					'const value = 1;'
-				);
-			}
-		);
-	});
-
-	it('falls back to new text only when edit spans would overlap', () => {
-		withTempFile('const abc = 1;\n', ({ cwd, filePath }) => {
-			const projection = projectToolOutputInput(
-				'edit',
-				{
-					path: filePath,
-					edits: [
-						{ oldText: 'abc', newText: 'xyz' },
-						{ oldText: 'const abc', newText: 'const def' }
-					]
-				},
-				cwd
+	it.live('falls back to new text only when the target file cannot be read', () =>
+		Effect.gen(function*() {
+			const projection = yield* projectProspectiveEffect(
+				`${process.cwd()}/definitely-missing-directory`,
+				editIntent('src/missing.ts', [
+					{ oldText: 'const value = 1;', newText: 'const value = 2;' }
+				])
 			);
 
-			expect(projection.content).toBe('xyz\nconst def');
-			expect(getContent(projection)).not.toContain('const abc = 1;');
-		});
-	});
+			expect(filePathOf(projection)).toBe('src/missing.ts');
+			expect(contentOf(projection)).toBe('const value = 2;');
+		}));
+
+	it.live('falls back to new text only when oldText is ambiguous', () =>
+		withTempFile(
+			'pi-effect-enforcer-inspectors-',
+			'src/app.ts',
+			'const value = 1;\nconst value = 1;\n',
+			({ cwd, filePath }) =>
+				Effect.gen(function*() {
+					const projection = yield* projectProspectiveEffect(
+						cwd,
+						editIntent(filePath, [
+							{
+								oldText: 'const value = 1;',
+								newText: 'const value = 2;'
+							}
+						])
+					);
+
+					expect(contentOf(projection)).toBe('const value = 2;');
+					expect(contentOf(projection)).not.toContain(
+						'const value = 1;'
+					);
+				})
+		));
+
+	it.live('falls back to new text only when edit spans would overlap', () =>
+		withTempFile(
+			'pi-effect-enforcer-inspectors-',
+			'src/app.ts',
+			'const abc = 1;\n',
+			({ cwd, filePath }) =>
+				Effect.gen(function*() {
+					const projection = yield* projectProspectiveEffect(
+						cwd,
+						editIntent(filePath, [
+							{ oldText: 'abc', newText: 'xyz' },
+							{ oldText: 'const abc', newText: 'const def' }
+						])
+					);
+
+					expect(contentOf(projection)).toBe('xyz\nconst def');
+					expect(contentOf(projection)).not.toContain(
+						'const abc = 1;'
+					);
+				})
+		));
 });
 
-describe('projectToolResultInput', () => {
-	it('reads the actual file contents after a successful edit result', () => {
+describe('WriteProjection.actual', () => {
+	it.live('reads the actual file contents after a successful edit result', () =>
 		withTempFile(
+			'pi-effect-enforcer-inspectors-',
+			'src/app.ts',
 			"import { Effect } from 'effect';\nexport const program = Effect.succeed(2);\n",
-			({ cwd, filePath }) => {
-				const projection = projectToolResultInput(
-					'edit',
-					{
-						path: filePath,
-						edits: [
-							{
-								oldText: 'Effect.succeed(1)',
-								newText: 'Effect.succeed(2)'
-							}
-						]
-					},
-					cwd
-				);
+			({ cwd, filePath }) =>
+				Effect.gen(function*() {
+					const projection = yield* projectActualEffect(
+						cwd,
+						editIntent(
+							filePath,
+							[
+								{
+									oldText: 'Effect.succeed(1)',
+									newText: 'Effect.succeed(2)'
+								}
+							],
+							'tool_result'
+						)
+					);
 
-				expect(projection.content).toBe(
-					"import { Effect } from 'effect';\nexport const program = Effect.succeed(2);\n"
-				);
-			}
-		);
-	});
+					expect(contentOf(projection)).toBe(
+						"import { Effect } from 'effect';\nexport const program = Effect.succeed(2);\n"
+					);
+				})
+		));
 });
