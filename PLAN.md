@@ -753,7 +753,7 @@ This replaces:
 - part of the string-building logic in `src/policy.ts`
 
 It should own:
-- loading the docs from `docs/`
+- loading the guidance docs from `packages/effect/guidance/`
 - building policy header text
 - listing reference paths
 
