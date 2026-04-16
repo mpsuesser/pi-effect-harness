@@ -1,37 +1,13 @@
 {
   "$schema": "https://www.schemastore.org/package.json",
-  "name": "pi-effect-enforcer",
+  "name": "pi-effect-enforcer-workspace",
   "version": "0.1.0",
-  "description": "a harness specifically for writing Effect v4 code",
-  "keywords": [
-    "pi-extension",
-    "pi-package"
-  ],
-  "homepage": "https://github.com/mpsuesser/pi-effect-enforcer#readme",
-  "bugs": {
-    "url": "https://github.com/mpsuesser/pi-effect-enforcer/issues"
-  },
-  "license": "MIT",
-  "author": "Marc Suesser",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/mpsuesser/pi-effect-enforcer.git"
-  },
-  "files": [
-    "src",
-    "skills",
-    "patterns",
-    "docs",
-    "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
-  ],
+  "description": "workspace root for the pi-effect-enforcer extension and the pi-harness-kit library",
+  "private": true,
   "type": "module",
-  "exports": {
-    ".": {
-      "import": "./src/index.ts"
-    }
-  },
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "fmt": "dprint fmt",
     "fmt:check": "dprint check",
@@ -40,13 +16,6 @@
     "typecheck": "tsgo",
     "check": "dprint fmt && oxlint -c oxlintrc.json && tsgo",
     "prepare": "effect-tsgo patch"
-  },
-  "dependencies": {
-    "@ast-grep/napi": "^0.40.5",
-    "@effect/platform-node": "4.0.0-beta.50",
-    "effect": "4.0.0-beta.50",
-    "picomatch": "^4.0.3",
-    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@effect/tsgo": "^0.4.0",
@@ -59,19 +28,8 @@
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
   },
-  "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*"
-  },
   "overrides": {
     "effect": "4.0.0-beta.50"
   },
-  "packageManager": "bun@1.3.11",
-  "pi": {
-    "extensions": [
-      "./src/index.ts"
-    ],
-    "skills": [
-      "./skills"
-    ]
-  }
+  "packageManager": "bun@1.3.11"
 }

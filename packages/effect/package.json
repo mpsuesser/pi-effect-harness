@@ -1,0 +1,51 @@
+{
+  "$schema": "https://www.schemastore.org/package.json",
+  "name": "pi-effect-enforcer",
+  "version": "0.1.0",
+  "description": "a harness specifically for writing Effect v4 code",
+  "keywords": [
+    "pi-extension",
+    "pi-package"
+  ],
+  "homepage": "https://github.com/mpsuesser/pi-effect-enforcer#readme",
+  "bugs": {
+    "url": "https://github.com/mpsuesser/pi-effect-enforcer/issues"
+  },
+  "license": "MIT",
+  "author": "Marc Suesser",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mpsuesser/pi-effect-enforcer.git"
+  },
+  "files": [
+    "src",
+    "skills",
+    "patterns",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "@effect/platform-node": "4.0.0-beta.50",
+    "effect": "4.0.0-beta.50",
+    "pi-harness-kit": "workspace:*"
+  },
+  "devDependencies": {
+    "@ast-grep/napi": "^0.40.5"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  }
+}

@@ -4,13 +4,6 @@
   "workspaces": {
     "": {
       "name": "pi-effect-enforcer",
-      "dependencies": {
-        "@ast-grep/napi": "^0.40.5",
-        "@effect/platform-node": "4.0.0-beta.50",
-        "effect": "4.0.0-beta.50",
-        "picomatch": "^4.0.3",
-        "yaml": "^2.8.2",
-      },
       "devDependencies": {
         "@effect/tsgo": "^0.4.0",
         "@effect/vitest": "4.0.0-beta.50",
@@ -21,6 +14,32 @@
         "oxlint": "^1.58.0",
         "typescript": "^5.9.3",
         "vitest": "^4.1.0",
+      },
+    },
+    "packages/effect": {
+      "name": "pi-effect-enforcer",
+      "version": "0.1.0",
+      "dependencies": {
+        "@effect/platform-node": "4.0.0-beta.50",
+        "effect": "4.0.0-beta.50",
+        "pi-harness-kit": "workspace:*",
+      },
+      "devDependencies": {
+        "@ast-grep/napi": "^0.40.5",
+      },
+      "peerDependencies": {
+        "@mariozechner/pi-coding-agent": "*",
+      },
+    },
+    "packages/harness-kit": {
+      "name": "pi-harness-kit",
+      "version": "0.1.0",
+      "dependencies": {
+        "@ast-grep/napi": "^0.40.5",
+        "@effect/platform-node": "4.0.0-beta.50",
+        "effect": "4.0.0-beta.50",
+        "picomatch": "^4.0.3",
+        "yaml": "^2.8.2",
       },
       "peerDependencies": {
         "@mariozechner/pi-coding-agent": "*",
@@ -746,6 +765,10 @@
     "pathe": ["pathe@2.0.3", "", {}, "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w=="],
 
     "pend": ["pend@1.2.0", "", {}, "sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg=="],
+
+    "pi-effect-enforcer": ["pi-effect-enforcer@workspace:packages/effect"],
+
+    "pi-harness-kit": ["pi-harness-kit@workspace:packages/harness-kit"],
 
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 

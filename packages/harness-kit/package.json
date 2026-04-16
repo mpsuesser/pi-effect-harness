@@ -1,0 +1,22 @@
+{
+  "$schema": "https://www.schemastore.org/package.json",
+  "name": "pi-harness-kit",
+  "version": "0.1.0",
+  "description": "reusable kernel for pi agent harness extensions",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "@ast-grep/napi": "^0.40.5",
+    "@effect/platform-node": "4.0.0-beta.50",
+    "effect": "4.0.0-beta.50",
+    "picomatch": "^4.0.3",
+    "yaml": "^2.8.2"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  }
+}
