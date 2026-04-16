@@ -17,7 +17,9 @@ const patternNames = getPatterns().map((pattern) => pattern.name);
 const nonPatternTests = new Set([
 	'all-patterns-covered.test.ts',
 	'comment-string-false-positives.test.ts',
-	'pattern-enforcement.test.ts'
+	'pattern-enforcement.test.ts',
+	'prospective-tool-input.test.ts',
+	'skill-gate-projection.test.ts'
 ]);
 
 const testNames = fs

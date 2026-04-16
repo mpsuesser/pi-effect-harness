@@ -16,7 +16,10 @@ import {
 } from './constants.ts';
 import { detectEffectVersion } from './functions/detectEffectVersion.ts';
 import { ensureReferenceClone } from './functions/ensureReferenceClone.ts';
-import { projectToolOutputInput } from './inspectors.ts';
+import {
+	projectToolOutputInput,
+	projectToolResultInput
+} from './inspectors.ts';
 import { createModeToggle } from './mode-toggle.ts';
 import { getPatterns, matches, type PatternDefinition } from './patterns.ts';
 import {
@@ -130,7 +133,7 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 		if (skillIndex.length === 0) rebuildSkillIndex();
 
 		if (event.toolName === 'read') {
-			const readInput = event.input as { path?: unknown };
+			const readInput = event.input as { path?: unknown; };
 			if (typeof readInput.path === 'string') {
 				const absPath = normalizePath(readInput.path, ctx.cwd);
 				const matchedSkill = matchEffectSkillForPath(
@@ -145,10 +148,11 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 
 		if (!mode.isEnabled()) return undefined;
 
-		const projectedOutputInput = projectToolOutputInput(event.input) as Record<
-			string,
-			unknown
-		>;
+		const projectedOutputInput = projectToolOutputInput(
+			event.toolName,
+			event.input,
+			ctx.cwd
+		) as Record<string, unknown>;
 
 		if (WRITE_TOOLS.has(event.toolName)) {
 			const matchableContent =
@@ -174,7 +178,7 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 			const pendingSkill = pendingSkillReads.get(event.toolCallId);
 			pendingSkillReads.delete(event.toolCallId);
 			if (!event.isError && pendingSkill) {
-				const readInput = event.input as { path?: unknown };
+				const readInput = event.input as { path?: unknown; };
 				if (
 					typeof readInput.path === 'string' &&
 					!loadedSkills.has(pendingSkill)
@@ -192,10 +196,11 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 		if (!mode.isEnabled() || event.isError) return;
 		if (!WRITE_TOOLS.has(event.toolName)) return;
 
-		const projectedInput = projectToolOutputInput(event.input) as Record<
-			string,
-			unknown
-		>;
+		const projectedInput = projectToolResultInput(
+			event.toolName,
+			event.input,
+			ctx.cwd
+		) as Record<string, unknown>;
 		const matchedPatterns = selectPatternFeedback(
 			runPatterns('after', event.toolName, projectedInput)
 		);
