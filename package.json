@@ -8,6 +8,14 @@
   "workspaces": [
     "packages/*"
   ],
+  "pi": {
+    "extensions": [
+      "./packages/effect/src/index.ts"
+    ],
+    "skills": [
+      "./packages/effect/skills"
+    ]
+  },
   "scripts": {
     "fmt": "dprint fmt",
     "fmt:check": "dprint check",
