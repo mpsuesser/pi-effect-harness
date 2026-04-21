@@ -5,7 +5,8 @@ event: after
 name: imperative-loops
 description: Use functional transformations instead of imperative loops
 glob: '**/*.{ts,tsx}'
-pattern: for\s*\(
+detector: ast
+pattern: for ($$$)
 level: warning
 ---
 

@@ -23,6 +23,17 @@ testPattern({
 		'const result = items.reduce((acc, x) => acc + x, 0)',
 		'const forEach = (arr) => {}',
 		'pipe(items, Array.map(process))',
-		'const perform = () => {}'
+		'const perform = () => {}',
+		// String / template / comment content mentioning `for (`
+		"const code = 'for (const x of xs) {}'",
+		'const tmpl = `for (let i = 0; i < n; i++)`',
+		"it('should iterate for (const x of xs)', () => {})",
+		'// for (const x of xs) is imperative',
+		'/* for (;;) {} */ const x = 1',
+		// Effect.forEach and similar higher-order operators
+		'Effect.forEach(items, handle, { concurrency: 8 })',
+		'Arr.forEach(items, handle)',
+		// Method `forEach` on an array
+		'items.forEach(x => handle(x))'
 	]
 });

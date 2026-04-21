@@ -52,19 +52,22 @@ const projection = (content: string, filePath = 'src/app.ts') =>
 
 const matchesDetector = (pattern: Pattern.Value, input: string): boolean => {
 	if (pattern.detector instanceof Pattern.AstDetector) {
+		const detector = pattern.detector;
 		const root = parse(Lang.TypeScript, input).root();
-		const nodes = pattern.detector.inside === undefined
-			? root.findAll(pattern.detector.pattern)
-			: root.findAll({
-				rule: {
-					pattern: pattern.detector.pattern,
-					inside: {
-						pattern: pattern.detector.inside,
-						stopBy: 'end'
+		return detector.patterns.some((candidate) => {
+			const nodes = detector.inside === undefined
+				? root.findAll(candidate)
+				: root.findAll({
+					rule: {
+						pattern: candidate,
+						inside: {
+							pattern: detector.inside,
+							stopBy: 'end'
+						}
 					}
-				}
-			});
-		return nodes.length > 0;
+				});
+			return nodes.length > 0;
+		});
 	}
 
 	const source = pattern.detector.matchInComments

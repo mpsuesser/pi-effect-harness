@@ -5,7 +5,8 @@ event: after
 name: avoid-option-getorthrow
 description: Avoid Option.getOrThrow - use Option.match or Option.getOrElse for safe unwrapping
 glob: '**/*.{ts,tsx}'
-pattern: (Option\.getOrThrow|\.getOrThrow\()
+detector: ast
+pattern: $A.getOrThrow
 level: warning
 ---
 

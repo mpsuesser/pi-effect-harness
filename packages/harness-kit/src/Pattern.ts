@@ -17,7 +17,10 @@ export namespace Pattern {
 	export class AstDetector extends Schema.TaggedClass<AstDetector>()(
 		'AstDetector',
 		{
-			pattern: Schema.String,
+			// An AST detector matches if ANY of these ast-grep patterns matches.
+			// YAML frontmatter may spell this as a single string or a list; the
+			// catalog normalizes both forms to this array.
+			patterns: Schema.Array(Schema.String),
 			inside: Schema.optionalKey(Schema.String)
 		}
 	) {}

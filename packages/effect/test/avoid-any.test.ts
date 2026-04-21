@@ -14,6 +14,14 @@ testPattern({
 		'const any = 5',
 		'const isAny = true',
 		'function hasAnyValue() {}',
-		'type AnyValue = string | number'
+		'type AnyValue = string | number',
+		// String-literal content mentioning the flagged casts
+		"const msg = 'use foo as any here'",
+		'const doc = "never use x as unknown as Y"',
+		'const tmpl = `avoid as any patterns`',
+		// Block comment
+		'/* do not use as any */ const x = 1',
+		// `as const` is narrowing, not an escape hatch
+		"const colors = ['red', 'blue'] as const"
 	]
 });

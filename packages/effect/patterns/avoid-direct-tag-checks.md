@@ -5,7 +5,8 @@ event: after
 name: avoid-direct-tag-checks
 description: Avoid direct _tag property checks; use exported refinements/predicates
 glob: '**/*.{ts,tsx}'
-pattern: \._tag\s*===\s*["']
+detector: ast
+pattern: $A._tag === $B
 level: warning
 suggestSkills:
     - effect-pattern-matching

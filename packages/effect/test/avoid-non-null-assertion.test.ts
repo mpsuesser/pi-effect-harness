@@ -14,7 +14,14 @@ testPattern({
 		'arr[idx]!(',
 		'arr[idx]![key]',
 		'result!;',
-		"result!['field']"
+		"result!['field']",
+		// Previously classified as shouldNotMatch because the old regex
+		// required a terminator char after `!`. The AST detector
+		// correctly flags these bare non-null assertions.
+		'const v = map.get("key")!',
+		'foo(result!)',
+		// Double bang
+		'foo!.bar!'
 	],
 	shouldNotMatch: [
 		'const value = Option.fromNullable(map.get("key"))',
@@ -27,7 +34,8 @@ testPattern({
 		'!value',
 		'!isValid',
 		"const notBang = 'test'",
-		'map.get("key")!',
-		'result!)'
+		// The `!` appears inside a string literal, not as an operator
+		'throw new Error("nope!")',
+		"const msg = 'do not use x!' "
 	]
 });

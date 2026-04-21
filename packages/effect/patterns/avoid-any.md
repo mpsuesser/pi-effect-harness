@@ -5,7 +5,10 @@ event: after
 name: avoid-any
 description: Avoid using 'as any' or 'as unknown as' type assertions
 glob: '**/*.{ts,tsx}'
-pattern: as\s+(any|unknown\s+as)
+detector: ast
+pattern:
+    - '$A as any'
+    - '$A as unknown'
 level: warning
 ---
 

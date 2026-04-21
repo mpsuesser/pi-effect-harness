@@ -5,7 +5,12 @@ event: after
 name: avoid-yield-ref
 description: Do not yield* Ref/Deferred/Fiber/Latch directly — use explicit method calls
 glob: '**/*.ts'
-pattern: yield\*\s+(ref|deferred|fiber|latch)\b
+detector: ast
+pattern:
+    - 'yield* ref'
+    - 'yield* deferred'
+    - 'yield* fiber'
+    - 'yield* latch'
 level: warning
 suggestSkills:
     - effect-schema-v4

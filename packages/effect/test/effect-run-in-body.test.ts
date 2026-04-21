@@ -19,11 +19,19 @@ testPattern({
 		'effectRunSync(program)',
 		'runSync(effect)',
 		'Effect.run(program)',
+		'Effect.runFork(program)',
+		'Effect.runCallback(program, cb)',
 		'yield* someEffect',
 		'const effect = createEffect()',
 		'Effect.gen(function* () { yield* myEffect })',
 		'pipe(effect1, Effect.flatMap(effect2))',
 		'function runSync() {}',
-		'function runPromise() {}'
+		'function runPromise() {}',
+		// String / template / comment content
+		'const msg = "avoid Effect.runSync mid-body"',
+		"const tip = 'use Effect.runPromise only at boundaries'",
+		'const tmpl = `Effect.runSync(program) is a code smell`',
+		'// Effect.runSync(program) escapes composition',
+		'/* Effect.runPromise at entry points only */ const x = 1'
 	]
 });

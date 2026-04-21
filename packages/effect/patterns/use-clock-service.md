@@ -5,7 +5,10 @@ event: after
 name: use-clock-service
 description: Use Effect DateTime instead of JS Date
 glob: '**/*.{ts,tsx}'
-pattern: (new Date\(|Date\.\w+\()
+detector: ast
+pattern:
+    - 'new Date($$$)'
+    - 'Date.$M($$$)'
 level: warning
 suggestSkills:
     - effect-testing

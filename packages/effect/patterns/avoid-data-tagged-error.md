@@ -5,7 +5,8 @@ event: after
 name: avoid-data-tagged-error
 description: Use Schema.TaggedErrorClass instead of Data.TaggedError for serialization and RPC compatibility
 glob: '**/*.{ts,tsx}'
-pattern: Data\.TaggedError
+detector: ast
+pattern: Data.TaggedError($$$)
 level: warning
 suggestSkills:
     - effect-error-handling

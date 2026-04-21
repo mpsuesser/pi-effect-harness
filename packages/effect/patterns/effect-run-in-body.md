@@ -5,7 +5,10 @@ event: after
 name: effect-run-in-body
 description: Effect.runSync/runPromise should only be at entry points
 glob: '**/*.{ts,tsx}'
-pattern: Effect\.run(Sync|Promise)
+detector: ast
+pattern:
+    - Effect.runSync
+    - Effect.runPromise
 level: warning
 suggestSkills:
     - effect-managed-runtime

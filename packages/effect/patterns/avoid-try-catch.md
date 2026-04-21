@@ -5,7 +5,8 @@ event: after
 name: avoid-try-catch
 description: Avoid try-catch blocks in Effect code - use Effect.try or typed errors
 glob: '**/*.{ts,tsx}'
-pattern: try\s*\{
+detector: ast
+pattern: 'try { $$$ }'
 level: warning
 suggestSkills:
     - effect-error-handling

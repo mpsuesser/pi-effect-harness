@@ -5,7 +5,8 @@ event: after
 name: avoid-direct-json
 description: Consider using Schema.fromJsonString or Schema.UnknownFromJsonString instead of direct JSON methods
 glob: '**/*.{ts,tsx}'
-pattern: JSON\.(parse|stringify)\(
+detector: ast
+pattern: JSON.$M($$$)
 level: info
 suggestSkills:
     - effect-schema-composition

@@ -5,15 +5,22 @@ testPattern({
 	tag: 'ef-3-schema-class',
 	shouldMatch: [
 		'const User = Schema.Struct({ id: Schema.String })',
-		'Schema.Struct({',
+		'Schema.Struct({})',
 		'export const Input = Schema.Struct ({ name: Schema.String })',
-		'const payload = Schema.Struct(\n  { query: Schema.String }\n)'
+		'const payload = Schema.Struct(\n  { query: Schema.String }\n)',
+		// Nested inside other constructs
+		'const nested = Schema.Array(Schema.Struct({ id: Schema.String }))'
 	],
 	shouldNotMatch: [
-		'class User extends Schema.Class<User>("User")({',
+		'class User extends Schema.Class<User>("User")({ id: Schema.String }) {}',
 		'Schema.String',
 		'Schema.Array(Schema.String)',
 		'// Schema.Struct should not be used',
-		'import * as Schema from "effect/Schema"'
+		'import * as Schema from "effect/Schema"',
+		// String-literal contents
+		'const msg = "prefer Schema.Class over Schema.Struct("',
+		'const tip = `use Schema.Struct({}) sparingly`',
+		// Different call: TaggedStruct is distinct
+		'Schema.TaggedStruct("tag", { id: Schema.String })'
 	]
 });

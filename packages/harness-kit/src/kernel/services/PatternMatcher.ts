@@ -165,6 +165,30 @@ const langFromPath = (value: string): Option.Option<Lang> =>
 		? Option.some(Lang.JavaScript)
 		: Option.none();
 
+type AstRoot = ReturnType<ReturnType<typeof parse>['root']>;
+
+// A detector matches if ANY of its patterns matches. This allows a single
+// pattern definition to target multiple distinct AST shapes (e.g. `new Date`
+// and `Date.$M()`, or `new Error` and `$A instanceof Error`).
+const astAnyMatches = (
+	root: AstRoot,
+	pattern: Pattern.AstDetector
+): boolean =>
+	pattern.patterns.some((candidate) => {
+		const nodes = pattern.inside === undefined
+			? root.findAll(candidate)
+			: root.findAll({
+				rule: {
+					pattern: candidate,
+					inside: {
+						pattern: pattern.inside,
+						stopBy: 'end'
+					}
+				}
+			});
+		return nodes.length > 0;
+	});
+
 const astMatches = (
 	pattern: Pattern.AstDetector,
 	source: string,
@@ -178,18 +202,7 @@ const astMatches = (
 				onSome: (lang) =>
 					Option.match(astRoot(lang, source), {
 						onNone: () => false,
-						onSome: (root) =>
-							(pattern.inside === undefined
-								? root.findAll(pattern.pattern)
-								: root.findAll({
-									rule: {
-										pattern: pattern.pattern,
-										inside: {
-											pattern: pattern.inside,
-											stopBy: 'end'
-										}
-									}
-								})).length > 0
+						onSome: (root) => astAnyMatches(root, pattern)
 					})
 			})
 	});

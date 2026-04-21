@@ -5,7 +5,8 @@ event: after
 name: avoid-mutable-state
 description: Prefer Ref over let bindings for mutable state in Effect services
 glob: '**/*.ts'
-pattern: \blet\s+\w+\s*[=:]
+detector: ast
+pattern: let $$$DECLS
 level: info
 ---
 

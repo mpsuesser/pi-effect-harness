@@ -5,7 +5,8 @@ event: after
 name: prefer-match-over-switch
 description: Use Match from Effect instead of native switch statements
 glob: '**/*.{ts,tsx}'
-pattern: \bswitch\s*\(
+detector: ast
+pattern: 'switch ($X) { $$$ }'
 level: warning
 suggestSkills:
     - effect-pattern-matching

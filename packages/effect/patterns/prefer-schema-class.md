@@ -5,7 +5,8 @@ event: after
 name: prefer-schema-class
 description: Use Schema.Class instead of Schema.Struct for object/domain schemas
 glob: '**/*.{ts,tsx}'
-pattern: Schema\.Struct\s*\(
+detector: ast
+pattern: Schema.Struct($$$)
 level: warning
 suggestSkills:
     - effect-domain-modeling

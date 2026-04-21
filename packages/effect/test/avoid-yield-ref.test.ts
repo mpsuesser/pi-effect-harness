@@ -16,6 +16,22 @@ testPattern({
 		'yield* Latch.await(latch)',
 		'yield* Effect.gen(function* () {})',
 		'yield* Stream.run(stream)',
-		'yield* Layer.build(layer)'
+		'yield* Layer.build(layer)',
+		// Method / property access on the bare name should NOT match.
+		// The old regex incorrectly flagged these because `\b` matches the
+		// `.` boundary. AST patterns match only bare yields of these names.
+		'const value = yield* ref.get()',
+		'const value = yield* deferred.await()',
+		'const value = yield* fiber.join()',
+		'const value = yield* latch.await()',
+		// Other variable names not in the set
+		'yield* myRef',
+		'yield* customFiber',
+		// String / template / comment content
+		"const msg = 'avoid yield* ref directly'",
+		'const doc = "use Ref.get instead of yield* ref"',
+		'const tmpl = `avoid yield* deferred`',
+		'// yield* ref is removed in v4',
+		'/* do not yield* fiber */ const x = 1'
 	]
 });

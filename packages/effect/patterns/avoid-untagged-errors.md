@@ -5,7 +5,10 @@ event: after
 name: avoid-untagged-errors
 description: Avoid instanceof Error and new Error for recoverable domain failures - use Schema.TaggedErrorClass for typed errors
 glob: '**/*.{ts,tsx}'
-pattern: (instanceof\s+Error|new\s+Error\s*\()
+detector: ast
+pattern:
+    - 'new Error($$$)'
+    - '$A instanceof Error'
 level: warning
 suggestSkills:
     - effect-error-handling

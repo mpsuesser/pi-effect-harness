@@ -5,7 +5,8 @@ event: after
 name: avoid-non-null-assertion
 description: Avoid using ! non-null assertion operator
 glob: '**/*.{ts,tsx}'
-pattern: [\w\)\]]\!\s*[;\.\[\(]
+detector: ast
+pattern: $A!
 level: warning
 ---
 

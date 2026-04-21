@@ -5,7 +5,8 @@ event: after
 name: use-random-service
 description: Use Random service instead of Math.random()
 glob: '**/*.{ts,tsx}'
-pattern: Math\.random\(\)
+detector: ast
+pattern: Math.random()
 level: warning
 suggestSkills:
     - effect-testing

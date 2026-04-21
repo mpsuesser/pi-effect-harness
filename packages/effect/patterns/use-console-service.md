@@ -5,7 +5,8 @@ event: after
 name: use-console-service
 description: Use Effect Console or Effect.log instead of console
 glob: '**/*.{ts,tsx}'
-pattern: console\.(log|error|warn|info|debug|trace)\(
+detector: ast
+pattern: console.$M($$$)
 level: warning
 suggestSkills:
     - effect-observability

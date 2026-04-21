@@ -68,23 +68,34 @@ const patternEvent = (value: Option.Option<string>): 'before' | 'after' =>
 			current.toLowerCase() === 'after' ? 'after' : 'before'
 	});
 
+// AST detectors may specify `pattern: <string>` or `pattern: [<string>, ...]`
+// in YAML frontmatter. Regex detectors always use a single string.
+const readPatternList = (
+	raw: unknown
+): Option.Option<ReadonlyArray<string>> => {
+	if (typeof raw === 'string') {
+		return Option.some([raw]);
+	}
+	return readStringArray(raw);
+};
+
 const toDetector = (
 	raw: Record<string, unknown>
 ): Option.Option<Pattern.RegexDetector | Pattern.AstDetector> => {
-	const pattern = stringOption(raw.pattern);
-	if (Option.isNone(pattern)) {
-		return Option.none();
-	}
-
 	const detector = Option.match(stringOption(raw.detector), {
 		onNone: () => 'regex',
 		onSome: (value) => (value === 'ast' ? 'ast' : 'regex')
 	});
+
 	if (detector === 'ast') {
+		const patterns = readPatternList(raw.pattern);
+		if (Option.isNone(patterns) || patterns.value.length === 0) {
+			return Option.none();
+		}
 		const inside = stringOption(raw.inside);
 		return Option.some(
 			new Pattern.AstDetector({
-				pattern: pattern.value,
+				patterns: patterns.value,
 				...(Option.isSome(inside)
 					? { inside: inside.value }
 					: undefined)
@@ -92,6 +103,10 @@ const toDetector = (
 		);
 	}
 
+	const pattern = stringOption(raw.pattern);
+	if (Option.isNone(pattern)) {
+		return Option.none();
+	}
 	return Option.isSome(regexOption(pattern.value))
 		? Option.some(
 			new Pattern.RegexDetector({
