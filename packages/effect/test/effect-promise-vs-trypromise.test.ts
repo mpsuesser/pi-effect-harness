@@ -22,6 +22,11 @@ testPattern({
 		'yield* promise(() => fetch())',
 		'yield* Effect.tryPromise({ try: () => api.call(), catch: (e) => new FetchError(e) })',
 		'yield* someOtherEffect',
-		'const p = yield* getPromise()'
+		'const p = yield* getPromise()',
+		// String / template / comment content
+		'const hint = "use yield* Effect.tryPromise"',
+		'const doc = `avoid yield* Effect.promise`',
+		'// yield* Effect.promise bypasses typed errors',
+		'/* yield* Effect.promise is a smell */ const x = 1'
 	]
 });

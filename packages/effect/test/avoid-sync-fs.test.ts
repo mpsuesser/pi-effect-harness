@@ -31,6 +31,13 @@ testPattern({
 		'FileSystem.exists(filepath)',
 		'FileSystem.remove(filepath)',
 		'// readFileSync is mentioned in comment',
-		'const readFileSync = customImplementation'
+		'const readFileSync = customImplementation',
+		// String / template / comment content mentioning sync methods
+		"const hint = 'avoid readFileSync()'",
+		'const doc = "use FileSystem.readFileString instead of fs.readFileSync"',
+		'const tmpl = `prefer async writeFileString over writeFileSync`',
+		'/* readFileSync is blocking */ const x = 1',
+		// Import statements mentioning the method
+		"import { readFileSync } from 'node:fs'"
 	]
 });

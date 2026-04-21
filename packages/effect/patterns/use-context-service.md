@@ -5,7 +5,8 @@ event: after
 name: use-context-service
 description: Use Context.Service instead of legacy ServiceMap.Service APIs
 glob: '**/*.ts'
-pattern: ServiceMap\.Service\s*[<(]
+detector: ast
+pattern: ServiceMap.Service
 level: warning
 suggestSkills:
     - effect-service-implementation

@@ -31,6 +31,13 @@ testPattern({
 		'const derived = Atom.map(sourceAtom, fn)',
 		'// useState is mentioned in a comment',
 		'const customUseState = () => {}',
-		'const useStateManager = createManager()'
+		'const useStateManager = createManager()',
+		// String / template / comment content mentioning hook names
+		"const hint = 'avoid useState in Effect apps'",
+		'const doc = "useEffect should not be used"',
+		'const tmpl = `migrate away from useMemo`',
+		'/* useRef is a react hook */ const x = 1',
+		// Imports of hooks (imports alone are not yet calls)
+		"import { useState } from 'react'"
 	]
 });

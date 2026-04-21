@@ -5,7 +5,30 @@ event: after
 name: avoid-sync-fs
 description: Avoid synchronous filesystem operations
 glob: '**/*.{ts,tsx}'
-pattern: (readFileSync|writeFileSync|mkdirSync|readdirSync|statSync|existsSync|copyFileSync|unlinkSync|rmdirSync|renameSync|appendFileSync)\s*\(
+detector: ast
+pattern:
+    - 'readFileSync($$$)'
+    - '$A.readFileSync($$$)'
+    - 'writeFileSync($$$)'
+    - '$A.writeFileSync($$$)'
+    - 'mkdirSync($$$)'
+    - '$A.mkdirSync($$$)'
+    - 'readdirSync($$$)'
+    - '$A.readdirSync($$$)'
+    - 'statSync($$$)'
+    - '$A.statSync($$$)'
+    - 'existsSync($$$)'
+    - '$A.existsSync($$$)'
+    - 'copyFileSync($$$)'
+    - '$A.copyFileSync($$$)'
+    - 'unlinkSync($$$)'
+    - '$A.unlinkSync($$$)'
+    - 'rmdirSync($$$)'
+    - '$A.rmdirSync($$$)'
+    - 'renameSync($$$)'
+    - '$A.renameSync($$$)'
+    - 'appendFileSync($$$)'
+    - '$A.appendFileSync($$$)'
 level: high
 suggestSkills:
     - effect-filesystem

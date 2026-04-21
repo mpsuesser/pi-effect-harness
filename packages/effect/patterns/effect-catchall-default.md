@@ -5,7 +5,12 @@ event: after
 name: effect-catchall-default
 description: Avoid broad Effect.catch defaults in domain logic - use catchTag unless this is an explicit boundary fallback
 glob: '**/*.{ts,tsx}'
-pattern: Effect\.catch\(.*?=>\s*(Effect\.)?(succeed|sync)\(
+detector: ast
+pattern:
+    - 'Effect.catch($X => Effect.succeed($$$))'
+    - 'Effect.catch($X => Effect.sync($$$))'
+    - 'Effect.catch($X => succeed($$$))'
+    - 'Effect.catch($X => sync($$$))'
 level: warning
 suggestSkills:
     - effect-error-handling

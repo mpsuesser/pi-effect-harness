@@ -16,14 +16,18 @@ testPattern({
 		'Effect.catch(()=> Effect.succeed(null))'
 	],
 	shouldNotMatch: [
-		"Effect.catchTag('NotFound', () => Effect.succeed(default))",
+		"Effect.catchTag('NotFound', () => Effect.succeed(fallback))",
 		'Effect.catch(() => Effect.fail(error))',
 		'Effect.catch(() => processError())',
-		'catchAllDefect(() => Effect.succeed(default))',
+		'catchAllDefect(() => Effect.succeed(fallback))',
 		'effect.catch',
-		'const catch = () => succeed(default)',
 		"Effect.catch(() => pipe(log('error'), Effect.flatMap(() => Effect.fail(error))))",
 		"catchTag('NotFound', () => createDefaultUser())",
-		"Effect.catch(() => Effect.gen(function*() { yield* log('error'); return yield* Effect.fail(error) }))"
+		"Effect.catch(() => Effect.gen(function*() { yield* log('error'); return yield* Effect.fail(error) }))",
+		// String / template / comment content
+		'const hint = "avoid Effect.catch((e) => Effect.succeed(x))"',
+		'const tmpl = `Effect.catch(() => Effect.sync(() => default))`',
+		'// Effect.catch(() => Effect.succeed(x)) hides errors',
+		'/* Effect.catch is noisy */ const x = 1'
 	]
 });

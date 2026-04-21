@@ -5,7 +5,10 @@ event: after
 name: stream-large-files
 description: Consider streaming large files instead of reading into memory
 glob: '**/*.{ts,tsx}'
-pattern: fs\.(readFile|readFileString)\s*\(
+detector: ast
+pattern:
+    - fs.readFile($$$)
+    - fs.readFileString($$$)
 level: info
 suggestSkills:
     - effect-stream

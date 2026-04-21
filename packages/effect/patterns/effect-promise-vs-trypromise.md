@@ -5,7 +5,10 @@ event: after
 name: effect-promise-vs-trypromise
 description: Use Effect.tryPromise instead of Effect.promise for error handling
 glob: '**/*.{ts,tsx}'
-pattern: yield\*\s+Effect\.promise
+detector: ast
+pattern:
+    - 'yield* Effect.promise($$$)'
+    - 'yield* Effect.promise'
 level: warning
 suggestSkills:
     - effect-error-handling
