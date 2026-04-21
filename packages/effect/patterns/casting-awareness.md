@@ -5,7 +5,8 @@ event: after
 name: casting-awareness
 description: Type assertions bypass the compiler — use type-safe alternatives
 glob: '**/*.{ts,tsx}'
-pattern: (?<!\*\s)\bas\s+(?!const\b)\w+
+detector: ast
+pattern: $A as $B
 level: info
 suggestSkills:
     - effect-domain-modeling
