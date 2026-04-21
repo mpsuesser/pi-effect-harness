@@ -31,8 +31,8 @@
     "./*": "./src/*"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.0-beta.50",
-    "effect": "4.0.0-beta.50",
+    "@effect/platform-node": "4.0.0-beta.52",
+    "effect": "4.0.0-beta.52",
     "pi-harness-kit": "workspace:*"
   },
   "devDependencies": {
