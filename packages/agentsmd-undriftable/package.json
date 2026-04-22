@@ -1,0 +1,23 @@
+{
+  "$schema": "https://www.schemastore.org/package.json",
+  "name": "agentsmd-undriftable",
+  "version": "0.1.0",
+  "description": "Deterministic AGENTS.md generator: procedurally extracts closures/types from TypeScript source via ts-morph and drift-links the output.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "amdu": "./src/cli.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "amdu": "bun src/cli.ts"
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "effect": "catalog:",
+    "ts-morph": "^24.0.0"
+  }
+}
