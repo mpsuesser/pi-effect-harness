@@ -6,14 +6,16 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "harnesses/*",
+    "sandboxes/*"
   ],
   "pi": {
     "extensions": [
-      "./packages/effect/src/index.ts"
+      "./harnesses/effect/src/index.ts"
     ],
     "skills": [
-      "./packages/effect/skills"
+      "./harnesses/effect/skills"
     ]
   },
   "scripts": {
@@ -27,17 +29,23 @@
   },
   "devDependencies": {
     "@effect/tsgo": "^0.4.0",
-    "@effect/vitest": "4.0.0-beta.52",
+    "@effect/vitest": "catalog:",
     "@mariozechner/pi-coding-agent": "^0.67.1",
-    "@types/bun": "^1.3.10",
+    "@types/bun": "^1.3.12",
     "@typescript/native-preview": "^7.0.0-dev.20260415.1",
     "dprint": "^0.49.0",
     "oxlint": "^1.58.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
   },
+  "catalog": {
+    "@ast-grep/napi": "^0.40.5",
+    "@effect/platform-node": "4.0.0-beta.52",
+    "@effect/vitest": "4.0.0-beta.52",
+    "effect": "4.0.0-beta.52"
+  },
   "overrides": {
     "effect": "4.0.0-beta.52"
   },
-  "packageManager": "bun@1.3.11"
+  "packageManager": "bun@1.3.12"
 }

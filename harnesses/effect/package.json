@@ -31,12 +31,12 @@
     "./*": "./src/*"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.0-beta.52",
-    "effect": "4.0.0-beta.52",
+    "@effect/platform-node": "catalog:",
+    "effect": "catalog:",
     "pi-harness-kit": "workspace:*"
   },
   "devDependencies": {
-    "@ast-grep/napi": "^0.40.5"
+    "@ast-grep/napi": "catalog:"
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*"

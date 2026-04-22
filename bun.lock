@@ -6,9 +6,9 @@
       "name": "pi-effect-enforcer",
       "devDependencies": {
         "@effect/tsgo": "^0.4.0",
-        "@effect/vitest": "4.0.0-beta.52",
+        "@effect/vitest": "catalog:",
         "@mariozechner/pi-coding-agent": "^0.67.1",
-        "@types/bun": "^1.3.10",
+        "@types/bun": "^1.3.12",
         "@typescript/native-preview": "^7.0.0-dev.20260415.1",
         "dprint": "^0.49.0",
         "oxlint": "^1.58.0",
@@ -20,12 +20,12 @@
       "name": "pi-effect-enforcer",
       "version": "0.1.0",
       "dependencies": {
-        "@effect/platform-node": "4.0.0-beta.52",
-        "effect": "4.0.0-beta.52",
+        "@effect/platform-node": "catalog:",
+        "effect": "catalog:",
         "pi-harness-kit": "workspace:*",
       },
       "devDependencies": {
-        "@ast-grep/napi": "^0.40.5",
+        "@ast-grep/napi": "catalog:",
       },
       "peerDependencies": {
         "@mariozechner/pi-coding-agent": "*",
@@ -35,9 +35,9 @@
       "name": "pi-harness-kit",
       "version": "0.1.0",
       "dependencies": {
-        "@ast-grep/napi": "^0.40.5",
-        "@effect/platform-node": "4.0.0-beta.52",
-        "effect": "4.0.0-beta.52",
+        "@ast-grep/napi": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "effect": "catalog:",
         "picomatch": "^4.0.3",
         "yaml": "^2.8.2",
       },
@@ -47,6 +47,12 @@
     },
   },
   "overrides": {
+    "effect": "4.0.0-beta.52",
+  },
+  "catalog": {
+    "@ast-grep/napi": "^0.40.5",
+    "@effect/platform-node": "4.0.0-beta.52",
+    "@effect/vitest": "4.0.0-beta.52",
     "effect": "4.0.0-beta.52",
   },
   "packages": {
