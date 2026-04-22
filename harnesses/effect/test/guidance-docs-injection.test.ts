@@ -1,5 +1,5 @@
 /**
- * Verifies that the guidance docs under packages/effect/guidance/ are
+ * Verifies that the guidance docs under harnesses/effect/guidance/ are
  * loaded once at layer construction and injected at the top of the policy
  * header that is delivered via Decision.InjectSystemPrompt on every
  * before_agent_start.

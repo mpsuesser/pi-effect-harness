@@ -28,7 +28,10 @@
         "diagnosticSeverity": {},
         "overrides": [
           {
-            "include": ["packages/*/src/**/*.ts"],
+            "include": [
+              "packages/*/src/**/*.ts",
+              "harnesses/*/src/**/*.ts"
+            ],
             "options": {
               "diagnosticSeverity": {
                 "floatingEffect": "error"
@@ -46,6 +49,11 @@
     "useUnknownInCatchVariables": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["packages/*/src", "packages/*/test"],
+  "include": [
+    "packages/*/src",
+    "packages/*/test",
+    "harnesses/*/src",
+    "harnesses/*/test"
+  ],
   "exclude": ["node_modules"]
 }
