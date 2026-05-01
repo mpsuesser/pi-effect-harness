@@ -48,7 +48,7 @@ The first time you enable `/effect` in a project, the harness clones `effect-smo
 .references/
 ```
 
-**Peer requirement:** `@mariozechner/pi-coding-agent` (any version). The harness depends on `effect@4.0.0-beta.52` and `@effect/platform-node` from npm.
+**Peer requirement:** `@mariozechner/pi-coding-agent` (any version). The harness depends on `effect@4.0.0-beta.59` and `@effect/platform-node` from npm.
 
 ---
 
@@ -195,7 +195,7 @@ The `suggestedSkills` field is appended to the matched-pattern feedback as: *"If
 
 Effect v4 is moving fast. Beta releases ship with API renames in nearly every minor (`catchAll → catch`, `parseJson → fromJsonString`, `Either → Result`, `compose → decodeTo`, the entire `*FromSelf` suffix removal, etc.). The most reliable way to keep an agent honest is to give it the source.
 
-On the first `tool_call` in `/effect` mode, `EnsureReferenceClone` runs `git clone --depth 1 --branch effect@<version>` of `Effect-TS/effect-smol` into `.references/effect-v4.cloning/`, writes a `.pi-effect-harness-version` marker file, and atomically renames into place. The version is detected by reading `node_modules/effect/package.json` (falling back to `4.0.0-beta.52` if absent).
+On the first `tool_call` in `/effect` mode, `EnsureReferenceClone` runs `git clone --depth 1 --branch effect@<version>` of `Effect-TS/effect-smol` into `.references/effect-v4.cloning/`, writes a `.pi-effect-harness-version` marker file, and atomically renames into place. The version is detected by reading `node_modules/effect/package.json` (falling back to `4.0.0-beta.59` if absent).
 
 Properties:
 
@@ -378,7 +378,7 @@ Each pattern's full markdown body — usually a Haskell-style transformation dia
 
 ### Effect version detection
 
-`EffectVersion.refresh(cwd)` reads `node_modules/effect/package.json` and falls back to `4.0.0-beta.52`. The detected version is used as the `effect@<version>` git tag for the reference clone. Refreshing the version (which happens on `session_start`, `session_tree`, and `before_agent_start`) does not in itself trigger a reclone; the clone hook compares the marker file to the new version and only reclones on mismatch.
+`EffectVersion.refresh(cwd)` reads `node_modules/effect/package.json` and falls back to `4.0.0-beta.59`. The detected version is used as the `effect@<version>` git tag for the reference clone. Refreshing the version (which happens on `session_start`, `session_tree`, and `before_agent_start`) does not in itself trigger a reclone; the clone hook compares the marker file to the new version and only reclones on mismatch.
 
 ### Reference clone location
 
@@ -408,7 +408,7 @@ Matches an `Effect` identifier or any `from "effect..."` import. The gate is int
 
 ## Caveats
 
-- **Beta on beta.** Effect v4 is itself in beta (pinned to `4.0.0-beta.52`), and so is this harness. Pin both deliberately. The reference clone tracks whichever Effect version your project installs, so v4 ABI churn won't break the agent's ability to read accurate sources.
+- **Beta on beta.** Effect v4 is itself in beta (pinned to `4.0.0-beta.59`), and so is this harness. Pin both deliberately. The reference clone tracks whichever Effect version your project installs, so v4 ABI churn won't break the agent's ability to read accurate sources.
 - **The patterns are tripwires, not a linter.** They catch the common v3 → v4 confusions and the most expensive-to-debug Effect-specific mistakes. They do not replace `bun run check && bun run test`. Treat a clean pattern run as "the agent didn't trigger the obvious traps," not as "the code is correct."
 - **The skill gate is branch-scoped, not session-scoped.** `/compact`, `/fork`, and `/clone` reset the loaded-skill set. This is deliberate: post-compaction, the agent has a smaller working memory, and re-establishing the relevant skill context is cheaper than letting it write Effect code from a partial summary.
 - **First activation requires git on PATH and network access.** If the clone fails, the harness continues without it; the agent will still be told the paths exist and will get a "file not found" if it tries to read them. Re-toggling `/effect` retries.

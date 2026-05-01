@@ -42,12 +42,12 @@
   },
   "catalog": {
     "@ast-grep/napi": "^0.40.5",
-    "@effect/platform-node": "4.0.0-beta.52",
-    "@effect/vitest": "4.0.0-beta.52",
-    "effect": "4.0.0-beta.52"
+    "@effect/platform-node": "4.0.0-beta.59",
+    "@effect/vitest": "4.0.0-beta.59",
+    "effect": "4.0.0-beta.59"
   },
   "overrides": {
-    "effect": "4.0.0-beta.52"
+    "effect": "4.0.0-beta.59"
   },
   "packageManager": "bun@1.3.12"
 }
