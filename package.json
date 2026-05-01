@@ -25,6 +25,8 @@
     "test": "vitest run",
     "typecheck": "tsgo",
     "check": "dprint fmt && oxlint -c oxlintrc.json && tsgo",
+    "build:publishable": "bun run scripts/build-publishable.ts",
+    "publish:dry": "bun run scripts/build-publishable.ts && cd harnesses/effect/dist && bun publish --dry-run",
     "prepare": "effect-tsgo patch"
   },
   "devDependencies": {

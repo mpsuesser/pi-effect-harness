@@ -26,10 +26,6 @@
     "LICENSE"
   ],
   "type": "module",
-  "scripts": {
-    "build:publishable": "bun run scripts/build-publishable.ts",
-    "publish:dry": "bun run scripts/build-publishable.ts && cd dist && bun publish --dry-run"
-  },
   "exports": {
     ".": "./src/index.ts",
     "./*": "./src/*"

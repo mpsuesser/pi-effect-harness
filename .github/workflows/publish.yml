@@ -27,7 +27,6 @@ jobs:
               run: bun run typecheck
 
             - name: Build publishable tarball
-              working-directory: harnesses/effect
               run: bun run build:publishable
 
             - name: Configure npm auth

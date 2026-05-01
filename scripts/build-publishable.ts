@@ -17,13 +17,13 @@
  *   - writes a `dist/package.json` with `pi-harness-kit` removed from
  *     `dependencies` and the dev/script fields stripped
  *
- * Run from the harness package directory:
+ * Run from the workspace root:
  *
- *   bun run scripts/build-publishable.ts
+ *   bun run build:publishable
  *
- * Then publish from inside `dist/`:
+ * Then publish from inside the dist directory:
  *
- *   cd dist && bun publish --provenance --access public
+ *   cd harnesses/effect/dist && bun publish --access public
  *
  * This script intentionally uses raw `node:fs` rather than Effect — it is
  * meta-tooling that runs outside any harness runtime.
@@ -33,8 +33,8 @@ import { existsSync } from 'node:fs';
 import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 
-const HARNESS_DIR = new URL('..', import.meta.url).pathname;
-const WORKSPACE_ROOT = new URL('../../..', import.meta.url).pathname;
+const WORKSPACE_ROOT = new URL('..', import.meta.url).pathname;
+const HARNESS_DIR = join(WORKSPACE_ROOT, 'harnesses/effect');
 const KERNEL_SRC = join(WORKSPACE_ROOT, 'packages/harness-kit/src');
 
 const DIST_DIR = join(HARNESS_DIR, 'dist');
