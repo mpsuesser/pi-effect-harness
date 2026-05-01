@@ -6,7 +6,11 @@ name: avoid-direct-tag-checks
 description: Avoid direct _tag property checks; use exported refinements/predicates
 glob: '**/*.{ts,tsx}'
 detector: ast
-pattern: $A._tag === $B
+rule:
+    any:
+        - pattern: $A._tag === $B
+        - pattern: $A._tag !== $B
+        - pattern: switch ($A._tag) { $$$ }
 level: warning
 suggestSkills:
     - effect-pattern-matching

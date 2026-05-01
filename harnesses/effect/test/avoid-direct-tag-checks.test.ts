@@ -7,7 +7,9 @@ testPattern({
 		"if (event._tag === 'FactRecorded')",
 		'event._tag === "QuestionAsked"',
 		"return obj._tag === 'Success'",
-		"const isMatch = result._tag === 'Error'"
+		"const isMatch = result._tag === 'Error'",
+		"if (event._tag !== 'FactRecorded')",
+		'switch (event._tag) { case "Created": return 1 }'
 	],
 	shouldNotMatch: [
 		"const _tag = 'FactRecorded'",
@@ -20,9 +22,8 @@ testPattern({
 		'const tmpl = `use $is instead of x._tag ===`',
 		'// avoid event._tag === checks',
 		'/* x._tag === "A" is a smell */ const y = 1',
-		// Other comparisons on _tag that are not strict-equality against literal
-		'event._tag !== "A"',
-		// `!==` is also manual but this pattern targets `===` specifically
+		'event.kind !== "A"',
+		'switch (event.kind) { case "Created": return 1 }',
 		'Match.tag("Created", handler)'
 	]
 });
