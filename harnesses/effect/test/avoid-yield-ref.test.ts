@@ -7,7 +7,11 @@ testPattern({
 		'const value = yield* ref',
 		'yield* deferred',
 		'yield* fiber',
-		'yield* latch'
+		'yield* latch',
+		'yield* userRef',
+		'yield* completionDeferred',
+		'yield* workerFiber',
+		'yield* startLatch'
 	],
 	shouldNotMatch: [
 		'yield* Ref.get(ref)',
@@ -24,9 +28,14 @@ testPattern({
 		'const value = yield* deferred.await()',
 		'const value = yield* fiber.join()',
 		'const value = yield* latch.await()',
+		'yield* Ref.get(userRef)',
+		'yield* Deferred.await(completionDeferred)',
+		'yield* Fiber.join(workerFiber)',
+		'yield* Latch.await(startLatch)',
 		// Other variable names not in the set
-		'yield* myRef',
-		'yield* customFiber',
+		'yield* reference',
+		'yield* preference',
+		'yield* someEffect',
 		// String / template / comment content
 		"const msg = 'avoid yield* ref directly'",
 		'const doc = "use Ref.get instead of yield* ref"',

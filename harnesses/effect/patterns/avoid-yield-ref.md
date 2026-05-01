@@ -6,11 +6,11 @@ name: avoid-yield-ref
 description: Do not yield* Ref/Deferred/Fiber/Latch directly — use explicit method calls
 glob: '**/*.ts'
 detector: ast
-pattern:
-    - 'yield* ref'
-    - 'yield* deferred'
-    - 'yield* fiber'
-    - 'yield* latch'
+rule:
+    pattern: yield* $RESOURCE
+constraints:
+    RESOURCE:
+        regex: '(^ref$|Ref$|^deferred$|Deferred$|^fiber$|Fiber$|^latch$|Latch$)'
 level: warning
 suggestSkills:
     - effect-schema-v4
