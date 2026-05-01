@@ -22,7 +22,7 @@
 
 ## What it does
 
-When `/effect` mode is enabled in the active Pi session:
+When `/toggle-effect-harness` mode is enabled in the active Pi session:
 
 - A gold `effect` badge appears in the Pi footer; mode state persists per-project.
 - The system prompt is augmented every turn with `effect-first-development.md` (40+ rules covering errors, schemas, layers, services, retries, timeouts, structured concurrency, and observability), a progressive-disclosure agent rules doc, and a "loaded *N*/7 effect-\* skills on this branch" preview.
@@ -30,7 +30,7 @@ When `/effect` mode is enabled in the active Pi session:
 - After every successful write, the post-write file is matched against 46 pattern detectors. Matches are sorted by severity and replied back to the agent in-band as a single user message — including the pattern's transformation guidance and a hint to load any suggested skills.
 - A shallow clone of [`Effect-TS/effect-smol`](https://github.com/Effect-TS/effect-smol) is maintained at `.references/effect-v4/`, pinned to the tag matching your project's installed `effect` version. The agent reads from it to verify v4 APIs instead of guessing.
 
-Everything else about your Pi session is unchanged. Toggle `/effect` off and the harness disengages cleanly — the system prompt reverts on the next turn, the gate stops firing, and the pattern loop stops emitting feedback.
+Everything else about your Pi session is unchanged. Toggle `/toggle-effect-harness` off and the harness disengages cleanly — the system prompt reverts on the next turn, the gate stops firing, and the pattern loop stops emitting feedback.
 
 ---
 
@@ -56,7 +56,7 @@ The first time you enable `/effect` in a project, the harness clones `effect-smo
 
 | | |
 |---|---|
-| Toggle | `/effect` (interactive), or via Pi's mode toggle UI |
+| Toggle | `/toggle-effect-harness` (interactive), or via Pi's mode toggle UI |
 | Status | Gold `effect` badge in the footer |
 | Persistence | Project (`.pi/` under cwd); survives session restart |
 | Activation cost | First time per project: shallow clone of `effect-smol` |
@@ -195,7 +195,7 @@ The `suggestedSkills` field is appended to the matched-pattern feedback as: *"If
 
 Effect v4 is moving fast. Beta releases ship with API renames in nearly every minor (`catchAll → catch`, `parseJson → fromJsonString`, `Either → Result`, `compose → decodeTo`, the entire `*FromSelf` suffix removal, etc.). The most reliable way to keep an agent honest is to give it the source.
 
-On the first `tool_call` in `/effect` mode, `EnsureReferenceClone` runs `git clone --depth 1 --branch effect@<version>` of `Effect-TS/effect-smol` into `.references/effect-v4.cloning/`, writes a `.pi-effect-harness-version` marker file, and atomically renames into place. The version is detected by reading `node_modules/effect/package.json` (falling back to `4.0.0-beta.59` if absent).
+On the first `tool_call` after enabling `/toggle-effect-harness`, `EnsureReferenceClone` runs `git clone --depth 1 --branch effect@<version>` of `Effect-TS/effect-smol` into `.references/effect-v4.cloning/`, writes a `.pi-effect-harness-version` marker file, and atomically renames into place. The version is detected by reading `node_modules/effect/package.json` (falling back to `4.0.0-beta.59` if absent).
 
 Properties:
 
@@ -411,7 +411,7 @@ Matches an `Effect` identifier or any `from "effect..."` import. The gate is int
 - **Beta on beta.** Effect v4 is itself in beta (pinned to `4.0.0-beta.59`), and so is this harness. Pin both deliberately. The reference clone tracks whichever Effect version your project installs, so v4 ABI churn won't break the agent's ability to read accurate sources.
 - **The patterns are tripwires, not a linter.** They catch the common v3 → v4 confusions and the most expensive-to-debug Effect-specific mistakes. They do not replace `bun run check && bun run test`. Treat a clean pattern run as "the agent didn't trigger the obvious traps," not as "the code is correct."
 - **The skill gate is branch-scoped, not session-scoped.** `/compact`, `/fork`, and `/clone` reset the loaded-skill set. This is deliberate: post-compaction, the agent has a smaller working memory, and re-establishing the relevant skill context is cheaper than letting it write Effect code from a partial summary.
-- **First activation requires git on PATH and network access.** If the clone fails, the harness continues without it; the agent will still be told the paths exist and will get a "file not found" if it tries to read them. Re-toggling `/effect` retries.
+- **First activation requires git on PATH and network access.** If the clone fails, the harness continues without it; the agent will still be told the paths exist and will get a "file not found" if it tries to read them. Re-toggling `/toggle-effect-harness` retries.
 - **The pattern-feedback loop runs after every successful write.** On a large refactor the agent may receive several pattern-feedback messages in a row. This is by design — each one is severity-sorted and de-duplicated, but the rate is determined by the rate of writes.
 
 ---

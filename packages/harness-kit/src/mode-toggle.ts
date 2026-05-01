@@ -24,6 +24,15 @@ export interface CreateModeToggleOptions {
 	readonly description?: string;
 	readonly enabledLabel?: string;
 	readonly disabledLabel?: string;
+	/**
+	 * If provided, register a Pi slash command whose handler toggles this mode.
+	 * Use this when the harness should be self-sufficient and not rely on an
+	 * external mode-toggler extension to expose the toggle UI.
+	 */
+	readonly slashCommand?: {
+		readonly name: string;
+		readonly description?: string;
+	};
 	readonly onChange?: (enabled: boolean, ctx: ExtensionContext) => void;
 }
 
@@ -152,5 +161,18 @@ export const createModeToggle = (
 	};
 
 	emitRegistration();
+
+	if (options.slashCommand !== undefined) {
+		const commandDescription = options.slashCommand.description
+			?? `Toggle ${name} mode`;
+		pi.registerCommand(options.slashCommand.name, {
+			description: commandDescription,
+			handler: (_args, ctx) => {
+				mode.toggle(ctx);
+				return Promise.resolve();
+			}
+		});
+	}
+
 	return mode;
 };

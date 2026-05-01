@@ -33,6 +33,9 @@ const EFFECT_MODE_COLOR = '#d4af37';
 const EFFECT_MODE_DESCRIPTION =
 	'Enable Effect v4 guidance, skill gating, and pattern checks';
 const EFFECT_MODE_PERSISTENCE_SCOPE: ModePersistence.Scope = 'project';
+const EFFECT_MODE_SLASH_COMMAND = 'toggle-effect-harness';
+const EFFECT_MODE_SLASH_COMMAND_DESCRIPTION =
+	'Toggle the pi-effect-harness Effect v4 mode (skill gating, policy header, pattern feedback)';
 
 type DecisionValue = Schema.Schema.Type<typeof Decision.Value>;
 
@@ -132,6 +135,10 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 		color: EFFECT_MODE_COLOR,
 		statusText: EFFECT_STATUS,
 		description: EFFECT_MODE_DESCRIPTION,
+		slashCommand: {
+			name: EFFECT_MODE_SLASH_COMMAND,
+			description: EFFECT_MODE_SLASH_COMMAND_DESCRIPTION
+		},
 		onChange: (enabled, ctx) => {
 			void syncModeState(enabled);
 			void savePersistedModeState(
