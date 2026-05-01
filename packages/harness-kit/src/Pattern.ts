@@ -38,6 +38,16 @@ export namespace Pattern {
 
 	export const Detector = Schema.Union([RegexDetector, AstDetector]);
 
+	export class MatchLocation extends Schema.Class<MatchLocation>(
+		'PatternMatchLocation'
+	)({
+		start: Schema.Number,
+		end: Schema.Number,
+		line: Schema.Number,
+		column: Schema.Number,
+		snippet: Schema.String
+	}) {}
+
 	export class Value extends Schema.Class<Value>('Pattern')({
 		name: Schema.String,
 		description: Schema.String,

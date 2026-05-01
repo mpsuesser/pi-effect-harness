@@ -146,13 +146,51 @@ const globMatches = (
 	});
 };
 
-const regexMatches = (
+const globalRegex = (regex: RegExp): RegExp =>
+	new RegExp(
+		regex.source,
+		regex.flags.includes('g') ? regex.flags : `${regex.flags}g`
+	);
+
+const locationFromSpan = (
+	source: string,
+	start: number,
+	end: number
+): Pattern.MatchLocation => {
+	const before = source.slice(0, start);
+	const line = before.split('\n').length;
+	const previousLineBreak = before.lastIndexOf('\n');
+	const lineStart = previousLineBreak === -1 ? 0 : previousLineBreak + 1;
+	const snippet = source.slice(start, end).split('\n')[0] ?? '';
+	return new Pattern.MatchLocation({
+		start,
+		end,
+		line,
+		column: start - lineStart + 1,
+		snippet: snippet.trim()
+	});
+};
+
+const regexMatchLocations = (
 	pattern: Pattern.RegexDetector,
-	source: string
-): boolean =>
+	source: string,
+	originalSource: string
+): ReadonlyArray<Pattern.MatchLocation> =>
 	Option.match(regexOption(pattern.pattern), {
-		onNone: () => false,
-		onSome: (regex) => regex.test(source)
+		onNone: () => [],
+		onSome: (regex) =>
+			[...source.matchAll(globalRegex(regex))].flatMap((match) => {
+				if (typeof match.index !== 'number' || match[0].length === 0) {
+					return [];
+				}
+				return [
+					locationFromSpan(
+						originalSource,
+						match.index,
+						match.index + match[0].length
+					)
+				];
+			})
 	});
 
 const langFromPath = (value: string): Option.Option<Lang> =>
@@ -174,10 +212,21 @@ const astFindAll = Option.liftThrowable((root: AstRoot, matcher: AstMatcher) =>
 	root.findAll(matcher)
 );
 
-const hasAstNodes = (root: AstRoot, matcher: AstMatcher): boolean =>
+const astMatcherLocations = (
+	root: AstRoot,
+	matcher: AstMatcher,
+	source: string
+): ReadonlyArray<Pattern.MatchLocation> =>
 	Option.match(astFindAll(root, matcher), {
-		onNone: () => false,
-		onSome: (nodes) => nodes.length > 0
+		onNone: () => [],
+		onSome: (nodes) =>
+			nodes.map((node) =>
+				locationFromSpan(
+					source,
+					node.range().start.index,
+					node.range().end.index
+				)
+			)
 	});
 
 const astRuleMatcher = (rule: AstGrepRuleDefinition): NapiConfig => ({ rule });
@@ -201,59 +250,70 @@ const legacyAstMatcher = (
 			}
 		};
 
-const astAnyMatches = (
+const astMatchLocationsForRoot = (
 	root: AstRoot,
-	pattern: Pattern.AstDetector
-): boolean =>
-	pattern.patterns.some((candidate) =>
-		hasAstNodes(root, legacyAstMatcher(pattern, candidate))
-	) ||
-	(pattern.rules ?? []).some((rule) =>
-		hasAstNodes(root, astRuleMatcher(rule))
-	);
+	pattern: Pattern.AstDetector,
+	source: string
+): ReadonlyArray<Pattern.MatchLocation> => [
+	...pattern.patterns.flatMap((candidate) =>
+		astMatcherLocations(root, legacyAstMatcher(pattern, candidate), source)
+	),
+	...(pattern.rules ?? []).flatMap((rule) =>
+		astMatcherLocations(root, astRuleMatcher(rule), source)
+	)
+];
 
-const astMatches = (
+const astMatchLocations = (
 	pattern: Pattern.AstDetector,
 	source: string,
 	projection: MatcherInput.Value
-): boolean =>
+): ReadonlyArray<Pattern.MatchLocation> =>
 	Option.match(filePath(projection), {
-		onNone: () => false,
+		onNone: () => [],
 		onSome: (value) =>
 			Option.match(langFromPath(value), {
-				onNone: () => false,
+				onNone: () => [],
 				onSome: (lang) =>
 					Option.match(astRoot(lang, source), {
-						onNone: () => false,
-						onSome: (root) => astAnyMatches(root, pattern)
+						onNone: () => [],
+						onSome: (root) =>
+							astMatchLocationsForRoot(root, pattern, source)
 					})
 			})
 	});
 
-export const matchesPattern = (
+export const findPatternMatches = (
 	toolName: string,
 	projection: MatcherInput.Value,
 	eventType: 'before' | 'after',
 	pattern: Pattern.Value
-): boolean => {
+): ReadonlyArray<Pattern.MatchLocation> => {
 	const content = matchableContent(projection);
 	if (
 		pattern.event !== eventType ||
 		!toolMatches(pattern, toolName) ||
 		!globMatches(pattern, projection)
 	) {
-		return false;
+		return [];
 	}
 
 	if (pattern.detector instanceof Pattern.AstDetector) {
-		return astMatches(pattern.detector, content, projection);
+		return astMatchLocations(pattern.detector, content, projection);
 	}
 
 	const source = pattern.detector.matchInComments
 		? content
 		: stripComments(content);
-	return regexMatches(pattern.detector, source);
+	return regexMatchLocations(pattern.detector, source, content);
 };
+
+export const matchesPattern = (
+	toolName: string,
+	projection: MatcherInput.Value,
+	eventType: 'before' | 'after',
+	pattern: Pattern.Value
+): boolean =>
+	findPatternMatches(toolName, projection, eventType, pattern).length > 0;
 
 export namespace PatternMatcher {
 	export interface Interface {
@@ -263,6 +323,12 @@ export namespace PatternMatcher {
 			eventType: 'before' | 'after',
 			pattern: Pattern.Value
 		) => Effect.Effect<boolean>;
+		readonly findMatches: (
+			toolName: string,
+			projection: MatcherInput.Value,
+			eventType: 'before' | 'after',
+			pattern: Pattern.Value
+		) => Effect.Effect<ReadonlyArray<Pattern.MatchLocation>>;
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
@@ -279,6 +345,14 @@ export namespace PatternMatcher {
 				pattern: Pattern.Value
 			) => Effect.succeed(
 				matchesPattern(toolName, projection, eventType, pattern)
+			),
+			findMatches: (
+				toolName: string,
+				projection: MatcherInput.Value,
+				eventType: 'before' | 'after',
+				pattern: Pattern.Value
+			) => Effect.succeed(
+				findPatternMatches(toolName, projection, eventType, pattern)
 			)
 		})
 	);
