@@ -37,7 +37,7 @@ export namespace RuleCatalog {
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
-		'pi-effect-enforcer/kernel/RuleCatalog'
+		'pi-effect-harness/kernel/RuleCatalog'
 	) {}
 
 	export const layer = Layer.succeed(

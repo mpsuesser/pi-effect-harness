@@ -372,7 +372,7 @@ export namespace PatternMatcher {
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
-		'pi-effect-enforcer/kernel/PatternMatcher'
+		'pi-effect-harness/kernel/PatternMatcher'
 	) {}
 
 	export const layer = Layer.succeed(

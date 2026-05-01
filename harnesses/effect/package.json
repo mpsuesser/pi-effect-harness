@@ -1,21 +1,21 @@
 {
   "$schema": "https://www.schemastore.org/package.json",
-  "name": "pi-effect-enforcer",
+  "name": "pi-effect-harness",
   "version": "0.1.0",
   "description": "a harness specifically for writing Effect v4 code",
   "keywords": [
     "pi-extension",
     "pi-package"
   ],
-  "homepage": "https://github.com/mpsuesser/pi-effect-enforcer#readme",
+  "homepage": "https://github.com/mpsuesser/pi-effect-harness#readme",
   "bugs": {
-    "url": "https://github.com/mpsuesser/pi-effect-enforcer/issues"
+    "url": "https://github.com/mpsuesser/pi-effect-harness/issues"
   },
   "license": "MIT",
   "author": "Marc Suesser",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mpsuesser/pi-effect-enforcer.git"
+    "url": "https://github.com/mpsuesser/pi-effect-harness.git"
   },
   "files": [
     "src",

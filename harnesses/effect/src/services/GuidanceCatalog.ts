@@ -66,7 +66,7 @@ export const buildPolicyHeader = (
 		? `${preview.join(', ')} (+${String(remaining)} more)`
 		: preview.join(', ');
 	return [
-		'pi-effect-enforcer policy:',
+		'pi-effect-harness policy:',
 		`- Before planning or writing Effect code, read at least ${
 			String(MIN_EFFECT_SKILLS)
 		} relevant effect-* skills. Loaded on this branch: ${
@@ -80,7 +80,7 @@ export const buildPolicyHeader = (
 export const buildSkillGateReason = (loadedCount: number): string => {
 	const missing = Math.max(0, MIN_EFFECT_SKILLS - loadedCount);
 	return [
-		`pi-effect-enforcer blocked this write because it looks like Effect code and only ${
+		`pi-effect-harness blocked this write because it looks like Effect code and only ${
 			String(loadedCount)
 		}/${
 			String(MIN_EFFECT_SKILLS)
@@ -113,7 +113,7 @@ export const buildPatternFeedbackMessage = (
 		onSome: (value) => `File: \`${value}\``
 	});
 	return [
-		'pi-effect-enforcer review request:',
+		'pi-effect-harness review request:',
 		pathLine,
 		'',
 		'I noticed potential Effect-pattern issues in the write you just completed.',
@@ -186,7 +186,7 @@ export namespace GuidanceCatalog {
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
-		'pi-effect-enforcer/effect/GuidanceCatalog'
+		'pi-effect-harness/effect/GuidanceCatalog'
 	) {}
 
 	export const layer = (guidanceDir: string) =>

@@ -20,7 +20,7 @@ const execFileAsync = promisify(execFile);
 /** Shared promise to prevent concurrent clone operations. */
 let clonePromise: Promise<void> | null = null;
 
-const VERSION_FILE = '.pi-effect-enforcer-version';
+const VERSION_FILE = '.pi-effect-harness-version';
 
 /**
  * Read the version marker written by this extension after a successful clone.

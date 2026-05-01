@@ -9,7 +9,7 @@ export namespace SkillIndexEntry {
 	}) {}
 
 	export class Current extends Context.Service<Current, Value>()(
-		'pi-effect-enforcer/SkillIndexEntry/Current'
+		'pi-effect-harness/SkillIndexEntry/Current'
 	) {}
 
 	export const layer = (value: Value) =>

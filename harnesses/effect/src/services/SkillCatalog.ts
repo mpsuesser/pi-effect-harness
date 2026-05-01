@@ -68,7 +68,7 @@ export namespace SkillCatalog {
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
-		'pi-effect-enforcer/effect/SkillCatalog'
+		'pi-effect-harness/effect/SkillCatalog'
 	) {}
 
 	export const layer = Layer.effect(

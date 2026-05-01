@@ -1,8 +1,8 @@
 {
   "$schema": "https://www.schemastore.org/package.json",
-  "name": "pi-effect-enforcer-workspace",
+  "name": "pi-effect-harness-workspace",
   "version": "0.1.0",
-  "description": "workspace root for the pi-effect-enforcer extension and the pi-harness-kit library",
+  "description": "workspace root for the pi-effect-harness extension and the pi-harness-kit library",
   "private": true,
   "type": "module",
   "workspaces": [

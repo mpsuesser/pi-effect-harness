@@ -10,7 +10,7 @@ export namespace EffectVersion {
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
-		'pi-effect-enforcer/effect/EffectVersion'
+		'pi-effect-harness/effect/EffectVersion'
 	) {}
 
 	export const layer = Layer.effect(

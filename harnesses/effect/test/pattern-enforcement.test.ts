@@ -93,7 +93,7 @@ describe('pattern feedback policy', () => {
 
 	it.live('loads and matches full ast-grep rule object detectors', () =>
 		withTempFile(
-			'pi-effect-enforcer-ast-rule-patterns-',
+			'pi-effect-harness-ast-rule-patterns-',
 			'full-rule.md',
 			[
 				'---',
@@ -158,7 +158,7 @@ describe('pattern feedback policy', () => {
 
 	it.live('honors pattern ignoreGlob entries', () =>
 		withTempFile(
-			'pi-effect-enforcer-ignore-glob-patterns-',
+			'pi-effect-harness-ignore-glob-patterns-',
 			'ignore-rule.md',
 			[
 				'---',
@@ -271,7 +271,7 @@ describe('buildPatternFeedbackMessage', () => {
 				Option.some('src/example.ts')
 			);
 
-			expect(message).toContain('pi-effect-enforcer review request:');
+			expect(message).toContain('pi-effect-harness review request:');
 			expect(message).toContain('File: `src/example.ts`');
 			expect(message).toContain(
 				'If you believe it is a false positive or an intentional exception, briefly say so and continue with your work.'
@@ -285,7 +285,7 @@ describe('buildPatternFeedbackMessage', () => {
 describe('prospective output pattern matching', () => {
 	it.live('does not match avoid-node-imports when node imports are being removed', () =>
 		withTempFile(
-			'pi-effect-enforcer-patterns-',
+			'pi-effect-harness-patterns-',
 			'src/app.ts',
 			"import * as fs from 'node:fs';\nexport const value = 1;\n",
 			({ cwd, filePath }) =>
@@ -307,7 +307,7 @@ describe('prospective output pattern matching', () => {
 
 	it.live('does not match avoid-react-hooks when hooks are being removed', () =>
 		withTempFile(
-			'pi-effect-enforcer-patterns-',
+			'pi-effect-harness-patterns-',
 			'src/app.ts',
 			[
 				"import { useState } from 'react';",
@@ -335,7 +335,7 @@ describe('prospective output pattern matching', () => {
 
 	it.live('does not match avoid-direct-json when JSON.parse is being removed', () =>
 		withTempFile(
-			'pi-effect-enforcer-patterns-',
+			'pi-effect-harness-patterns-',
 			'src/app.ts',
 			'const parsed = JSON.parse(raw);\n',
 			({ cwd, filePath }) =>
@@ -357,7 +357,7 @@ describe('prospective output pattern matching', () => {
 
 	it.live('matches avoid-node-imports when generic node imports are added', () =>
 		withTempFile(
-			'pi-effect-enforcer-patterns-',
+			'pi-effect-harness-patterns-',
 			'src/app.ts',
 			'export const value = 1;\n',
 			({ cwd, filePath }) =>
@@ -380,7 +380,7 @@ describe('prospective output pattern matching', () => {
 
 	it.live('matches avoid-react-hooks when hooks are added', () =>
 		withTempFile(
-			'pi-effect-enforcer-patterns-',
+			'pi-effect-harness-patterns-',
 			'src/app.ts',
 			'const Component = () => 1;\n',
 			({ cwd, filePath }) =>
@@ -403,7 +403,7 @@ describe('prospective output pattern matching', () => {
 
 	it.live('matches avoid-direct-json when JSON.parse is added', () =>
 		withTempFile(
-			'pi-effect-enforcer-patterns-',
+			'pi-effect-harness-patterns-',
 			'src/app.ts',
 			'const parsed = raw;\n',
 			({ cwd, filePath }) =>
@@ -425,7 +425,7 @@ describe('prospective output pattern matching', () => {
 
 	it.live('ignores pre-existing matches outside changed edit spans', () =>
 		withTempFile(
-			'pi-effect-enforcer-patterns-',
+			'pi-effect-harness-patterns-',
 			'src/app.ts',
 			[
 				"import * as fs from 'node:fs';",
@@ -450,7 +450,7 @@ describe('prospective output pattern matching', () => {
 
 	it.live('actual projections still match added spans after the write', () =>
 		withTempFile(
-			'pi-effect-enforcer-patterns-',
+			'pi-effect-harness-patterns-',
 			'src/app.ts',
 			"import * as fs from 'node:fs';\nexport const value = 1;\n",
 			({ cwd, filePath, absolutePath }) =>

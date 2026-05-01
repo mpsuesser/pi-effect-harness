@@ -8,7 +8,7 @@ export namespace RuleSet {
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
-		'pi-effect-enforcer/kernel/RuleSet'
+		'pi-effect-harness/kernel/RuleSet'
 	) {}
 
 	export const empty = Layer.succeed(

@@ -57,8 +57,8 @@ describe('guidance docs injection', () => {
 			docHeadlines.forEach((headline) => {
 				expect(header).toContain(headline);
 			});
-			expect(header).toContain('pi-effect-enforcer policy:');
-			expect(header.indexOf('pi-effect-enforcer policy:'))
+			expect(header).toContain('pi-effect-harness policy:');
+			expect(header.indexOf('pi-effect-harness policy:'))
 				.toBeGreaterThan(0);
 		}).pipe(
 			Effect.provide(Layer.merge(guidanceCatalogLayer, nodePlatformLayer))

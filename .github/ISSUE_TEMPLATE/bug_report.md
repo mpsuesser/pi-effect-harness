@@ -23,7 +23,7 @@ What actually happened. Include error messages or diagnostics output if applicab
 
 ## Environment
 
-- pi-effect-enforcer version:
+- pi-effect-harness version:
 - effect version:
 - Bun version:
 - OS:

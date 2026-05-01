@@ -18,7 +18,7 @@ export namespace PendingSkillReads {
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
-		'pi-effect-enforcer/effect/PendingSkillReads'
+		'pi-effect-harness/effect/PendingSkillReads'
 	) {}
 
 	export const layer = Layer.effect(

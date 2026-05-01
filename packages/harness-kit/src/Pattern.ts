@@ -66,7 +66,7 @@ export namespace Pattern {
 	}) {}
 
 	export class Current extends Context.Service<Current, Value>()(
-		'pi-effect-enforcer/Pattern/Current'
+		'pi-effect-harness/Pattern/Current'
 	) {}
 
 	export const layer = (value: Value) =>

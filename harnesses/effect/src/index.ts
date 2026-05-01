@@ -1,5 +1,5 @@
 /**
- * pi-effect-enforcer
+ * pi-effect-harness
  *
  * a harness specifically for writing Effect v4 code
  *

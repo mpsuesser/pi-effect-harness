@@ -32,7 +32,7 @@ const editIntent = (
 describe('prospective Effect skill-gate projection', () => {
 	it.live('does not trigger when Effect code is being removed', () =>
 		withTempFile(
-			'pi-effect-enforcer-skill-gate-',
+			'pi-effect-harness-skill-gate-',
 			'src/program.ts',
 			"import { Effect } from 'effect';\nexport const program = Effect.succeed(1);\n",
 			({ cwd, filePath }) =>
@@ -56,7 +56,7 @@ describe('prospective Effect skill-gate projection', () => {
 
 	it.live('does trigger when Effect code is being added', () =>
 		withTempFile(
-			'pi-effect-enforcer-skill-gate-',
+			'pi-effect-harness-skill-gate-',
 			'src/program.ts',
 			'export const program = 1;\n',
 			({ cwd, filePath }) =>
@@ -80,7 +80,7 @@ describe('prospective Effect skill-gate projection', () => {
 
 	it.live('still triggers when the reconstructed result still contains Effect code', () =>
 		withTempFile(
-			'pi-effect-enforcer-skill-gate-',
+			'pi-effect-harness-skill-gate-',
 			'src/program.ts',
 			"import { Effect } from 'effect';\nexport const program = Effect.succeed(1);\n",
 			({ cwd, filePath }) =>

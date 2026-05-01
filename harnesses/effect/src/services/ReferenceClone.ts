@@ -19,7 +19,7 @@ export namespace ReferenceClone {
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
-		'pi-effect-enforcer/effect/ReferenceClone'
+		'pi-effect-harness/effect/ReferenceClone'
 	) {}
 
 	export const layer = Layer.succeed(

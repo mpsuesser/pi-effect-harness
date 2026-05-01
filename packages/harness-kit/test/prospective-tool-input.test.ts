@@ -57,7 +57,7 @@ describe('WriteProjection.prospective', () => {
 
 	it.live('reconstructs single-edit output from the current file contents', () =>
 		withTempFile(
-			'pi-effect-enforcer-inspectors-',
+			'pi-effect-harness-inspectors-',
 			'src/app.ts',
 			'const value = 1;\n',
 			({ cwd, filePath }) =>
@@ -81,7 +81,7 @@ describe('WriteProjection.prospective', () => {
 		'reconstructs multiple edits against the original file, not incrementally',
 		() =>
 			withTempFile(
-				'pi-effect-enforcer-inspectors-',
+				'pi-effect-harness-inspectors-',
 				'src/app.ts',
 				'const a = 1;\nconst b = 2;\n',
 				({ cwd, filePath }) =>
@@ -109,7 +109,7 @@ describe('WriteProjection.prospective', () => {
 
 	it.live('does not include deleted text when removing a violating construct', () =>
 		withTempFile(
-			'pi-effect-enforcer-inspectors-',
+			'pi-effect-harness-inspectors-',
 			'src/app.ts',
 			'const parsed = JSON.parse(raw);\n',
 			({ cwd, filePath }) =>
@@ -146,7 +146,7 @@ describe('WriteProjection.prospective', () => {
 
 	it.live('falls back to new text only when oldText is ambiguous', () =>
 		withTempFile(
-			'pi-effect-enforcer-inspectors-',
+			'pi-effect-harness-inspectors-',
 			'src/app.ts',
 			'const value = 1;\nconst value = 1;\n',
 			({ cwd, filePath }) =>
@@ -170,7 +170,7 @@ describe('WriteProjection.prospective', () => {
 
 	it.live('falls back to new text only when edit spans would overlap', () =>
 		withTempFile(
-			'pi-effect-enforcer-inspectors-',
+			'pi-effect-harness-inspectors-',
 			'src/app.ts',
 			'const abc = 1;\n',
 			({ cwd, filePath }) =>
@@ -194,7 +194,7 @@ describe('WriteProjection.prospective', () => {
 describe('WriteProjection.actual', () => {
 	it.live('reads the actual file contents after a successful edit result', () =>
 		withTempFile(
-			'pi-effect-enforcer-inspectors-',
+			'pi-effect-harness-inspectors-',
 			'src/app.ts',
 			"import { Effect } from 'effect';\nexport const program = Effect.succeed(2);\n",
 			({ cwd, filePath }) =>

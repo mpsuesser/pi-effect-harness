@@ -8,7 +8,7 @@ export namespace HookSet {
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
-		'pi-effect-enforcer/kernel/HookSet'
+		'pi-effect-harness/kernel/HookSet'
 	) {}
 
 	export const empty = Layer.succeed(
