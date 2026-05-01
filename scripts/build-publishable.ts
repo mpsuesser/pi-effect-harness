@@ -15,7 +15,8 @@
  *   - copies skills/, patterns/, guidance/, plus README.md & LICENSE from
  *     the workspace root
  *   - writes a `dist/package.json` with `pi-harness-kit` removed from
- *     `dependencies` and the dev/script fields stripped
+ *     `dependencies`, inlined kernel runtime dependencies merged in, and
+ *     the dev/script fields stripped
  *
  * Run from the workspace root:
  *
@@ -35,7 +36,9 @@ import { dirname, join, relative, sep } from 'node:path';
 
 const WORKSPACE_ROOT = new URL('..', import.meta.url).pathname;
 const HARNESS_DIR = join(WORKSPACE_ROOT, 'harnesses/effect');
-const KERNEL_SRC = join(WORKSPACE_ROOT, 'packages/harness-kit/src');
+const KERNEL_DIR = join(WORKSPACE_ROOT, 'packages/harness-kit');
+const KERNEL_SRC = join(KERNEL_DIR, 'src');
+const KERNEL_PACKAGE_JSON = join(KERNEL_DIR, 'package.json');
 
 const DIST_DIR = join(HARNESS_DIR, 'dist');
 const DIST_SRC = join(DIST_DIR, 'src');
@@ -143,7 +146,27 @@ function resolveCatalogProtocol(
 		}
 		out[name] = resolved;
 	}
-	return out;
+	return Object.keys(out).length === 0 ? undefined : out;
+}
+
+function withoutKernelDependency(
+	deps: Record<string, string> | undefined
+): Record<string, string> | undefined {
+	if (deps === undefined) return undefined;
+	const out = { ...deps };
+	delete out[KERNEL_PKG_NAME];
+	return Object.keys(out).length === 0 ? undefined : out;
+}
+
+function mergeDependencyRecords(
+	...records: ReadonlyArray<Record<string, string> | undefined>
+): Record<string, string> | undefined {
+	const out: Record<string, string> = {};
+	for (const record of records) {
+		if (record === undefined) continue;
+		Object.assign(out, record);
+	}
+	return Object.keys(out).length === 0 ? undefined : out;
 }
 
 async function writeDistPackageJson(): Promise<void> {
@@ -151,15 +174,23 @@ async function writeDistPackageJson(): Promise<void> {
 	const pkg: PublishedPackageJson = JSON.parse(
 		await readFile(sourcePath, 'utf8')
 	);
+	const kernelPkg: PublishedPackageJson = JSON.parse(
+		await readFile(KERNEL_PACKAGE_JSON, 'utf8')
+	);
 	const catalog = await loadWorkspaceCatalog();
 
-	if (pkg.dependencies !== undefined) {
-		const next = { ...pkg.dependencies };
-		delete next[KERNEL_PKG_NAME];
-		pkg.dependencies = resolveCatalogProtocol(next, catalog);
-	}
+	pkg.dependencies = resolveCatalogProtocol(
+		mergeDependencyRecords(
+			kernelPkg.dependencies,
+			withoutKernelDependency(pkg.dependencies)
+		),
+		catalog
+	);
 	pkg.peerDependencies = resolveCatalogProtocol(
-		pkg.peerDependencies,
+		mergeDependencyRecords(
+			kernelPkg.peerDependencies,
+			pkg.peerDependencies
+		),
 		catalog
 	);
 	delete pkg.scripts;

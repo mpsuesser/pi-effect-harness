@@ -22,8 +22,9 @@ clean, standard-shaped tarball without forcing a separate kernel release.
 4. Copies static asset directories (`skills/`, `patterns/`, `guidance/`).
 5. Copies `README.md` and `LICENSE` from the workspace root.
 6. Writes a fresh `dist/package.json` with `pi-harness-kit` removed from
-   `dependencies`, `catalog:` references resolved to literal versions, and
-   `scripts` / `devDependencies` stripped.
+   `dependencies`, inlined kernel runtime dependencies merged in, `catalog:`
+   references resolved to literal versions, and `scripts` / `devDependencies`
+   stripped.
 
 ### Run
 

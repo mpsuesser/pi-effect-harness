@@ -1,4 +1,4 @@
-![pi-effect-harness](./.github/assets/readme-header-4.jpg)
+![pi-effect-harness](https://raw.githubusercontent.com/mpsuesser/pi-effect-harness/main/.github/assets/readme-header-4.jpg)
 
 ## Table of contents
 
@@ -26,7 +26,7 @@ When `/toggle-effect-harness` mode is enabled in the active Pi session:
 
 - A gold `effect` badge appears in the Pi footer; mode state persists per-project.
 - The system prompt is augmented every turn with `effect-first-development.md` (40+ rules covering errors, schemas, layers, services, retries, timeouts, structured concurrency, and observability), a progressive-disclosure agent rules doc, and a "loaded *N*/7 effect-\* skills on this branch" preview.
-- Tool calls that would write Effect code are **blocked** until at least 7 `effect-*` skills have been read on the active branch. The check uses a prospective write projection, so removing or refactoring Effect code never trips it.
+- Tool calls that would write Effect code are **blocked** until at least 7 `effect-*` skills have been read on the active branch. The check uses a prospective write projection: it looks at the resulting file, so deletion-only changes that leave no Effect code are not blocked.
 - After every successful write, the post-write file is matched against 46 pattern detectors. Matches are sorted by severity and replied back to the agent in-band as a single user message — including the pattern's transformation guidance and a hint to load any suggested skills.
 - A shallow clone of [`Effect-TS/effect-smol`](https://github.com/Effect-TS/effect-smol) is maintained at `.references/effect-v4/`, pinned to the tag matching your project's installed `effect` version. The agent reads from it to verify v4 APIs instead of guessing.
 
@@ -42,13 +42,11 @@ pi install npm:pi-effect-harness
 
 This registers the extension and all 41 `effect-*` skills via the package's `pi` manifest. Pi auto-loads on the next session start.
 
-The first time you enable `/effect` in a project, the harness clones `effect-smol` at the tag matching your installed `effect` version into `.references/effect-v4/` (≈30s, shallow, fail-silent). Add to your project's `.gitignore`:
+The first time you enable `/toggle-effect-harness` in a project, the harness clones `effect-smol` at the tag matching your installed `effect` version into `.references/effect-v4/` (≈30s, shallow, fail-silent). Add to your project's `.gitignore`:
 
 ```gitignore
 .references/
 ```
-
-**Peer requirement:** `@mariozechner/pi-coding-agent` (any version). The harness depends on `effect@4.0.0-beta.59` and `@effect/platform-node` from npm.
 
 ---
 
@@ -58,11 +56,11 @@ The first time you enable `/effect` in a project, the harness clones `effect-smo
 |---|---|
 | Toggle | `/toggle-effect-harness` (interactive), or via Pi's mode toggle UI |
 | Status | Gold `effect` badge in the footer |
-| Persistence | Project (`.pi/` under cwd); survives session restart |
+| Persistence | Project-scoped Pi session state; survives session restart |
 | Activation cost | First time per project: shallow clone of `effect-smol` |
 | Per-turn cost | ~3 KB of system-prompt headers + the merged guidance docs |
 
-When mode is off, this extension does nothing — no rules fire, no hooks emit decisions, no system prompt is injected.
+When mode is off, no policy header is injected and no write gate or pattern feedback fires. The harness may still rebuild its command/skill catalog and record successful `effect-*` skill reads as invisible branch metadata, so the loaded-skill count is ready if you re-enable the mode later.
 
 ---
 
@@ -73,16 +71,21 @@ The harness is a thin shell around an [Effect](https://effect.website) `ManagedR
 ### Lifecycle
 
 ```
-session_start ─► restore mode state · rebuild SkillCatalog · refresh EffectVersion · ensure ReferenceClone
+session_start ─► restore mode state · clear pending skill reads · rebuild SkillCatalog
+              · refresh EffectVersion · ensure ReferenceClone if enabled
+
+session_tree  ─► sync mode badge · clear pending skill reads · rebuild SkillCatalog
 
 before_agent_start
-  ├─► RuleSet
-  │     └─► InjectEffectPolicyHeader
-  │           └─► Decision.InjectSystemPrompt
-
-tool_call (Read/Edit/Write)
   ├─► HookSet
-  │     └─► TrackSkillRead
+  │     └─► EnsureReferenceClone (if enabled, using the latest refreshed EffectVersion)
+  └─► RuleSet
+        └─► InjectEffectPolicyHeader
+              └─► Decision.InjectSystemPrompt
+
+tool_call
+  ├─► HookSet
+  │     └─► TrackSkillRead (Read paths matching effect-* skills)
   │           └─► PendingSkillReads.remember(toolCallId, skillName)
   └─► RuleSet
         └─► RequireLoadedSkillsForEffectWrites
@@ -91,7 +94,7 @@ tool_call (Read/Edit/Write)
 
 tool_result
   ├─► HookSet
-  │     └─► EmitSkillLoadedEntry
+  │     └─► EmitSkillLoadedEntry (successful tracked skill reads)
   │           └─► Decision.AppendCustomEntry
   │                 (customType: "pi-effect-harness:skill-loaded")
   └─► RuleSet
@@ -99,15 +102,27 @@ tool_result
               ├─► WriteProjection.actual(cwd, writeIntent)
               ├─► PatternMatcher × 46 patterns
               └─► Decision.InjectUserMessage
+
+session_shutdown ─► unregister mode badge
 ```
 
-Three rules. Two write-side hooks. Everything that touches Pi runs through `Decision` — there is no direct mutation of session state from rule code, which keeps the rules trivially testable in isolation.
+Three rules plus session/tool hooks. Session hooks keep the skill catalog, version cache, and reference clone current; tool events record skill reads and run write checks. Everything that touches Pi runs through `Decision` — there is no direct mutation of session state from rule code, which keeps the rules trivially testable in isolation.
 
 ### The skill gate
 
 Effect v4 is wide. A model writing Effect cold — without any in-context skill — will reliably produce v3 patterns: `Effect.catchAll`, `Schema.parseJson`, `Data.TaggedError`, `OptionFromSelf`, `compose(...)` instead of `decodeTo(...)`, untraced `Effect.gen` everywhere. The skill gate exists to make the agent stop and read before writing.
 
-**What counts as a skill.** Each subdirectory under `skills/` has a `SKILL.md` with frontmatter. Pi exposes these as `/skill:effect-error-handling` commands. The harness watches every Read tool call: when the read path resolves to a known `effect-*` skill (matched against the live skill catalog), it remembers the pending read keyed by `toolCallId`. On `tool_result`, if the read succeeded, it appends a `Decision.AppendCustomEntry` with `customType: "pi-effect-harness:skill-loaded"` and `data: { name, path }` to the active branch.
+**What counts as a skill.** Each subdirectory under `skills/` has a `SKILL.md` with frontmatter. Pi exposes these as `/skill:effect-error-handling` commands. The harness watches every Read tool call: when the read path resolves to a known `effect-*` skill (matched against the live skill catalog), it remembers the pending read keyed by `toolCallId`. On `tool_result`, if the read succeeded, it appends an invisible branch-metadata entry shaped like:
+
+```ts
+{
+	customType: "pi-effect-harness:skill-loaded",
+	data: {
+		name: "effect-error-handling",
+		path: "/absolute/path/to/effect-error-handling/SKILL.md"
+	}
+}
+```
 
 **What "loaded" means.** Loaded-skill state is derived, not stored. The `activeBranchLoadedEffectSkills` atom scans the current branch's entries for those custom entries and returns the resulting `ReadonlySet<string>`. This means:
 
@@ -117,7 +132,7 @@ Effect v4 is wide. A model writing Effect cold — without any in-context skill 
 
 **The threshold.** `MIN_EFFECT_SKILLS = 7`. Schema, Error Handling, and Layers cover ~70% of any Effect codebase; the remaining four should be task-relevant (AI, SQL, HTTP, CLI, RPC, Workflow, Stream, Testing, Observability, etc.). Seven is calibrated, not arbitrary — fewer and the model still hallucinates; more and the activation friction outweighs the benefit.
 
-**Why prospective projection matters.** The gate runs on `WriteProjection.prospective(cwd, writeIntent)`, which reconstructs *what the file will look like after the write/edit applies*. A diff that removes Effect code does not match `\bEffect\b|from\s+['"]effect.*['"]` and is allowed through. A diff that adds Effect code is gated. This means refactors that *delete* Effect-specific code can proceed without artificially incrementing the skill counter.
+**Why prospective projection matters.** The gate runs on `WriteProjection.prospective(cwd, writeIntent)`, which reconstructs *what the file will look like after the write/edit applies*. A change whose resulting file no longer matches `\bEffect\b|from\s+['"]effect.*['"]` is allowed through. A change whose resulting file contains Effect code is gated. This means deletion-only Effect cleanup can proceed without artificially incrementing the skill counter.
 
 **The block message** quotes the loaded count, the missing count, and a hint to read from `.references/effect-v4/` if any API is unclear. The agent retries after loading more skills.
 
@@ -195,7 +210,7 @@ The `suggestedSkills` field is appended to the matched-pattern feedback as: *"If
 
 Effect v4 is moving fast. Beta releases ship with API renames in nearly every minor (`catchAll → catch`, `parseJson → fromJsonString`, `Either → Result`, `compose → decodeTo`, the entire `*FromSelf` suffix removal, etc.). The most reliable way to keep an agent honest is to give it the source.
 
-On the first `tool_call` after enabling `/toggle-effect-harness`, `EnsureReferenceClone` runs `git clone --depth 1 --branch effect@<version>` of `Effect-TS/effect-smol` into `.references/effect-v4.cloning/`, writes a `.pi-effect-harness-version` marker file, and atomically renames into place. The version is detected by reading `node_modules/effect/package.json` (falling back to `4.0.0-beta.59` if absent).
+After `/toggle-effect-harness` is enabled, and again on enabled session starts / before agent turns, `EnsureReferenceClone` runs `git clone --depth 1 --branch effect@<version>` of `Effect-TS/effect-smol` into `.references/effect-v4.cloning/`, writes a `.pi-effect-harness-version` marker file, and atomically renames into place. The version is detected on session start and toggle-on by reading `node_modules/effect/package.json` (falling back to `4.0.0-beta.59` if absent).
 
 Properties:
 
@@ -216,159 +231,159 @@ The agent doesn't have to know any of this. It sees `.references/effect-v4/LLMS.
 
 | Skill | Description |
 |---|---|
-| [`effect-ai-chat`](./harnesses/effect/skills/effect-ai-chat/SKILL.md) | Stateful AI chat sessions with the Effect Chat module — multi-turn conversations, agentic tool-calling loops, persistence, streaming, structured object generation. |
-| [`effect-ai-language-model`](./harnesses/effect/skills/effect-ai-language-model/SKILL.md) | The Effect AI `LanguageModel` service — text generation, structured output, streaming, tool calling, schema-validated responses. |
-| [`effect-ai-prompt`](./harnesses/effect/skills/effect-ai-prompt/SKILL.md) | The complete Prompt API for constructing, merging, and manipulating LLM conversations using messages, parts, and composition operators. |
-| [`effect-ai-provider`](./harnesses/effect/skills/effect-ai-provider/SKILL.md) | `@effect/ai` provider layers (Anthropic, OpenAI, OpenAI-Compat, OpenRouter) with config management, model abstraction, `ExecutionPlan` fallback, runtime overrides. |
-| [`effect-ai-streaming`](./harnesses/effect/skills/effect-ai-streaming/SKILL.md) | Streaming response patterns: start/delta/end protocol, accumulation strategies, resource-safe consumption, history management with `SubscriptionRef`. |
-| [`effect-ai-tool`](./harnesses/effect/skills/effect-ai-tool/SKILL.md) | Tool and Toolkit APIs — type-safe tool definitions, parameter validation, handler implementations, user- and provider-defined tools. |
+| [`effect-ai-chat`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-ai-chat/SKILL.md) | Stateful AI chat sessions with the Effect Chat module — multi-turn conversations, agentic tool-calling loops, persistence, streaming, structured object generation. |
+| [`effect-ai-language-model`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-ai-language-model/SKILL.md) | The Effect AI `LanguageModel` service — text generation, structured output, streaming, tool calling, schema-validated responses. |
+| [`effect-ai-prompt`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-ai-prompt/SKILL.md) | The complete Prompt API for constructing, merging, and manipulating LLM conversations using messages, parts, and composition operators. |
+| [`effect-ai-provider`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-ai-provider/SKILL.md) | `@effect/ai` provider layers (Anthropic, OpenAI, OpenAI-Compat, OpenRouter) with config management, model abstraction, `ExecutionPlan` fallback, runtime overrides. |
+| [`effect-ai-streaming`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-ai-streaming/SKILL.md) | Streaming response patterns: start/delta/end protocol, accumulation strategies, resource-safe consumption, history management with `SubscriptionRef`. |
+| [`effect-ai-tool`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-ai-tool/SKILL.md) | Tool and Toolkit APIs — type-safe tool definitions, parameter validation, handler implementations, user- and provider-defined tools. |
 
 ### Schema & domain modeling (8)
 
 | Skill | Description |
 |---|---|
-| [`effect-schema-v4`](./harnesses/effect/skills/effect-schema-v4/SKILL.md) | Authoritative reference for Effect Schema v4 API changes and v3 → v4 migration. Find-and-replace tables, breaking changes, idiom shifts. |
-| [`effect-schema-composition`](./harnesses/effect/skills/effect-schema-composition/SKILL.md) | `Schema.decodeTo`, transformations, filters, multi-stage validation. |
-| [`effect-domain-modeling`](./harnesses/effect/skills/effect-domain-modeling/SKILL.md) | Production-ready domain models with `Schema.TaggedStruct` — ADTs, predicates, orders, guards, match functions. |
-| [`effect-domain-predicates`](./harnesses/effect/skills/effect-domain-predicates/SKILL.md) | Comprehensive predicates and orders for domain types using typeclass patterns. |
-| [`effect-typeclass-design`](./harnesses/effect/skills/effect-typeclass-design/SKILL.md) | Curried signatures and dual data-first / data-last APIs. |
-| [`effect-pattern-matching`](./harnesses/effect/skills/effect-pattern-matching/SKILL.md) | `Data.TaggedEnum`, `$match`, `$is`, `Match.typeTags`, `Effect.match`. Avoid manual `_tag` checks. |
-| [`effect-context-witness`](./harnesses/effect/skills/effect-context-witness/SKILL.md) | When to use `Context.Service` witness vs. capability patterns; coupling trade-offs. |
-| [`effect-optics`](./harnesses/effect/skills/effect-optics/SKILL.md) | `Iso`, `Lens`, `Prism`, `Optional`, `Traversal` — composable, type-safe access and immutable updates to nested data. |
+| [`effect-schema-v4`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-schema-v4/SKILL.md) | Authoritative reference for Effect Schema v4 API changes and v3 → v4 migration. Find-and-replace tables, breaking changes, idiom shifts. |
+| [`effect-schema-composition`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-schema-composition/SKILL.md) | `Schema.decodeTo`, transformations, filters, multi-stage validation. |
+| [`effect-domain-modeling`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-domain-modeling/SKILL.md) | Production-ready domain models with `Schema.TaggedStruct` — ADTs, predicates, orders, guards, match functions. |
+| [`effect-domain-predicates`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-domain-predicates/SKILL.md) | Comprehensive predicates and orders for domain types using typeclass patterns. |
+| [`effect-typeclass-design`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-typeclass-design/SKILL.md) | Curried signatures and dual data-first / data-last APIs. |
+| [`effect-pattern-matching`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-pattern-matching/SKILL.md) | `Data.TaggedEnum`, `$match`, `$is`, `Match.typeTags`, `Effect.match`. Avoid manual `_tag` checks. |
+| [`effect-context-witness`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-context-witness/SKILL.md) | When to use `Context.Service` witness vs. capability patterns; coupling trade-offs. |
+| [`effect-optics`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-optics/SKILL.md) | `Iso`, `Lens`, `Prism`, `Optional`, `Traversal` — composable, type-safe access and immutable updates to nested data. |
 
 ### Layers, services, runtime (5)
 
 | Skill | Description |
 |---|---|
-| [`effect-layer-design`](./harnesses/effect/skills/effect-layer-design/SKILL.md) | Designing and composing layers for clean dependency management. |
-| [`effect-service-implementation`](./harnesses/effect/skills/effect-service-implementation/SKILL.md) | Fine-grained service capabilities; avoiding monolithic designs. |
-| [`effect-managed-runtime`](./harnesses/effect/skills/effect-managed-runtime/SKILL.md) | Bridging Effect into non-Effect frameworks (Hono, Express, Fastify, Lambda, Workers) via `ManagedRuntime`. |
-| [`effect-platform-abstraction`](./harnesses/effect/skills/effect-platform-abstraction/SKILL.md) | Cross-platform file I/O, process spawning, HTTP clients, terminal — the abstraction itself. |
-| [`effect-platform-layers`](./harnesses/effect/skills/effect-platform-layers/SKILL.md) | Structuring platform-layer provision for cross-platform applications. |
+| [`effect-layer-design`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-layer-design/SKILL.md) | Designing and composing layers for clean dependency management. |
+| [`effect-service-implementation`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-service-implementation/SKILL.md) | Fine-grained service capabilities; avoiding monolithic designs. |
+| [`effect-managed-runtime`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-managed-runtime/SKILL.md) | Bridging Effect into non-Effect frameworks (Hono, Express, Fastify, Lambda, Workers) via `ManagedRuntime`. |
+| [`effect-platform-abstraction`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-platform-abstraction/SKILL.md) | Cross-platform file I/O, process spawning, HTTP clients, terminal — the abstraction itself. |
+| [`effect-platform-layers`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-platform-layers/SKILL.md) | Structuring platform-layer provision for cross-platform applications. |
 
 ### Errors, config, observability (4)
 
 | Skill | Description |
 |---|---|
-| [`effect-error-handling`](./harnesses/effect/skills/effect-error-handling/SKILL.md) | `Schema.TaggedErrorClass`, `catchTag`/`catchTags`, `catchReason`/`catchReasons`, `Cause`, `ErrorReporter`, recovery patterns. |
-| [`effect-config`](./harnesses/effect/skills/effect-config/SKILL.md) | `Config` and `ConfigProvider` — env vars, structured config, test config, `.env`, JSON, custom sources. |
-| [`effect-observability`](./harnesses/effect/skills/effect-observability/SKILL.md) | Structured logging, distributed tracing, metrics; OTLP/Prometheus export. |
-| [`effect-wide-events`](./harnesses/effect/skills/effect-wide-events/SKILL.md) | Wide events (canonical log lines) for observability. Conceptual guide for instrumentation strategy. |
+| [`effect-error-handling`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-error-handling/SKILL.md) | `Schema.TaggedErrorClass`, `catchTag`/`catchTags`, `catchReason`/`catchReasons`, `Cause`, `ErrorReporter`, recovery patterns. |
+| [`effect-config`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-config/SKILL.md) | `Config` and `ConfigProvider` — env vars, structured config, test config, `.env`, JSON, custom sources. |
+| [`effect-observability`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-observability/SKILL.md) | Structured logging, distributed tracing, metrics; OTLP/Prometheus export. |
+| [`effect-wide-events`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-wide-events/SKILL.md) | Wide events (canonical log lines) for observability. Conceptual guide for instrumentation strategy. |
 
 ### Data, IO, concurrency (7)
 
 | Skill | Description |
 |---|---|
-| [`effect-stream`](./harnesses/effect/skills/effect-stream/SKILL.md) | Pull-based streaming pipelines — creation, transformation, consumption, encoding (NDJSON/Msgpack), concurrency, resource safety. |
-| [`effect-batching`](./harnesses/effect/skills/effect-batching/SKILL.md) | `Request`, `RequestResolver`, `SqlResolver` — N+1 elimination, batched data-fetching layers, request caching. |
-| [`effect-pubsub-event-bus`](./harnesses/effect/skills/effect-pubsub-event-bus/SKILL.md) | Typed event buses with `PubSub` and `Stream`. |
-| [`effect-filesystem`](./harnesses/effect/skills/effect-filesystem/SKILL.md) | Cross-platform file I/O across Node.js, Bun, browser. |
-| [`effect-path`](./harnesses/effect/skills/effect-path/SKILL.md) | Cross-platform path operations — joining, resolving, URL conversion. |
-| [`effect-command-executor`](./harnesses/effect/skills/effect-command-executor/SKILL.md) | `ChildProcess` — shell commands, captured output, piping, streaming, scoped lifecycle. |
-| [`effect-concurrency-testing`](./harnesses/effect/skills/effect-concurrency-testing/SKILL.md) | Testing `PubSub`, `Deferred`, `Latch`, `Fiber`, `SubscriptionRef`, `Stream`. |
+| [`effect-stream`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-stream/SKILL.md) | Pull-based streaming pipelines — creation, transformation, consumption, encoding (NDJSON/Msgpack), concurrency, resource safety. |
+| [`effect-batching`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-batching/SKILL.md) | `Request`, `RequestResolver`, `SqlResolver` — N+1 elimination, batched data-fetching layers, request caching. |
+| [`effect-pubsub-event-bus`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-pubsub-event-bus/SKILL.md) | Typed event buses with `PubSub` and `Stream`. |
+| [`effect-filesystem`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-filesystem/SKILL.md) | Cross-platform file I/O across Node.js, Bun, browser. |
+| [`effect-path`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-path/SKILL.md) | Cross-platform path operations — joining, resolving, URL conversion. |
+| [`effect-command-executor`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-command-executor/SKILL.md) | `ChildProcess` — shell commands, captured output, piping, streaming, scoped lifecycle. |
+| [`effect-concurrency-testing`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-concurrency-testing/SKILL.md) | Testing `PubSub`, `Deferred`, `Latch`, `Fiber`, `SubscriptionRef`, `Stream`. |
 
 ### Persistence & networking (4)
 
 | Skill | Description |
 |---|---|
-| [`effect-sql`](./harnesses/effect/skills/effect-sql/SKILL.md) | `SqlClient`, `SqlSchema`, `SqlModel` (CRUD repos), `SqlResolver`, `Migrator`. |
-| [`effect-http-api`](./harnesses/effect/skills/effect-http-api/SKILL.md) | `HttpApi`, `HttpApiClient`, `HttpApiBuilder` — typed endpoints, security middleware, OpenAPI, derived clients. |
-| [`effect-rpc-cluster`](./harnesses/effect/skills/effect-rpc-cluster/SKILL.md) | RPC endpoints, cluster routing, workflow patterns with Effect RPC and Cluster. |
-| [`effect-workflow`](./harnesses/effect/skills/effect-workflow/SKILL.md) | Durable workflows with `Workflow`, `Activity`, `DurableClock`, `DurableDeferred` — execution that survives restarts, compensation (saga), distribution via Cluster. |
+| [`effect-sql`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-sql/SKILL.md) | `SqlClient`, `SqlSchema`, `SqlModel` (CRUD repos), `SqlResolver`, `Migrator`. |
+| [`effect-http-api`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-http-api/SKILL.md) | `HttpApi`, `HttpApiClient`, `HttpApiBuilder` — typed endpoints, security middleware, OpenAPI, derived clients. |
+| [`effect-rpc-cluster`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-rpc-cluster/SKILL.md) | RPC endpoints, cluster routing, workflow patterns with Effect RPC and Cluster. |
+| [`effect-workflow`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-workflow/SKILL.md) | Durable workflows with `Workflow`, `Activity`, `DurableClock`, `DurableDeferred` — execution that survives restarts, compensation (saga), distribution via Cluster. |
 
 ### CLI & MCP (2)
 
 | Skill | Description |
 |---|---|
-| [`effect-cli`](./harnesses/effect/skills/effect-cli/SKILL.md) | Type-safe CLI applications — argument parsing, options, commands, dependency injection. |
-| [`effect-mcp-server`](./harnesses/effect/skills/effect-mcp-server/SKILL.md) | MCP servers with `McpServer`, `McpSchema`, `Tool`, `Toolkit`; stdio and HTTP transports. |
+| [`effect-cli`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-cli/SKILL.md) | Type-safe CLI applications — argument parsing, options, commands, dependency injection. |
+| [`effect-mcp-server`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-mcp-server/SKILL.md) | MCP servers with `McpServer`, `McpSchema`, `Tool`, `Toolkit`; stdio and HTTP transports. |
 
 ### Testing & migration (2)
 
 | Skill | Description |
 |---|---|
-| [`effect-testing`](./harnesses/effect/skills/effect-testing/SKILL.md) | `@effect/vitest` and `it.effect(...)` — services, layers, time-dependent effects, error handling, property-based testing. |
-| [`effect-incremental-migration`](./harnesses/effect/skills/effect-incremental-migration/SKILL.md) | Migrating async/Promise-based modules to Effect services while preserving backward compatibility. |
+| [`effect-testing`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-testing/SKILL.md) | `@effect/vitest` and `it.effect(...)` — services, layers, time-dependent effects, error handling, property-based testing. |
+| [`effect-incremental-migration`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-incremental-migration/SKILL.md) | Migrating async/Promise-based modules to Effect services while preserving backward compatibility. |
 
 ### React (3)
 
 | Skill | Description |
 |---|---|
-| [`effect-atom-state`](./harnesses/effect/skills/effect-atom-state/SKILL.md) | Reactive state management with Effect Atom for React applications. |
-| [`effect-react-composition`](./harnesses/effect/skills/effect-react-composition/SKILL.md) | Composable React components using Effect Atom; avoiding boolean props; integrating with Effect's reactive state. |
-| [`effect-react-vm`](./harnesses/effect/skills/effect-react-vm/SKILL.md) | The VM (View Model) pattern for reactive, testable frontend state management. |
+| [`effect-atom-state`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-atom-state/SKILL.md) | Reactive state management with Effect Atom for React applications. |
+| [`effect-react-composition`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-react-composition/SKILL.md) | Composable React components using Effect Atom; avoiding boolean props; integrating with Effect's reactive state. |
+| [`effect-react-vm`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/skills/effect-react-vm/SKILL.md) | The VM (View Model) pattern for reactive, testable frontend state management. |
 
 ---
 
 ## Pattern catalog
 
-46 patterns. All match against `**/*.{ts,tsx}`, on `(edit|write)` tool calls, on the `after` event. Detectors are `ast` (ast-grep) unless noted.
+46 patterns run after successful `edit`/`write` tool calls when the written path matches the pattern's frontmatter `glob`. Most target TypeScript/TSX, but some use narrower or negated globs. Detectors are declared per pattern as either ast-grep rules or comment-skipping regex.
 
 ### `avoid-*` (21)
 
 | Pattern | Level | Description |
 |---|---|---|
-| [`avoid-any`](./harnesses/effect/patterns/avoid-any.md) | warning | `as any` and `as unknown` type assertions. |
-| [`avoid-data-tagged-error`](./harnesses/effect/patterns/avoid-data-tagged-error.md) | warning | `Data.TaggedError` — use `Schema.TaggedErrorClass` for serialization and RPC compatibility. |
-| [`avoid-direct-json`](./harnesses/effect/patterns/avoid-direct-json.md) | info | `JSON.parse` / `JSON.stringify` — use `Schema.fromJsonString` or `Schema.UnknownFromJsonString`. |
-| [`avoid-direct-tag-checks`](./harnesses/effect/patterns/avoid-direct-tag-checks.md) | warning | Direct `_tag` property checks; use exported refinements/predicates. |
-| [`avoid-expect-in-if`](./harnesses/effect/patterns/avoid-expect-in-if.md) | warning | `expect()` calls nested inside `if` blocks in tests. |
-| [`avoid-fs-promises`](./harnesses/effect/patterns/avoid-fs-promises.md) | warning | `fs/promises` direct usage — wrap with Effect. |
-| [`avoid-mutable-state`](./harnesses/effect/patterns/avoid-mutable-state.md) | info | `let` bindings inside Effect services; prefer `Ref`. |
-| [`avoid-native-fetch`](./harnesses/effect/patterns/avoid-native-fetch.md) | warning | Native `fetch` — use Effect HTTP modules. |
-| [`avoid-node-imports`](./harnesses/effect/patterns/avoid-node-imports.md) | warning | `node:` imports — use `@effect/platform` abstractions. |
-| [`avoid-non-null-assertion`](./harnesses/effect/patterns/avoid-non-null-assertion.md) | warning | `!` non-null assertion operator. |
-| [`avoid-object-type`](./harnesses/effect/patterns/avoid-object-type.md) | warning | `Object` and `{}` as types. |
-| [`avoid-option-getorthrow`](./harnesses/effect/patterns/avoid-option-getorthrow.md) | warning | `Option.getOrThrow` — use `Option.match` or `Option.getOrElse`. |
-| [`avoid-platform-coupling`](./harnesses/effect/patterns/avoid-platform-coupling.md) | warning | Binding packages importing platform-specific packages like `@effect/platform-bun`. |
-| [`avoid-process-env`](./harnesses/effect/patterns/avoid-process-env.md) | warning | `process.env` — use `Config.*`. |
-| [`avoid-react-hooks`](./harnesses/effect/patterns/avoid-react-hooks.md) | high | `useState`/`useEffect`/`useReducer` etc. — use VMs with Effect Atom. |
-| [`avoid-schema-suffix`](./harnesses/effect/patterns/avoid-schema-suffix.md) | info | Schema constants suffixed with `Schema`; name them after the domain type. |
-| [`avoid-sync-fs`](./harnesses/effect/patterns/avoid-sync-fs.md) | high | Synchronous filesystem operations. |
-| [`avoid-try-catch`](./harnesses/effect/patterns/avoid-try-catch.md) | warning | `try`/`catch` in Effect code — use `Effect.try` or typed errors. |
-| [`avoid-ts-ignore`](./harnesses/effect/patterns/avoid-ts-ignore.md) | warning | `@ts-ignore` and `@ts-expect-error`. |
-| [`avoid-untagged-errors`](./harnesses/effect/patterns/avoid-untagged-errors.md) | warning | `instanceof Error` and `new Error` for recoverable failures — use `Schema.TaggedErrorClass`. |
-| [`avoid-yield-ref`](./harnesses/effect/patterns/avoid-yield-ref.md) | warning | Direct `yield* Ref/Deferred/Fiber/Latch` (removed in v4); use explicit method calls. |
+| [`avoid-any`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-any.md) | warning | `as any` and `as unknown` type assertions. |
+| [`avoid-data-tagged-error`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-data-tagged-error.md) | warning | `Data.TaggedError` — use `Schema.TaggedErrorClass` for serialization and RPC compatibility. |
+| [`avoid-direct-json`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-direct-json.md) | info | `JSON.parse` / `JSON.stringify` — use `Schema.fromJsonString` or `Schema.UnknownFromJsonString`. |
+| [`avoid-direct-tag-checks`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-direct-tag-checks.md) | warning | Direct `_tag` property checks; use exported refinements/predicates. |
+| [`avoid-expect-in-if`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-expect-in-if.md) | warning | `expect()` calls nested inside `if` blocks in tests. |
+| [`avoid-fs-promises`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-fs-promises.md) | warning | `fs/promises` direct usage — wrap with Effect. |
+| [`avoid-mutable-state`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-mutable-state.md) | info | `let` bindings inside Effect services; prefer `Ref`. |
+| [`avoid-native-fetch`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-native-fetch.md) | warning | Native `fetch` — use Effect HTTP modules. |
+| [`avoid-node-imports`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-node-imports.md) | warning | `node:` imports — use `@effect/platform` abstractions. |
+| [`avoid-non-null-assertion`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-non-null-assertion.md) | warning | `!` non-null assertion operator. |
+| [`avoid-object-type`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-object-type.md) | warning | `Object` and `{}` as types. |
+| [`avoid-option-getorthrow`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-option-getorthrow.md) | warning | `Option.getOrThrow` — use `Option.match` or `Option.getOrElse`. |
+| [`avoid-platform-coupling`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-platform-coupling.md) | warning | Binding packages importing platform-specific packages like `@effect/platform-bun`. |
+| [`avoid-process-env`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-process-env.md) | warning | `process.env` — use `Config.*`. |
+| [`avoid-react-hooks`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-react-hooks.md) | high | `useState`/`useEffect`/`useReducer` etc. — use VMs with Effect Atom. |
+| [`avoid-schema-suffix`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-schema-suffix.md) | info | Schema constants suffixed with `Schema`; name them after the domain type. |
+| [`avoid-sync-fs`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-sync-fs.md) | high | Synchronous filesystem operations. |
+| [`avoid-try-catch`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-try-catch.md) | warning | `try`/`catch` in Effect code — use `Effect.try` or typed errors. |
+| [`avoid-ts-ignore`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-ts-ignore.md) | warning | `@ts-ignore` and `@ts-expect-error`. |
+| [`avoid-untagged-errors`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-untagged-errors.md) | warning | `instanceof Error` and `new Error` for recoverable failures — use `Schema.TaggedErrorClass`. |
+| [`avoid-yield-ref`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-yield-ref.md) | warning | Direct `yield* Ref/Deferred/Fiber/Latch` (removed in v4); use explicit method calls. |
 
 ### `prefer-*` (7)
 
 | Pattern | Level | Description |
 |---|---|---|
-| [`prefer-arr-sort`](./harnesses/effect/patterns/prefer-arr-sort.md) | warning | `Arr.sort` with explicit `Order` over native `Array.prototype.sort`. |
-| [`prefer-duration-values`](./harnesses/effect/patterns/prefer-duration-values.md) | warning | `Duration` helpers over numeric literals for time. |
-| [`prefer-effect-fn`](./harnesses/effect/patterns/prefer-effect-fn.md) | warning | `Effect.fn` for service methods (automatic tracing) over plain `Effect.gen` wrappers. |
-| [`prefer-match-over-switch`](./harnesses/effect/patterns/prefer-match-over-switch.md) | warning | `Match` over native `switch`. |
-| [`prefer-option-over-null`](./harnesses/effect/patterns/prefer-option-over-null.md) | info | `Option` over `T \| null` unions. |
-| [`prefer-redacted-config`](./harnesses/effect/patterns/prefer-redacted-config.md) | warning | `Config.redacted` / `Schema.Redacted` for secrets. |
-| [`prefer-schema-class`](./harnesses/effect/patterns/prefer-schema-class.md) | warning | `Schema.Class` over `Schema.Struct` for object/domain schemas. |
+| [`prefer-arr-sort`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/prefer-arr-sort.md) | warning | `Arr.sort` with explicit `Order` over native `Array.prototype.sort`. |
+| [`prefer-duration-values`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/prefer-duration-values.md) | warning | `Duration` helpers over numeric literals for time. |
+| [`prefer-effect-fn`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/prefer-effect-fn.md) | warning | `Effect.fn` for service methods (automatic tracing) over plain `Effect.gen` wrappers. |
+| [`prefer-match-over-switch`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/prefer-match-over-switch.md) | warning | `Match` over native `switch`. |
+| [`prefer-option-over-null`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/prefer-option-over-null.md) | info | `Option` over `T \| null` unions. |
+| [`prefer-redacted-config`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/prefer-redacted-config.md) | warning | `Config.redacted` / `Schema.Redacted` for secrets. |
+| [`prefer-schema-class`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/prefer-schema-class.md) | warning | `Schema.Class` over `Schema.Struct` for object/domain schemas. |
 
 ### `use-*` (7)
 
 | Pattern | Level | Description |
 |---|---|---|
-| [`use-clock-service`](./harnesses/effect/patterns/use-clock-service.md) | warning | `Clock` / `DateTime` over `new Date()` and `Date.now()`. |
-| [`use-console-service`](./harnesses/effect/patterns/use-console-service.md) | warning | `Console` / `Effect.log*` over `console.*`. |
-| [`use-context-service`](./harnesses/effect/patterns/use-context-service.md) | warning | `Context.Service` over legacy `ServiceMap.Service` APIs. |
-| [`use-filesystem-service`](./harnesses/effect/patterns/use-filesystem-service.md) | high | `FileSystem` service over direct `node:fs` imports. |
-| [`use-path-service`](./harnesses/effect/patterns/use-path-service.md) | warning | `Path` service over direct `node:path` imports. |
-| [`use-random-service`](./harnesses/effect/patterns/use-random-service.md) | warning | `Random` service over `Math.random()`. |
-| [`use-temp-file-scoped`](./harnesses/effect/patterns/use-temp-file-scoped.md) | warning | `makeTempFileScoped` / `makeTempDirectoryScoped` over `os.tmpdir()` or non-scoped variants. |
+| [`use-clock-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-clock-service.md) | warning | `Clock` / `DateTime` over `new Date()` and `Date.now()`. |
+| [`use-console-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-console-service.md) | warning | `Console` / `Effect.log*` over `console.*`. |
+| [`use-context-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-context-service.md) | warning | `Context.Service` over legacy `ServiceMap.Service` APIs. |
+| [`use-filesystem-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-filesystem-service.md) | high | `FileSystem` service over direct `node:fs` imports. |
+| [`use-path-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-path-service.md) | warning | `Path` service over direct `node:path` imports. |
+| [`use-random-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-random-service.md) | warning | `Random` service over `Math.random()`. |
+| [`use-temp-file-scoped`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-temp-file-scoped.md) | warning | `makeTempFileScoped` / `makeTempDirectoryScoped` over `os.tmpdir()` or non-scoped variants. |
 
 ### Other (11)
 
 | Pattern | Level | Description |
 |---|---|---|
-| [`casting-awareness`](./harnesses/effect/patterns/casting-awareness.md) | info | Type assertions in general — use type-safe alternatives. |
-| [`context-tag-extends`](./harnesses/effect/patterns/context-tag-extends.md) | warning | `class *Tag extends Context.Tag` naming — use `Context.Service`. |
-| [`effect-catchall-default`](./harnesses/effect/patterns/effect-catchall-default.md) | warning | Broad `Effect.catch` defaults in domain logic — use `catchTag` unless it's an explicit boundary fallback. |
-| [`effect-promise-vs-trypromise`](./harnesses/effect/patterns/effect-promise-vs-trypromise.md) | warning | `Effect.promise` over `Effect.tryPromise` (loses error handling). |
-| [`effect-run-in-body`](./harnesses/effect/patterns/effect-run-in-body.md) | warning | `Effect.runSync` / `runPromise` outside entry points. |
-| [`imperative-loops`](./harnesses/effect/patterns/imperative-loops.md) | warning | `for` / `for...of` over functional transformations. |
-| [`require-effect-concurrency`](./harnesses/effect/patterns/require-effect-concurrency.md) | warning | `Effect.forEach` / `all` / `validate` without explicit concurrency on non-trivial fan-out. |
-| [`stream-large-files`](./harnesses/effect/patterns/stream-large-files.md) | info | Whole-file reads when the path looks large or unbounded. |
-| [`throw-in-effect-gen`](./harnesses/effect/patterns/throw-in-effect-gen.md) | **critical** | `throw` inside `Effect.gen` — use `yield* Effect.fail()`. |
-| [`vm-in-wrong-file`](./harnesses/effect/patterns/vm-in-wrong-file.md) | **critical** | View Model definitions outside `.vm.ts` files. |
-| [`yield-in-for-loop`](./harnesses/effect/patterns/yield-in-for-loop.md) | warning | `yield*` in `for` loops — use `Effect.forEach` / `STM.forEach`. |
+| [`casting-awareness`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/casting-awareness.md) | info | Type assertions in general — use type-safe alternatives. |
+| [`context-tag-extends`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/context-tag-extends.md) | warning | `class *Tag extends Context.Tag` naming — use `Context.Service`. |
+| [`effect-catchall-default`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/effect-catchall-default.md) | warning | Broad `Effect.catch` defaults in domain logic — use `catchTag` unless it's an explicit boundary fallback. |
+| [`effect-promise-vs-trypromise`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/effect-promise-vs-trypromise.md) | warning | `Effect.promise` over `Effect.tryPromise` (loses error handling). |
+| [`effect-run-in-body`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/effect-run-in-body.md) | warning | `Effect.runSync` / `runPromise` outside entry points. |
+| [`imperative-loops`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/imperative-loops.md) | warning | `for` / `for...of` over functional transformations. |
+| [`require-effect-concurrency`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/require-effect-concurrency.md) | warning | `Effect.forEach` / `all` / `validate` without explicit concurrency on non-trivial fan-out. |
+| [`stream-large-files`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/stream-large-files.md) | info | Whole-file reads when the path looks large or unbounded. |
+| [`throw-in-effect-gen`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/throw-in-effect-gen.md) | **critical** | `throw` inside `Effect.gen` — use `yield* Effect.fail()`. |
+| [`vm-in-wrong-file`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/vm-in-wrong-file.md) | **critical** | View Model definitions outside `.vm.ts` files. |
+| [`yield-in-for-loop`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/yield-in-for-loop.md) | warning | `yield*` in `for` loops — use `Effect.forEach` / `STM.forEach`. |
 
 Each pattern's full markdown body — usually a Haskell-style transformation diagram, rationale, and a hint to load specific `effect-*` skills — is what gets sent back to the agent on a match.
 
@@ -378,7 +393,7 @@ Each pattern's full markdown body — usually a Haskell-style transformation dia
 
 ### Effect version detection
 
-`EffectVersion.refresh(cwd)` reads `node_modules/effect/package.json` and falls back to `4.0.0-beta.59`. The detected version is used as the `effect@<version>` git tag for the reference clone. Refreshing the version (which happens on `session_start`, `session_tree`, and `before_agent_start`) does not in itself trigger a reclone; the clone hook compares the marker file to the new version and only reclones on mismatch.
+`EffectVersion.refresh(cwd)` reads `node_modules/effect/package.json` and falls back to `4.0.0-beta.59`. The detected version is used as the `effect@<version>` git tag for the reference clone. Refreshing the version happens on `session_start` and when `/toggle-effect-harness` is toggled on; the before-turn clone hook then uses the latest cached version. The clone hook compares the marker file to that version and only reclones on mismatch.
 
 ### Reference clone location
 
@@ -398,11 +413,11 @@ Matches an `Effect` identifier or any `from "effect..."` import. The gate is int
 
 ### What this extension never does
 
-- Modifies project files outside `.references/`.
+- Modifies application source files directly. It may create/update `.references/` for the reference clone and Pi's project-scoped session-state file for mode persistence.
 - Blocks Read tool calls. The gate fires on writes only.
 - Persists state across projects. Mode state is project-scoped.
-- Calls the network outside the initial `git clone` of the reference repo.
-- Talks to any Pi events other than the five listed in [Lifecycle](#lifecycle).
+- Calls the network outside the `git clone` of the reference repo.
+- Talks to Pi events outside the lifecycle listed above.
 
 ---
 
@@ -424,7 +439,7 @@ bun run check    # dprint format + oxlint + tsgo typecheck
 bun run test     # vitest run (all tests)
 ```
 
-See [`AGENTS.md`](./AGENTS.md) and [`CONTRIBUTING.md`](./CONTRIBUTING.md) for project structure, code style, and PR guidelines.
+See [`AGENTS.md`](https://github.com/mpsuesser/pi-effect-harness/blob/main/AGENTS.md) and [`CONTRIBUTING.md`](https://github.com/mpsuesser/pi-effect-harness/blob/main/CONTRIBUTING.md) for project structure, code style, and PR guidelines.
 
 The harness is built on a small internal kernel (`packages/harness-kit`) that wraps Pi's `ExtensionAPI` in Effect — `Decision`, `HarnessRule`, `HookSet`, `RuleEngine`, `WriteProjection`, `PatternCatalog`, `PatternMatcher`. The kernel may eventually be lifted out as a standalone library for building other Pi harnesses; for now treat the Effect harness as the product and the kernel as an implementation detail.
 
@@ -432,7 +447,7 @@ The harness is built on a small internal kernel (`packages/harness-kit`) that wr
 
 ## License
 
-[MIT](./LICENSE) © Marc Suesser
+[MIT](https://github.com/mpsuesser/pi-effect-harness/blob/main/LICENSE) © Marc Suesser
 
 ---
 
