@@ -11,8 +11,16 @@ rule:
         - all:
               - kind: import_statement
               - regex: '["'']node:[^"'']+["'']'
-        - pattern: require($SPEC)
-        - pattern: import($SPEC)
+              - not:
+                    regex: '["'']node:(?:fs(?:/promises)?|path)["'']'
+        - all:
+              - pattern: require($SPEC)
+              - not:
+                    regex: node:(?:fs(?:/promises)?|path)
+        - all:
+              - pattern: import($SPEC)
+              - not:
+                    regex: node:(?:fs(?:/promises)?|path)
 constraints:
     SPEC:
         regex: '^["'']node:[^"'']+["'']$'

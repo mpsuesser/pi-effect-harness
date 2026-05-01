@@ -4,15 +4,12 @@ testPattern({
 	name: 'avoid-node-imports',
 	tag: 'use-effect-platform',
 	shouldMatch: [
-		'import * as path from "node:path"',
-		'import * as fs from "node:fs"',
 		'import { spawn } from "node:child_process"',
 		'import http from "node:http"',
 		'import * as stream from "node:stream"',
 		'import readline from "node:readline"',
-		"const fs = require('node:fs')",
-		"const path = require( 'node:path' )",
 		'import "node:crypto"',
+		"const http = require('node:http')",
 		'const crypto = await import("node:crypto")'
 	],
 	shouldNotMatch: [
@@ -22,6 +19,12 @@ testPattern({
 		'import * as ChildProcess from "effect/unstable/process/ChildProcess"',
 		'import { Stream } from "effect"',
 		'import * as Terminal from "effect/Terminal"',
-		'import { node } from "other-lib"'
+		'import { node } from "other-lib"',
+		'import * as path from "node:path"',
+		'import * as fs from "node:fs"',
+		'import { readFile } from "node:fs/promises"',
+		"const fs = require('node:fs')",
+		"const path = require( 'node:path' )",
+		'const fs = await import("node:fs")'
 	]
 });
