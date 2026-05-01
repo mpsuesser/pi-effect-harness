@@ -51,7 +51,7 @@ export namespace EditReplacement {
 	]);
 
 	export class Current extends Context.Service<Current, Value>()(
-		'pi-effect-harness/EditReplacement/Current'
+		'pi-harness-kit/EditReplacement/Current'
 	) {}
 
 	export const layer = (value: Value) =>

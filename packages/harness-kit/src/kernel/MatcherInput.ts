@@ -15,7 +15,7 @@ export namespace MatcherInput {
 	}) {}
 
 	export class Current extends Context.Service<Current, Value>()(
-		'pi-effect-harness/kernel/MatcherInput/Current'
+		'pi-harness-kit/kernel/MatcherInput/Current'
 	) {}
 
 	export const empty = () =>

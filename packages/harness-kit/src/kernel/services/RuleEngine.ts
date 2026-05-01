@@ -50,7 +50,7 @@ export namespace RuleEngine {
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
-		'pi-effect-harness/kernel/RuleEngine'
+		'pi-harness-kit/kernel/RuleEngine'
 	) {}
 
 	export const layer = Layer.effect(

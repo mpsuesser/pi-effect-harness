@@ -340,7 +340,7 @@ export namespace WriteProjection {
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
-		'pi-effect-harness/kernel/WriteProjection'
+		'pi-harness-kit/kernel/WriteProjection'
 	) {}
 
 	export const layer = Layer.effect(

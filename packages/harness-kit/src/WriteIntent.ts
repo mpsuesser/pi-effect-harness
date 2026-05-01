@@ -29,7 +29,7 @@ export namespace WriteIntent {
 	export class Current extends Context.Service<
 		Current,
 		Schema.Schema.Type<typeof Value>
-	>()('pi-effect-harness/WriteIntent/Current') {}
+	>()('pi-harness-kit/WriteIntent/Current') {}
 
 	export const layer = (value: Schema.Schema.Type<typeof Value>) =>
 		Layer.succeed(Current, Current.of(value));

@@ -16,7 +16,7 @@ export namespace UserMessage {
 	}) {}
 
 	export class Current extends Context.Service<Current, Value>()(
-		'pi-effect-harness/UserMessage/Current'
+		'pi-harness-kit/UserMessage/Current'
 	) {}
 
 	export const layer = (value: Value) =>

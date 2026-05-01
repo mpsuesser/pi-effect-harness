@@ -86,7 +86,7 @@ export namespace HarnessController {
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
-		'pi-effect-harness/kernel/HarnessController'
+		'pi-harness-kit/kernel/HarnessController'
 	) {}
 
 	export const layer = Layer.effect(

@@ -97,7 +97,7 @@ export namespace ActiveBranch {
 	}) {}
 
 	export class Current extends Context.Service<Current, Value>()(
-		'pi-effect-harness/ActiveBranch/Current'
+		'pi-harness-kit/ActiveBranch/Current'
 	) {}
 
 	export const layer = (value: Value) =>
