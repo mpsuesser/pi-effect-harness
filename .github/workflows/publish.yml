@@ -26,12 +26,13 @@ jobs:
             - name: Typecheck
               run: bun run typecheck
 
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: '22'
-                  registry-url: 'https://registry.npmjs.org'
+            - name: Build publishable tarball
+              working-directory: harnesses/effect
+              run: bun run build:publishable
+
+            - name: Configure npm auth
+              run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
             - name: Publish
-              run: npm publish --provenance --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+              working-directory: harnesses/effect/dist
+              run: bun publish --access public
