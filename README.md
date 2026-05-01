@@ -439,3 +439,5 @@ The harness is built on a small internal kernel (`packages/harness-kit`) that wr
 - [Pi](https://pi.dev) — the coding agent this extension plugs into.
 - [Effect](https://effect.website) — what this extension is opinionated about.
 - [`Effect-TS/effect-smol`](https://github.com/Effect-TS/effect-smol) — the source the reference clone tracks.
+- [Kit Langton (@kitlangton)](https://x.com/kitlangton/status/2016945444312498340) — primary source for the "near-inexpressible majesty of layers" guidance essay.
+- [`kriegcloud/beep-effect`](https://github.com/kriegcloud/beep-effect/blob/main/standards/effect-first-development.md) — the earliest version of the `effect-first-development` guidance doc was sourced from here.
