@@ -5,7 +5,17 @@ event: after
 name: use-filesystem-service
 description: Use FileSystem service instead of direct Node.js fs imports
 glob: '**/*.{ts,tsx}'
-pattern: (import\s+.*\s+from\s+['"]node:fs['"]|import\s+.*\s+from\s+['"]fs['"]|require\(['"]node:fs['"]\)|require\(['"]fs['"]\))
+detector: ast
+rule:
+    any:
+        - all:
+              - kind: import_statement
+              - regex: '["''](?:node:)?fs["'']'
+        - pattern: require($SPEC)
+        - pattern: import($SPEC)
+constraints:
+    SPEC:
+        regex: '^["''](?:node:)?fs["'']$'
 level: high
 suggestSkills:
     - effect-filesystem

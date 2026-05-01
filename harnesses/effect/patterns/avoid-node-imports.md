@@ -5,7 +5,17 @@ event: after
 name: avoid-node-imports
 description: Use @effect/platform abstractions instead of node: imports
 glob: '**/*.{ts,tsx}'
-pattern: (from\s+['"]node:|require\s*\(\s*['"]node:)
+detector: ast
+rule:
+    any:
+        - all:
+              - kind: import_statement
+              - regex: '["'']node:[^"'']+["'']'
+        - pattern: require($SPEC)
+        - pattern: import($SPEC)
+constraints:
+    SPEC:
+        regex: '^["'']node:[^"'']+["'']$'
 level: warning
 suggestSkills:
     - effect-platform-abstraction

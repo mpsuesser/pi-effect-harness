@@ -12,7 +12,8 @@ testPattern({
 		'import readline from "node:readline"',
 		"const fs = require('node:fs')",
 		"const path = require( 'node:path' )",
-		'from "node:crypto"'
+		'import "node:crypto"',
+		'const crypto = await import("node:crypto")'
 	],
 	shouldNotMatch: [
 		'import * as Path from "effect/Path"',

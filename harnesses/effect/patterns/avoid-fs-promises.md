@@ -5,7 +5,17 @@ event: after
 name: avoid-fs-promises
 description: Wrap fs/promises with Effect instead of using directly
 glob: '**/*.{ts,tsx}'
-pattern: (import\s+.*\s+from\s+['"]node:fs/promises['"]|import\s+.*\s+from\s+['"]fs/promises['"])
+detector: ast
+rule:
+    any:
+        - all:
+              - kind: import_statement
+              - regex: '["''](?:node:)?fs/promises["'']'
+        - pattern: require($SPEC)
+        - pattern: import($SPEC)
+constraints:
+    SPEC:
+        regex: '^["''](?:node:)?fs/promises["'']$'
 level: warning
 suggestSkills:
     - effect-filesystem

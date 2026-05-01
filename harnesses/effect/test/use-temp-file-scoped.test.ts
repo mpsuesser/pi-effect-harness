@@ -7,9 +7,10 @@ testPattern({
 		"import os from 'os'",
 		"import * as os from 'os'",
 		"require('os')",
+		"const os = await import('node:os')",
 		'os.tmpdir()',
-		'.makeTempFile(',
-		'.makeTempDirectory(',
+		'FileSystem.makeTempFile()',
+		'FileSystem.makeTempDirectory()',
 		'const tmpFile = yield* FileSystem.makeTempFile()'
 	],
 	shouldNotMatch: [

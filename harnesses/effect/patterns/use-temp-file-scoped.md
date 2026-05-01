@@ -5,7 +5,20 @@ event: after
 name: use-temp-file-scoped
 description: Use makeTempFileScoped/makeTempDirectoryScoped instead of os.tmpdir() or non-scoped variants
 glob: '**/*.{ts,tsx}'
-pattern: (import\s+.*\s+from\s+['"]os['"]|require\(['"]os['"]\)|os\.tmpdir\(\)|\.(makeTempFile|makeTempDirectory)\s*\()
+detector: ast
+rule:
+    any:
+        - all:
+              - kind: import_statement
+              - regex: '["''](?:node:)?os["'']'
+        - pattern: require($SPEC)
+        - pattern: import($SPEC)
+        - pattern: os.tmpdir()
+        - pattern: $FS.makeTempFile($$$)
+        - pattern: $FS.makeTempDirectory($$$)
+constraints:
+    SPEC:
+        regex: '^["''](?:node:)?os["'']$'
 level: warning
 suggestSkills:
     - effect-filesystem

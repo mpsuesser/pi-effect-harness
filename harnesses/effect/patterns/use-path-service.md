@@ -5,7 +5,17 @@ event: after
 name: use-path-service
 description: Use Path service instead of direct Node.js path imports
 glob: '**/*.{ts,tsx}'
-pattern: (import\s+.*\s+from\s+['"]node:path['"]|import\s+.*\s+from\s+['"]path['"])
+detector: ast
+rule:
+    any:
+        - all:
+              - kind: import_statement
+              - regex: '["''](?:node:)?path["'']'
+        - pattern: require($SPEC)
+        - pattern: import($SPEC)
+constraints:
+    SPEC:
+        regex: '^["''](?:node:)?path["'']$'
 level: warning
 suggestSkills:
     - effect-path

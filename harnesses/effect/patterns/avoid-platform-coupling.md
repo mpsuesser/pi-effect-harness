@@ -5,7 +5,17 @@ event: after
 name: avoid-platform-coupling
 description: Binding packages should not import platform-specific packages like @effect/platform-bun
 glob: 'packages/*/binding/**/*.{ts,tsx}'
-pattern: '@effect/platform-bun'
+detector: ast
+rule:
+    any:
+        - all:
+              - kind: import_statement
+              - regex: '["'']@effect/platform-bun(?:/[^"'']*)?["'']'
+        - pattern: require($SPEC)
+        - pattern: import($SPEC)
+constraints:
+    SPEC:
+        regex: '^["'']@effect/platform-bun(?:/[^"'']*)?["'']$'
 level: warning
 suggestSkills:
     - effect-platform-layers
