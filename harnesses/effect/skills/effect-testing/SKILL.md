@@ -1184,13 +1184,13 @@ it.effect(
 
 ```bash
 # Run all tests
-vp test
+bun run test
 
 # Run specific file
-vp test path/to/file.test.ts
+bunx vitest run path/to/file.test.ts
 
 # Full check (format + lint + typecheck + test)
-vp check && vp test
+bun run check && bun run test
 ```
 
 ## Example: Complete Test Suite
