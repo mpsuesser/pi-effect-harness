@@ -1,10 +1,12 @@
 import { Context, Layer, Option, Schema } from 'effect';
 import { runtime } from 'effect/unstable/reactivity/Atom';
+import { EditReplacement } from '../EditReplacement.ts';
 
 export namespace MatcherInput {
 	export class Value extends Schema.Class<Value>('MatcherInput')({
 		filePath: Schema.Option(Schema.String),
 		content: Schema.Option(Schema.String),
+		changedSpans: Schema.Option(Schema.Array(EditReplacement.Span)),
 		command: Schema.Option(Schema.String),
 		pattern: Schema.Option(Schema.String),
 		query: Schema.Option(Schema.String),
@@ -20,6 +22,7 @@ export namespace MatcherInput {
 		new Value({
 			filePath: Option.none(),
 			content: Option.none(),
+			changedSpans: Option.none(),
 			command: Option.none(),
 			pattern: Option.none(),
 			query: Option.none(),

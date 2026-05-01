@@ -49,6 +49,7 @@ const writeProjection = (content: string, filePath = 'src/app.ts') =>
 	new MatcherInput.Value({
 		filePath: Option.some(filePath),
 		content: Option.some(content),
+		changedSpans: Option.none(),
 		command: Option.none(),
 		pattern: Option.none(),
 		query: Option.none(),

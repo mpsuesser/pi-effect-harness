@@ -22,6 +22,11 @@ type ReplacementSpan = {
 	readonly span: EditReplacement.Span;
 };
 
+type ProjectedContent = {
+	readonly content: string;
+	readonly changedSpans: ReadonlyArray<EditReplacement.Span>;
+};
+
 const none = <A>() => Option.none<A>();
 
 const stringOption = (value: string | undefined): Option.Option<string> =>
@@ -52,10 +57,36 @@ const contentOption = (
 ): Option.Option<string> =>
 	parts.length === 0 ? none() : Option.some(parts.join('\n'));
 
+const fullChangedSpan = (
+	content: string
+): ReadonlyArray<EditReplacement.Span> => [
+	new EditReplacement.Span({
+		start: 0,
+		end: content.length
+	})
+];
+
+const projectedContentOption = (
+	content: Option.Option<string>,
+	changedSpans: Option.Option<ReadonlyArray<EditReplacement.Span>> = none()
+): Option.Option<ProjectedContent> =>
+	Option.match(content, {
+		onNone: () => none<ProjectedContent>(),
+		onSome: (value) =>
+			Option.some({
+				content: value,
+				changedSpans: Option.getOrElse(
+					changedSpans,
+					() => fullChangedSpan(value)
+				)
+			})
+	});
+
 const buildProjection = (input: {
 	readonly filePath: Option.Option<string>;
 	readonly command: Option.Option<string>;
 	readonly content: Option.Option<string>;
+	readonly changedSpans: Option.Option<ReadonlyArray<EditReplacement.Span>>;
 	readonly pattern: Option.Option<string>;
 	readonly prompt: Option.Option<string>;
 	readonly query: Option.Option<string>;
@@ -64,6 +95,7 @@ const buildProjection = (input: {
 	new MatcherInput.Value({
 		filePath: input.filePath,
 		content: input.content,
+		changedSpans: input.changedSpans,
 		command: input.command,
 		pattern: input.pattern,
 		query: input.query,
@@ -73,16 +105,32 @@ const buildProjection = (input: {
 
 const withFilePath = (
 	filePath: Option.Option<string>,
-	content: Option.Option<string>
+	content: Option.Option<string>,
+	changedSpans: Option.Option<ReadonlyArray<EditReplacement.Span>> = none()
 ): MatcherInput.Value =>
 	buildProjection({
 		filePath,
 		command: none(),
 		content,
+		changedSpans,
 		pattern: none(),
 		prompt: none(),
 		query: none(),
 		url: none()
+	});
+
+const withProjectedContent = (
+	filePath: Option.Option<string>,
+	projected: Option.Option<ProjectedContent>
+): MatcherInput.Value =>
+	Option.match(projected, {
+		onNone: () => withFilePath(filePath, none()),
+		onSome: (value) =>
+			withFilePath(
+				filePath,
+				Option.some(value.content),
+				Option.some(value.changedSpans)
+			)
 	});
 
 const rawProjection = (input: unknown): MatcherInput.Value => {
@@ -120,6 +168,7 @@ const rawProjection = (input: unknown): MatcherInput.Value => {
 		filePath: getFilePath(input),
 		command: anyStringOption(property(input, 'command')),
 		content: contentOption(parts),
+		changedSpans: none(),
 		pattern: anyStringOption(property(input, 'pattern')),
 		prompt: anyStringOption(property(input, 'prompt')),
 		query: anyStringOption(property(input, 'query')),
@@ -159,7 +208,7 @@ const resolvedSpan = (
 const reconstructEditOutput = (
 	source: string,
 	replacements: ReadonlyArray<EditReplacement.Value>
-): Option.Option<string> => {
+): Option.Option<ProjectedContent> => {
 	const resolved = replacements.flatMap((replacement) =>
 		Option.match(resolvedSpan(replacement, source), {
 			onNone: () => [],
@@ -186,26 +235,94 @@ const reconstructEditOutput = (
 		return none();
 	}
 
+	const initialState: {
+		readonly cursor: number;
+		readonly output: string;
+		readonly changedSpans: ReadonlyArray<EditReplacement.Span>;
+	} = {
+		cursor: 0,
+		output: '',
+		changedSpans: []
+	};
 	const rebuilt = sorted.reduce(
-		(state, replacement) => ({
-			cursor: replacement.span.end,
-			output: state.output +
-				source.slice(state.cursor, replacement.span.start) +
-				replacement.newText
-		}),
-		{ cursor: 0, output: '' }
+		(state, replacement) => {
+			const unchanged = source.slice(
+				state.cursor,
+				replacement.span.start
+			);
+			const start = state.output.length + unchanged.length;
+			const end = start + replacement.newText.length;
+			return {
+				cursor: replacement.span.end,
+				output: state.output + unchanged + replacement.newText,
+				changedSpans: replacement.newText.length === 0
+					? state.changedSpans
+					: [
+						...state.changedSpans,
+						new EditReplacement.Span({ start, end })
+					]
+			};
+		},
+		initialState
 	);
-	return Option.some(`${rebuilt.output}${source.slice(rebuilt.cursor)}`);
+	return Option.some({
+		content: `${rebuilt.output}${source.slice(rebuilt.cursor)}`,
+		changedSpans: rebuilt.changedSpans
+	});
 };
 
 const fallbackEditContent = (
 	replacements: ReadonlyArray<EditReplacement.Value>
-): Option.Option<string> =>
-	contentOption(
-		replacements.flatMap((replacement) =>
-			replacement.newText.length > 0 ? [replacement.newText] : []
+): Option.Option<ProjectedContent> =>
+	projectedContentOption(
+		contentOption(
+			replacements.flatMap((replacement) =>
+				replacement.newText.length > 0 ? [replacement.newText] : []
+			)
 		)
 	);
+
+const resolvedNewSpan = (
+	replacement: EditReplacement.Value,
+	output: string
+): Option.Option<EditReplacement.Span> => {
+	if (replacement.newText.length === 0) {
+		return none();
+	}
+
+	const first = output.indexOf(replacement.newText);
+	if (first === -1) {
+		return none();
+	}
+	if (output.indexOf(replacement.newText, first + 1) !== -1) {
+		return none();
+	}
+
+	return Option.some(
+		new EditReplacement.Span({
+			start: first,
+			end: first + replacement.newText.length
+		})
+	);
+};
+
+const changedSpansFromFinalOutput = (
+	output: string,
+	replacements: ReadonlyArray<EditReplacement.Value>
+): Option.Option<ReadonlyArray<EditReplacement.Span>> => {
+	const replacementsWithText = replacements.filter(
+		(replacement) => replacement.newText.length > 0
+	);
+	const spans = replacementsWithText.flatMap((replacement) =>
+		Option.match(resolvedNewSpan(replacement, output), {
+			onNone: () => [],
+			onSome: (span) => [span]
+		})
+	);
+	return spans.length === replacementsWithText.length
+		? Option.some(spans)
+		: none();
+};
 
 export namespace WriteProjection {
 	export interface Interface {
@@ -262,13 +379,16 @@ export namespace WriteProjection {
 				const filePath = stringOption(intent.filePath);
 				if (intent instanceof WriteIntent.WriteFile) {
 					return Effect.succeed(
-						withFilePath(filePath, Option.some(intent.content))
+						withProjectedContent(
+							filePath,
+							projectedContentOption(Option.some(intent.content))
+						)
 					);
 				}
 
 				return readTargetFile(cwd, filePath).pipe(
 					Effect.map((source) => {
-						const content = Option.isSome(source)
+						const projected = Option.isSome(source)
 							? (() => {
 								const reconstructed = reconstructEditOutput(
 									source.value,
@@ -279,7 +399,7 @@ export namespace WriteProjection {
 									: fallbackEditContent(intent.replacements);
 							})()
 							: fallbackEditContent(intent.replacements);
-						return withFilePath(filePath, content);
+						return withProjectedContent(filePath, projected);
 					})
 				);
 			};
@@ -287,11 +407,29 @@ export namespace WriteProjection {
 			const actual: Interface['actual'] = (cwd, intent) => {
 				const filePath = stringOption(intent.filePath);
 				return readTargetFile(cwd, filePath).pipe(
-					Effect.flatMap((content) =>
-						Option.isSome(content)
-							? Effect.succeed(withFilePath(filePath, content))
-							: prospective(cwd, intent)
-					)
+					Effect.flatMap((content) => {
+						if (Option.isNone(content)) {
+							return prospective(cwd, intent);
+						}
+						if (intent instanceof WriteIntent.WriteFile) {
+							return Effect.succeed(
+								withProjectedContent(
+									filePath,
+									projectedContentOption(content)
+								)
+							);
+						}
+						return Effect.succeed(
+							withFilePath(
+								filePath,
+								content,
+								changedSpansFromFinalOutput(
+									content.value,
+									intent.replacements
+								)
+							)
+						);
+					})
 				);
 			};
 

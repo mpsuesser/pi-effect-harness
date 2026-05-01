@@ -21,6 +21,7 @@ import {
 	loadPatternRulesEffect,
 	loadPatternsEffect,
 	nodePlatformLayer,
+	projectActualEffect,
 	projectProspectiveEffect,
 	withTempFile
 } from './helpers/kernel.ts';
@@ -76,6 +77,7 @@ const writeProjection = (content: string, filePath = 'src/app.ts') =>
 	new MatcherInput.Value({
 		filePath: Option.some(filePath),
 		content: Option.some(content),
+		changedSpans: Option.none(),
 		command: Option.none(),
 		pattern: Option.none(),
 		query: Option.none(),
@@ -352,6 +354,57 @@ describe('prospective output pattern matching', () => {
 					expect(
 						yield* matchesNamedPatternEffect(
 							'avoid-direct-json',
+							projected
+						)
+					).toBe(true);
+				})
+		));
+
+	it.live('ignores pre-existing matches outside changed edit spans', () =>
+		withTempFile(
+			'pi-effect-enforcer-patterns-',
+			'src/app.ts',
+			[
+				"import * as fs from 'node:fs';",
+				'export const value = 1;'
+			].join('\n'),
+			({ cwd, filePath }) =>
+				Effect.gen(function*() {
+					const projected = yield* projectEditEffect(cwd, filePath, [
+						{
+							oldText: 'export const value = 1;',
+							newText: 'export const value = 2;'
+						}
+					]);
+					expect(
+						yield* matchesNamedPatternEffect(
+							'avoid-node-imports',
+							projected
+						)
+					).toBe(false);
+				})
+		));
+
+	it.live('actual projections still match added spans after the write', () =>
+		withTempFile(
+			'pi-effect-enforcer-patterns-',
+			'src/app.ts',
+			"import * as fs from 'node:fs';\nexport const value = 1;\n",
+			({ cwd, filePath }) =>
+				Effect.gen(function*() {
+					const projected = yield* projectActualEffect(
+						cwd,
+						editIntent(filePath, [
+							{
+								oldText: 'export const value = 1;',
+								newText:
+									"import * as path from 'node:path';\nexport const value = 1;"
+							}
+						])
+					);
+					expect(
+						yield* matchesNamedPatternEffect(
+							'avoid-node-imports',
 							projected
 						)
 					).toBe(true);

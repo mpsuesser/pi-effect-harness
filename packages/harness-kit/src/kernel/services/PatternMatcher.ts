@@ -282,6 +282,23 @@ const astMatchLocations = (
 			})
 	});
 
+const spansIntersect = (
+	left: { readonly start: number; readonly end: number; },
+	right: { readonly start: number; readonly end: number; }
+): boolean => left.start < right.end && right.start < left.end;
+
+const filterToChangedSpans = (
+	projection: MatcherInput.Value,
+	locations: ReadonlyArray<Pattern.MatchLocation>
+): ReadonlyArray<Pattern.MatchLocation> =>
+	Option.match(projection.changedSpans, {
+		onNone: () => locations,
+		onSome: (changedSpans) =>
+			locations.filter((location) =>
+				changedSpans.some((span) => spansIntersect(location, span))
+			)
+	});
+
 export const findPatternMatches = (
 	toolName: string,
 	projection: MatcherInput.Value,
@@ -297,14 +314,14 @@ export const findPatternMatches = (
 		return [];
 	}
 
-	if (pattern.detector instanceof Pattern.AstDetector) {
-		return astMatchLocations(pattern.detector, content, projection);
-	}
-
-	const source = pattern.detector.matchInComments
-		? content
-		: stripComments(content);
-	return regexMatchLocations(pattern.detector, source, content);
+	const locations = pattern.detector instanceof Pattern.AstDetector
+		? astMatchLocations(pattern.detector, content, projection)
+		: regexMatchLocations(
+			pattern.detector,
+			pattern.detector.matchInComments ? content : stripComments(content),
+			content
+		);
+	return filterToChangedSpans(projection, locations);
 };
 
 export const matchesPattern = (
