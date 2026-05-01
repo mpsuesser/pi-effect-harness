@@ -1,12 +1,4 @@
-# pi-effect-harness
-
-> A [Pi](https://pi.dev) extension that turns the Pi coding agent into an Effect v4–aware harness — for power users who'd like their coding agent to act like one too.
-
-`pi-effect-harness` is a project-scoped mode for [Pi](https://pi.dev) that gates writes on skill loading, prepends ~50 Effect-first development rules to the system prompt, runs 46 ast-grep / regex pattern detectors after every write, and keeps a local mirror of the [Effect v4 source](https://github.com/Effect-TS/effect-smol) on disk pinned to your project's installed version.
-
-The model never has to pretend it remembers Effect v4. It loads the relevant skills, then writes code under live supervision.
-
----
+![pi-effect-harness](./.github/assets/readme-header-4.jpg)
 
 ## Table of contents
 
