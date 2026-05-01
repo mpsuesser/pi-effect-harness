@@ -6,7 +6,11 @@ name: avoid-mutable-state
 description: Prefer Ref over let bindings for mutable state in Effect services
 glob: '**/*.ts'
 detector: ast
-pattern: let $$$DECLS
+rule:
+    pattern: let $$$DECLS
+    inside:
+        pattern: Layer.effect($$$)
+        stopBy: end
 level: info
 ---
 
