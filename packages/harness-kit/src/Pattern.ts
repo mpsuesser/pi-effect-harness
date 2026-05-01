@@ -1,3 +1,5 @@
+import type { Rule as AstGrepRuleDefinition } from '@ast-grep/napi';
+
 import { Context, Layer, Schema } from 'effect';
 import { runtime } from 'effect/unstable/reactivity/Atom';
 
@@ -14,14 +16,23 @@ export namespace Pattern {
 		}
 	) {}
 
+	const AstGrepRuleDefinition = Schema.declare<AstGrepRuleDefinition>(
+		(input): input is AstGrepRuleDefinition =>
+			typeof input === 'object' && input !== null &&
+			!Array.isArray(input),
+		{ expected: 'ast-grep rule object' }
+	);
+
 	export class AstDetector extends Schema.TaggedClass<AstDetector>()(
 		'AstDetector',
 		{
-			// An AST detector matches if ANY of these ast-grep patterns matches.
-			// YAML frontmatter may spell this as a single string or a list; the
-			// catalog normalizes both forms to this array.
+			// An AST detector matches if ANY of these ast-grep patterns or rule
+			// objects matches. YAML frontmatter may spell legacy `pattern` as a
+			// single string or a list; the catalog normalizes both forms to this
+			// array. Full ast-grep rule objects are read from `rule` / `rules`.
 			patterns: Schema.Array(Schema.String),
-			inside: Schema.optionalKey(Schema.String)
+			inside: Schema.optionalKey(Schema.String),
+			rules: Schema.optionalKey(Schema.Array(AstGrepRuleDefinition))
 		}
 	) {}
 

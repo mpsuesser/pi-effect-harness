@@ -1,3 +1,5 @@
+import type { Rule as AstGrepRuleDefinition } from '@ast-grep/napi';
+
 import {
 	Context,
 	Effect,
@@ -40,6 +42,29 @@ const readStringArray = (
 
 const stringOption = (value: unknown): Option.Option<string> =>
 	typeof value === 'string' ? Option.some(value) : Option.none();
+
+const isAstGrepRuleDefinition = (
+	value: unknown
+): value is AstGrepRuleDefinition =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const readAstRuleList = (
+	value: unknown
+): Option.Option<ReadonlyArray<AstGrepRuleDefinition>> => {
+	if (isAstGrepRuleDefinition(value)) {
+		return Option.some([value]);
+	}
+	if (!Array.isArray(value)) {
+		return Option.none();
+	}
+
+	const rules = value.flatMap((entry) =>
+		isAstGrepRuleDefinition(entry) ? [entry] : []
+	);
+	return rules.length === value.length && rules.length > 0
+		? Option.some(rules)
+		: Option.none();
+};
 
 const isSkippedFile = (name: string): boolean =>
 	SKIPPED_FILES.some(
@@ -88,6 +113,17 @@ const toDetector = (
 	});
 
 	if (detector === 'ast') {
+		const rule = readAstRuleList(raw.rule);
+		const rules = Option.isSome(rule) ? rule : readAstRuleList(raw.rules);
+		if (Option.isSome(rules)) {
+			return Option.some(
+				new Pattern.AstDetector({
+					patterns: [],
+					rules: [...rules.value]
+				})
+			);
+		}
+
 		const patterns = readPatternList(raw.pattern);
 		if (Option.isNone(patterns) || patterns.value.length === 0) {
 			return Option.none();

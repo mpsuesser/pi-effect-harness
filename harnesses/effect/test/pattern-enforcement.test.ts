@@ -6,9 +6,11 @@
  */
 
 import { describe, expect, it } from '@effect/vitest';
-import { Effect, Option, Schema } from 'effect';
+import { Effect, Layer, Option, Schema } from 'effect';
 
 import { EditReplacement } from 'pi-harness-kit/EditReplacement.ts';
+import { MatcherInput } from 'pi-harness-kit/kernel/MatcherInput.ts';
+import { PatternCatalog } from 'pi-harness-kit/kernel/services/PatternCatalog.ts';
 import { matchesPattern } from 'pi-harness-kit/kernel/services/PatternMatcher.ts';
 import { WriteIntent } from 'pi-harness-kit/WriteIntent.ts';
 import {
@@ -18,6 +20,7 @@ import {
 import {
 	loadPatternRulesEffect,
 	loadPatternsEffect,
+	nodePlatformLayer,
 	projectProspectiveEffect,
 	withTempFile
 } from './helpers/kernel.ts';
@@ -69,11 +72,87 @@ const matchesNamedPatternEffect = (
 	return matchesPattern('edit', projection, pattern.event, pattern);
 });
 
+const writeProjection = (content: string, filePath = 'src/app.ts') =>
+	new MatcherInput.Value({
+		filePath: Option.some(filePath),
+		content: Option.some(content),
+		command: Option.none(),
+		pattern: Option.none(),
+		query: Option.none(),
+		url: Option.none(),
+		prompt: Option.none()
+	});
+
 describe('pattern feedback policy', () => {
 	it.live('has at least one pattern', () =>
 		Effect.gen(function*() {
 			expect((yield* loadPatternsEffect).length).toBeGreaterThan(0);
 		}));
+
+	it.live('loads and matches full ast-grep rule object detectors', () =>
+		withTempFile(
+			'pi-effect-enforcer-ast-rule-patterns-',
+			'full-rule.md',
+			[
+				'---',
+				'action: context',
+				'tool: (edit|write)',
+				'event: after',
+				'name: no-wrapped-effect-gen',
+				'description: Test full ast-grep rule object support',
+				"glob: '**/*.ts'",
+				'detector: ast',
+				'rule:',
+				'  pattern: Effect.gen($$$BODY)',
+				'  not:',
+				'    inside:',
+				'      pattern: Effect.fn($$$)($$$)',
+				'      stopBy: end',
+				'level: warning',
+				'---',
+				'Prefer Effect.fn wrappers.'
+			].join('\n'),
+			({ cwd }) =>
+				PatternCatalog.Service.use((catalog) =>
+					Effect.gen(function*() {
+						const patterns = yield* catalog.getPatterns;
+						const pattern = patterns[0];
+						if (pattern === undefined) {
+							return yield* new MissingPattern({
+								name: 'no-wrapped-effect-gen'
+							});
+						}
+
+						expect(pattern.name).toBe('no-wrapped-effect-gen');
+						expect(
+							matchesPattern(
+								'write',
+								writeProjection(
+									'const bad = Effect.gen(function*() { return 1; });'
+								),
+								'after',
+								pattern
+							)
+						).toBe(true);
+						expect(
+							matchesPattern(
+								'write',
+								writeProjection(
+									"const good = Effect.fn('x')(() => Effect.gen(function*() { return 1; }));"
+								),
+								'after',
+								pattern
+							)
+						).toBe(false);
+					})
+				).pipe(
+					Effect.provide(
+						PatternCatalog.layer(cwd).pipe(
+							Layer.provide(nodePlatformLayer)
+						)
+					)
+				)
+		));
 
 	it.live('treats all pattern rules as post-write feedback', () =>
 		Effect.gen(function*() {

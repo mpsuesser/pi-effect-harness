@@ -1,4 +1,5 @@
 import { Lang, parse } from '@ast-grep/napi';
+import type { NapiConfig, Rule as AstGrepRuleDefinition } from '@ast-grep/napi';
 import picomatch from 'picomatch';
 
 import { Context, Effect, Layer, Option } from 'effect';
@@ -167,27 +168,49 @@ const langFromPath = (value: string): Option.Option<Lang> =>
 
 type AstRoot = ReturnType<ReturnType<typeof parse>['root']>;
 
+type AstMatcher = string | NapiConfig;
+
+const astFindAll = Option.liftThrowable((root: AstRoot, matcher: AstMatcher) =>
+	root.findAll(matcher)
+);
+
+const hasAstNodes = (root: AstRoot, matcher: AstMatcher): boolean =>
+	Option.match(astFindAll(root, matcher), {
+		onNone: () => false,
+		onSome: (nodes) => nodes.length > 0
+	});
+
+const astRuleMatcher = (rule: AstGrepRuleDefinition): NapiConfig => ({ rule });
+
 // A detector matches if ANY of its patterns matches. This allows a single
 // pattern definition to target multiple distinct AST shapes (e.g. `new Date`
 // and `Date.$M()`, or `new Error` and `$A instanceof Error`).
+const legacyAstMatcher = (
+	pattern: Pattern.AstDetector,
+	candidate: string
+): AstMatcher =>
+	pattern.inside === undefined
+		? candidate
+		: {
+			rule: {
+				pattern: candidate,
+				inside: {
+					pattern: pattern.inside,
+					stopBy: 'end'
+				}
+			}
+		};
+
 const astAnyMatches = (
 	root: AstRoot,
 	pattern: Pattern.AstDetector
 ): boolean =>
-	pattern.patterns.some((candidate) => {
-		const nodes = pattern.inside === undefined
-			? root.findAll(candidate)
-			: root.findAll({
-				rule: {
-					pattern: candidate,
-					inside: {
-						pattern: pattern.inside,
-						stopBy: 'end'
-					}
-				}
-			});
-		return nodes.length > 0;
-	});
+	pattern.patterns.some((candidate) =>
+		hasAstNodes(root, legacyAstMatcher(pattern, candidate))
+	) ||
+	(pattern.rules ?? []).some((rule) =>
+		hasAstNodes(root, astRuleMatcher(rule))
+	);
 
 const astMatches = (
 	pattern: Pattern.AstDetector,
