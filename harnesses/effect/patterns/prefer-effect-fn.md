@@ -6,8 +6,17 @@ name: prefer-effect-fn
 description: Service methods should use Effect.fn for automatic tracing instead of plain Effect.gen wrappers
 glob: '**/*.{ts,tsx}'
 detector: ast
-pattern: 'Effect.gen($$$BODY)'
-inside: 'Context.Service<$T>()($$$ARGS)'
+rule:
+    any:
+        - pattern: ($$$ARGS) => Effect.gen($$$BODY)
+        - pattern: '$NAME: ($$$ARGS) => Effect.gen($$$BODY)'
+    inside:
+        pattern: Layer.effect($$$)
+        stopBy: end
+    not:
+        inside:
+            pattern: Effect.fn($$$)($$$)
+            stopBy: end
 level: warning
 suggestSkills:
     - effect-service-implementation
