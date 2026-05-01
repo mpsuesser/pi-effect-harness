@@ -275,8 +275,12 @@ describe('real code still matches (no regressions)', () => {
 			true
 		));
 
-	it.live('avoid-mutable-state: actual "let x =" in code should match', () =>
-		expectPatternMatch('avoid-mutable-state', 'let count = 0;', true));
+	it.live('avoid-mutable-state: service-local let should match', () =>
+		expectPatternMatch(
+			'avoid-mutable-state',
+			'Layer.effect(Service, Effect.gen(function* () { let count = 0; return Service.of({ count: Effect.sync(() => count) }) }))',
+			true
+		));
 
 	it.live('avoid-try-catch: actual "try {" in code should match', () =>
 		expectPatternMatch(
