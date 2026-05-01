@@ -34,4 +34,4 @@ jobs:
 
             - name: Publish
               working-directory: harnesses/effect/dist
-              run: bun publish --access public
+              run: npm publish --access public
