@@ -5,7 +5,14 @@ event: after
 name: yield-in-for-loop
 description: Use Effect.forEach or STM.forEach instead of yield* in for loops
 glob: '**/*.{ts,tsx}'
-pattern: for\s*\([^)]*\)\s*\{[^}]*yield\s*\*
+detector: ast
+rule:
+    pattern: yield* $A
+    inside:
+        any:
+            - kind: for_statement
+            - kind: for_in_statement
+        stopBy: end
 level: warning
 ---
 

@@ -12,6 +12,7 @@ testPattern({
 	],
 	shouldNotMatch: [
 		'Arr.sort(items, byName)',
+		'const sorted = Arr.sort(items, byName)',
 		'const sortOrder = "asc"',
 		'import { sort } from "effect/Array"',
 		'sortedItems.map(x => x)',

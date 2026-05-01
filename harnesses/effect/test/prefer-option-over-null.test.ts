@@ -6,12 +6,12 @@ testPattern({
 	shouldMatch: [
 		'type User = { name: string } | null',
 		'const result: string | null = getValue()',
-		'null | undefined',
+		'type MaybeUndefined = null | undefined',
 		'function find(): Item | null',
-		': Data | null',
-		'null | string',
-		'undefined | null',
-		'const getUser: (id: string) => User | null',
+		'const value: Data | null = data',
+		'type MaybeString = null | string',
+		'type MaybeNull = undefined | null',
+		'const getUser: (id: string) => User | null = findUser',
 		'interface Result { data: string | null }',
 		'type MaybeValue = null | string'
 	],

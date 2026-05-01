@@ -25,6 +25,8 @@ testPattern({
 		'type Props = { id: number }',
 		'const map: Record<string, User> = {}',
 		'Schema.Struct({ id: Schema.Number })',
-		'const obj: { name: string }'
+		'const obj: { name: string }',
+		'const fallback = value ?? {}',
+		'const fallback = condition ? value : {}'
 	]
 });

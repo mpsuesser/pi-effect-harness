@@ -5,7 +5,11 @@ event: after
 name: prefer-arr-sort
 description: Use Arr.sort with explicit Order instead of native Array.prototype.sort
 glob: '**/*.{ts,tsx}'
-pattern: (?<!Arr)\.sort\s*\(
+detector: ast
+rule:
+    pattern: $A.sort($$$)
+    not:
+        pattern: Arr.sort($$$)
 level: warning
 ---
 

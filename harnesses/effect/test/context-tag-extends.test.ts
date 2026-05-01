@@ -7,7 +7,9 @@ testPattern({
 		'class FooTag extends Context.Tag<FooTag>() { }',
 		'export class ParallelClientTag extends Context.Tag',
 		'Context.GenericTag<ParallelService>',
-		'Context.GenericTag<MyClientService>'
+		'Context.GenericTag<MyClientService>',
+		'Context.Tag("Legacy")',
+		"class Legacy extends Effect.Service<Legacy>()('Legacy') {}"
 	],
 	shouldNotMatch: [
 		'Context.Service<ParallelClient>',

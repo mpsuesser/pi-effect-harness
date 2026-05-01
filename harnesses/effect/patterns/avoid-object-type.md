@@ -5,7 +5,15 @@ event: after
 name: avoid-object-type
 description: Avoid using Object or {} as types
 glob: '**/*.{ts,tsx}'
-pattern: (?::\s*|=\s*)(Object|{})\s*(?=[,;\)\]\|&=<>\s\[])
+detector: ast
+rule:
+    any:
+        - all:
+              - kind: type_identifier
+              - regex: '^Object$'
+        - all:
+              - kind: object_type
+              - regex: '^\{\}$'
 level: warning
 ---
 

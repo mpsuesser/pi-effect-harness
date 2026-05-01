@@ -5,7 +5,12 @@ event: after
 name: avoid-expect-in-if
 description: Avoid nesting expect() calls inside if blocks in tests
 glob: '**/*.{test,spec}.{ts,tsx}'
-pattern: if\s*\([^)]*\)\s*\{[^}]*expect\(
+detector: ast
+rule:
+    pattern: expect($$$)
+    inside:
+        pattern: if ($$$) { $$$ }
+        stopBy: end
 level: warning
 suggestSkills:
     - effect-testing

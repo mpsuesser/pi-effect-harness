@@ -68,7 +68,9 @@ const matchesDetector = (pattern: Pattern.Value, input: string): boolean => {
 					}
 				});
 			return nodes.length > 0;
-		});
+		}) || (detector.rules ?? []).some((rule) =>
+			root.findAll({ rule }).length > 0
+		);
 	}
 
 	const source = pattern.detector.matchInComments

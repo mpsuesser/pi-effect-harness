@@ -5,7 +5,14 @@ event: after
 name: context-tag-extends
 description: Avoid class *Tag extends Context.Tag naming - use Context.Service instead
 glob: '**/*.{ts,tsx}'
-pattern: (class\s+\w+Tag\s+extends\s+Context\.Tag|Context\.GenericTag<\w+Service>|Context\.Tag\(|Effect\.Service<)
+detector: ast
+rule:
+    any:
+        - pattern: 'class $A extends Context.Tag'
+        - pattern: 'class $A extends Context.Tag<$$$>() { $$$ }'
+        - pattern: 'Context.GenericTag<$$$>'
+        - pattern: 'Context.Tag($$$)'
+        - pattern: 'Effect.Service<$$$>()'
 level: warning
 suggestSkills:
     - effect-service-implementation

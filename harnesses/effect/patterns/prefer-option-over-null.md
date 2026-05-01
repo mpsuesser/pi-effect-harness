@@ -5,7 +5,14 @@ event: after
 name: prefer-option-over-null
 description: Consider using Option instead of union with null
 glob: '**/*.{ts,tsx}'
-pattern: \|\s*null(?!\s*\|)|null\s*\|
+detector: ast
+rule:
+    all:
+        - kind: literal_type
+        - regex: '^null$'
+        - inside:
+              kind: union_type
+              stopBy: neighbor
 level: info
 ---
 
