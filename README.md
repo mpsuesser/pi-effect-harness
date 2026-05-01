@@ -216,87 +216,87 @@ The agent doesn't have to know any of this. It sees `.references/effect-v4/LLMS.
 
 | Skill | Description |
 |---|---|
-| `effect-ai-chat` | Stateful AI chat sessions with the Effect Chat module — multi-turn conversations, agentic tool-calling loops, persistence, streaming, structured object generation. |
-| `effect-ai-language-model` | The Effect AI `LanguageModel` service — text generation, structured output, streaming, tool calling, schema-validated responses. |
-| `effect-ai-prompt` | The complete Prompt API for constructing, merging, and manipulating LLM conversations using messages, parts, and composition operators. |
-| `effect-ai-provider` | `@effect/ai` provider layers (Anthropic, OpenAI, OpenAI-Compat, OpenRouter) with config management, model abstraction, `ExecutionPlan` fallback, runtime overrides. |
-| `effect-ai-streaming` | Streaming response patterns: start/delta/end protocol, accumulation strategies, resource-safe consumption, history management with `SubscriptionRef`. |
-| `effect-ai-tool` | Tool and Toolkit APIs — type-safe tool definitions, parameter validation, handler implementations, user- and provider-defined tools. |
+| [`effect-ai-chat`](./harnesses/effect/skills/effect-ai-chat/SKILL.md) | Stateful AI chat sessions with the Effect Chat module — multi-turn conversations, agentic tool-calling loops, persistence, streaming, structured object generation. |
+| [`effect-ai-language-model`](./harnesses/effect/skills/effect-ai-language-model/SKILL.md) | The Effect AI `LanguageModel` service — text generation, structured output, streaming, tool calling, schema-validated responses. |
+| [`effect-ai-prompt`](./harnesses/effect/skills/effect-ai-prompt/SKILL.md) | The complete Prompt API for constructing, merging, and manipulating LLM conversations using messages, parts, and composition operators. |
+| [`effect-ai-provider`](./harnesses/effect/skills/effect-ai-provider/SKILL.md) | `@effect/ai` provider layers (Anthropic, OpenAI, OpenAI-Compat, OpenRouter) with config management, model abstraction, `ExecutionPlan` fallback, runtime overrides. |
+| [`effect-ai-streaming`](./harnesses/effect/skills/effect-ai-streaming/SKILL.md) | Streaming response patterns: start/delta/end protocol, accumulation strategies, resource-safe consumption, history management with `SubscriptionRef`. |
+| [`effect-ai-tool`](./harnesses/effect/skills/effect-ai-tool/SKILL.md) | Tool and Toolkit APIs — type-safe tool definitions, parameter validation, handler implementations, user- and provider-defined tools. |
 
 ### Schema & domain modeling (8)
 
 | Skill | Description |
 |---|---|
-| `effect-schema-v4` | Authoritative reference for Effect Schema v4 API changes and v3 → v4 migration. Find-and-replace tables, breaking changes, idiom shifts. |
-| `effect-schema-composition` | `Schema.decodeTo`, transformations, filters, multi-stage validation. |
-| `effect-domain-modeling` | Production-ready domain models with `Schema.TaggedStruct` — ADTs, predicates, orders, guards, match functions. |
-| `effect-domain-predicates` | Comprehensive predicates and orders for domain types using typeclass patterns. |
-| `effect-typeclass-design` | Curried signatures and dual data-first / data-last APIs. |
-| `effect-pattern-matching` | `Data.TaggedEnum`, `$match`, `$is`, `Match.typeTags`, `Effect.match`. Avoid manual `_tag` checks. |
-| `effect-context-witness` | When to use `Context.Service` witness vs. capability patterns; coupling trade-offs. |
-| `effect-optics` | `Iso`, `Lens`, `Prism`, `Optional`, `Traversal` — composable, type-safe access and immutable updates to nested data. |
+| [`effect-schema-v4`](./harnesses/effect/skills/effect-schema-v4/SKILL.md) | Authoritative reference for Effect Schema v4 API changes and v3 → v4 migration. Find-and-replace tables, breaking changes, idiom shifts. |
+| [`effect-schema-composition`](./harnesses/effect/skills/effect-schema-composition/SKILL.md) | `Schema.decodeTo`, transformations, filters, multi-stage validation. |
+| [`effect-domain-modeling`](./harnesses/effect/skills/effect-domain-modeling/SKILL.md) | Production-ready domain models with `Schema.TaggedStruct` — ADTs, predicates, orders, guards, match functions. |
+| [`effect-domain-predicates`](./harnesses/effect/skills/effect-domain-predicates/SKILL.md) | Comprehensive predicates and orders for domain types using typeclass patterns. |
+| [`effect-typeclass-design`](./harnesses/effect/skills/effect-typeclass-design/SKILL.md) | Curried signatures and dual data-first / data-last APIs. |
+| [`effect-pattern-matching`](./harnesses/effect/skills/effect-pattern-matching/SKILL.md) | `Data.TaggedEnum`, `$match`, `$is`, `Match.typeTags`, `Effect.match`. Avoid manual `_tag` checks. |
+| [`effect-context-witness`](./harnesses/effect/skills/effect-context-witness/SKILL.md) | When to use `Context.Service` witness vs. capability patterns; coupling trade-offs. |
+| [`effect-optics`](./harnesses/effect/skills/effect-optics/SKILL.md) | `Iso`, `Lens`, `Prism`, `Optional`, `Traversal` — composable, type-safe access and immutable updates to nested data. |
 
 ### Layers, services, runtime (5)
 
 | Skill | Description |
 |---|---|
-| `effect-layer-design` | Designing and composing layers for clean dependency management. |
-| `effect-service-implementation` | Fine-grained service capabilities; avoiding monolithic designs. |
-| `effect-managed-runtime` | Bridging Effect into non-Effect frameworks (Hono, Express, Fastify, Lambda, Workers) via `ManagedRuntime`. |
-| `effect-platform-abstraction` | Cross-platform file I/O, process spawning, HTTP clients, terminal — the abstraction itself. |
-| `effect-platform-layers` | Structuring platform-layer provision for cross-platform applications. |
+| [`effect-layer-design`](./harnesses/effect/skills/effect-layer-design/SKILL.md) | Designing and composing layers for clean dependency management. |
+| [`effect-service-implementation`](./harnesses/effect/skills/effect-service-implementation/SKILL.md) | Fine-grained service capabilities; avoiding monolithic designs. |
+| [`effect-managed-runtime`](./harnesses/effect/skills/effect-managed-runtime/SKILL.md) | Bridging Effect into non-Effect frameworks (Hono, Express, Fastify, Lambda, Workers) via `ManagedRuntime`. |
+| [`effect-platform-abstraction`](./harnesses/effect/skills/effect-platform-abstraction/SKILL.md) | Cross-platform file I/O, process spawning, HTTP clients, terminal — the abstraction itself. |
+| [`effect-platform-layers`](./harnesses/effect/skills/effect-platform-layers/SKILL.md) | Structuring platform-layer provision for cross-platform applications. |
 
 ### Errors, config, observability (4)
 
 | Skill | Description |
 |---|---|
-| `effect-error-handling` | `Schema.TaggedErrorClass`, `catchTag`/`catchTags`, `catchReason`/`catchReasons`, `Cause`, `ErrorReporter`, recovery patterns. |
-| `effect-config` | `Config` and `ConfigProvider` — env vars, structured config, test config, `.env`, JSON, custom sources. |
-| `effect-observability` | Structured logging, distributed tracing, metrics; OTLP/Prometheus export. |
-| `effect-wide-events` | Wide events (canonical log lines) for observability. Conceptual guide for instrumentation strategy. |
+| [`effect-error-handling`](./harnesses/effect/skills/effect-error-handling/SKILL.md) | `Schema.TaggedErrorClass`, `catchTag`/`catchTags`, `catchReason`/`catchReasons`, `Cause`, `ErrorReporter`, recovery patterns. |
+| [`effect-config`](./harnesses/effect/skills/effect-config/SKILL.md) | `Config` and `ConfigProvider` — env vars, structured config, test config, `.env`, JSON, custom sources. |
+| [`effect-observability`](./harnesses/effect/skills/effect-observability/SKILL.md) | Structured logging, distributed tracing, metrics; OTLP/Prometheus export. |
+| [`effect-wide-events`](./harnesses/effect/skills/effect-wide-events/SKILL.md) | Wide events (canonical log lines) for observability. Conceptual guide for instrumentation strategy. |
 
 ### Data, IO, concurrency (7)
 
 | Skill | Description |
 |---|---|
-| `effect-stream` | Pull-based streaming pipelines — creation, transformation, consumption, encoding (NDJSON/Msgpack), concurrency, resource safety. |
-| `effect-batching` | `Request`, `RequestResolver`, `SqlResolver` — N+1 elimination, batched data-fetching layers, request caching. |
-| `effect-pubsub-event-bus` | Typed event buses with `PubSub` and `Stream`. |
-| `effect-filesystem` | Cross-platform file I/O across Node.js, Bun, browser. |
-| `effect-path` | Cross-platform path operations — joining, resolving, URL conversion. |
-| `effect-command-executor` | `ChildProcess` — shell commands, captured output, piping, streaming, scoped lifecycle. |
-| `effect-concurrency-testing` | Testing `PubSub`, `Deferred`, `Latch`, `Fiber`, `SubscriptionRef`, `Stream`. |
+| [`effect-stream`](./harnesses/effect/skills/effect-stream/SKILL.md) | Pull-based streaming pipelines — creation, transformation, consumption, encoding (NDJSON/Msgpack), concurrency, resource safety. |
+| [`effect-batching`](./harnesses/effect/skills/effect-batching/SKILL.md) | `Request`, `RequestResolver`, `SqlResolver` — N+1 elimination, batched data-fetching layers, request caching. |
+| [`effect-pubsub-event-bus`](./harnesses/effect/skills/effect-pubsub-event-bus/SKILL.md) | Typed event buses with `PubSub` and `Stream`. |
+| [`effect-filesystem`](./harnesses/effect/skills/effect-filesystem/SKILL.md) | Cross-platform file I/O across Node.js, Bun, browser. |
+| [`effect-path`](./harnesses/effect/skills/effect-path/SKILL.md) | Cross-platform path operations — joining, resolving, URL conversion. |
+| [`effect-command-executor`](./harnesses/effect/skills/effect-command-executor/SKILL.md) | `ChildProcess` — shell commands, captured output, piping, streaming, scoped lifecycle. |
+| [`effect-concurrency-testing`](./harnesses/effect/skills/effect-concurrency-testing/SKILL.md) | Testing `PubSub`, `Deferred`, `Latch`, `Fiber`, `SubscriptionRef`, `Stream`. |
 
 ### Persistence & networking (4)
 
 | Skill | Description |
 |---|---|
-| `effect-sql` | `SqlClient`, `SqlSchema`, `SqlModel` (CRUD repos), `SqlResolver`, `Migrator`. |
-| `effect-http-api` | `HttpApi`, `HttpApiClient`, `HttpApiBuilder` — typed endpoints, security middleware, OpenAPI, derived clients. |
-| `effect-rpc-cluster` | RPC endpoints, cluster routing, workflow patterns with Effect RPC and Cluster. |
-| `effect-workflow` | Durable workflows with `Workflow`, `Activity`, `DurableClock`, `DurableDeferred` — execution that survives restarts, compensation (saga), distribution via Cluster. |
+| [`effect-sql`](./harnesses/effect/skills/effect-sql/SKILL.md) | `SqlClient`, `SqlSchema`, `SqlModel` (CRUD repos), `SqlResolver`, `Migrator`. |
+| [`effect-http-api`](./harnesses/effect/skills/effect-http-api/SKILL.md) | `HttpApi`, `HttpApiClient`, `HttpApiBuilder` — typed endpoints, security middleware, OpenAPI, derived clients. |
+| [`effect-rpc-cluster`](./harnesses/effect/skills/effect-rpc-cluster/SKILL.md) | RPC endpoints, cluster routing, workflow patterns with Effect RPC and Cluster. |
+| [`effect-workflow`](./harnesses/effect/skills/effect-workflow/SKILL.md) | Durable workflows with `Workflow`, `Activity`, `DurableClock`, `DurableDeferred` — execution that survives restarts, compensation (saga), distribution via Cluster. |
 
 ### CLI & MCP (2)
 
 | Skill | Description |
 |---|---|
-| `effect-cli` | Type-safe CLI applications — argument parsing, options, commands, dependency injection. |
-| `effect-mcp-server` | MCP servers with `McpServer`, `McpSchema`, `Tool`, `Toolkit`; stdio and HTTP transports. |
+| [`effect-cli`](./harnesses/effect/skills/effect-cli/SKILL.md) | Type-safe CLI applications — argument parsing, options, commands, dependency injection. |
+| [`effect-mcp-server`](./harnesses/effect/skills/effect-mcp-server/SKILL.md) | MCP servers with `McpServer`, `McpSchema`, `Tool`, `Toolkit`; stdio and HTTP transports. |
 
 ### Testing & migration (2)
 
 | Skill | Description |
 |---|---|
-| `effect-testing` | `@effect/vitest` and `it.effect(...)` — services, layers, time-dependent effects, error handling, property-based testing. |
-| `effect-incremental-migration` | Migrating async/Promise-based modules to Effect services while preserving backward compatibility. |
+| [`effect-testing`](./harnesses/effect/skills/effect-testing/SKILL.md) | `@effect/vitest` and `it.effect(...)` — services, layers, time-dependent effects, error handling, property-based testing. |
+| [`effect-incremental-migration`](./harnesses/effect/skills/effect-incremental-migration/SKILL.md) | Migrating async/Promise-based modules to Effect services while preserving backward compatibility. |
 
 ### React (3)
 
 | Skill | Description |
 |---|---|
-| `effect-atom-state` | Reactive state management with Effect Atom for React applications. |
-| `effect-react-composition` | Composable React components using Effect Atom; avoiding boolean props; integrating with Effect's reactive state. |
-| `effect-react-vm` | The VM (View Model) pattern for reactive, testable frontend state management. |
+| [`effect-atom-state`](./harnesses/effect/skills/effect-atom-state/SKILL.md) | Reactive state management with Effect Atom for React applications. |
+| [`effect-react-composition`](./harnesses/effect/skills/effect-react-composition/SKILL.md) | Composable React components using Effect Atom; avoiding boolean props; integrating with Effect's reactive state. |
+| [`effect-react-vm`](./harnesses/effect/skills/effect-react-vm/SKILL.md) | The VM (View Model) pattern for reactive, testable frontend state management. |
 
 ---
 
@@ -308,67 +308,67 @@ The agent doesn't have to know any of this. It sees `.references/effect-v4/LLMS.
 
 | Pattern | Level | Description |
 |---|---|---|
-| `avoid-any` | warning | `as any` and `as unknown` type assertions. |
-| `avoid-data-tagged-error` | warning | `Data.TaggedError` — use `Schema.TaggedErrorClass` for serialization and RPC compatibility. |
-| `avoid-direct-json` | info | `JSON.parse` / `JSON.stringify` — use `Schema.fromJsonString` or `Schema.UnknownFromJsonString`. |
-| `avoid-direct-tag-checks` | warning | Direct `_tag` property checks; use exported refinements/predicates. |
-| `avoid-expect-in-if` | warning | `expect()` calls nested inside `if` blocks in tests. |
-| `avoid-fs-promises` | warning | `fs/promises` direct usage — wrap with Effect. |
-| `avoid-mutable-state` | info | `let` bindings inside Effect services; prefer `Ref`. |
-| `avoid-native-fetch` | warning | Native `fetch` — use Effect HTTP modules. |
-| `avoid-node-imports` | warning | `node:` imports — use `@effect/platform` abstractions. |
-| `avoid-non-null-assertion` | warning | `!` non-null assertion operator. |
-| `avoid-object-type` | warning | `Object` and `{}` as types. |
-| `avoid-option-getorthrow` | warning | `Option.getOrThrow` — use `Option.match` or `Option.getOrElse`. |
-| `avoid-platform-coupling` | warning | Binding packages importing platform-specific packages like `@effect/platform-bun`. |
-| `avoid-process-env` | warning | `process.env` — use `Config.*`. |
-| `avoid-react-hooks` | high | `useState`/`useEffect`/`useReducer` etc. — use VMs with Effect Atom. |
-| `avoid-schema-suffix` | info | Schema constants suffixed with `Schema`; name them after the domain type. |
-| `avoid-sync-fs` | high | Synchronous filesystem operations. |
-| `avoid-try-catch` | warning | `try`/`catch` in Effect code — use `Effect.try` or typed errors. |
-| `avoid-ts-ignore` | warning | `@ts-ignore` and `@ts-expect-error`. |
-| `avoid-untagged-errors` | warning | `instanceof Error` and `new Error` for recoverable failures — use `Schema.TaggedErrorClass`. |
-| `avoid-yield-ref` | warning | Direct `yield* Ref/Deferred/Fiber/Latch` (removed in v4); use explicit method calls. |
+| [`avoid-any`](./harnesses/effect/patterns/avoid-any.md) | warning | `as any` and `as unknown` type assertions. |
+| [`avoid-data-tagged-error`](./harnesses/effect/patterns/avoid-data-tagged-error.md) | warning | `Data.TaggedError` — use `Schema.TaggedErrorClass` for serialization and RPC compatibility. |
+| [`avoid-direct-json`](./harnesses/effect/patterns/avoid-direct-json.md) | info | `JSON.parse` / `JSON.stringify` — use `Schema.fromJsonString` or `Schema.UnknownFromJsonString`. |
+| [`avoid-direct-tag-checks`](./harnesses/effect/patterns/avoid-direct-tag-checks.md) | warning | Direct `_tag` property checks; use exported refinements/predicates. |
+| [`avoid-expect-in-if`](./harnesses/effect/patterns/avoid-expect-in-if.md) | warning | `expect()` calls nested inside `if` blocks in tests. |
+| [`avoid-fs-promises`](./harnesses/effect/patterns/avoid-fs-promises.md) | warning | `fs/promises` direct usage — wrap with Effect. |
+| [`avoid-mutable-state`](./harnesses/effect/patterns/avoid-mutable-state.md) | info | `let` bindings inside Effect services; prefer `Ref`. |
+| [`avoid-native-fetch`](./harnesses/effect/patterns/avoid-native-fetch.md) | warning | Native `fetch` — use Effect HTTP modules. |
+| [`avoid-node-imports`](./harnesses/effect/patterns/avoid-node-imports.md) | warning | `node:` imports — use `@effect/platform` abstractions. |
+| [`avoid-non-null-assertion`](./harnesses/effect/patterns/avoid-non-null-assertion.md) | warning | `!` non-null assertion operator. |
+| [`avoid-object-type`](./harnesses/effect/patterns/avoid-object-type.md) | warning | `Object` and `{}` as types. |
+| [`avoid-option-getorthrow`](./harnesses/effect/patterns/avoid-option-getorthrow.md) | warning | `Option.getOrThrow` — use `Option.match` or `Option.getOrElse`. |
+| [`avoid-platform-coupling`](./harnesses/effect/patterns/avoid-platform-coupling.md) | warning | Binding packages importing platform-specific packages like `@effect/platform-bun`. |
+| [`avoid-process-env`](./harnesses/effect/patterns/avoid-process-env.md) | warning | `process.env` — use `Config.*`. |
+| [`avoid-react-hooks`](./harnesses/effect/patterns/avoid-react-hooks.md) | high | `useState`/`useEffect`/`useReducer` etc. — use VMs with Effect Atom. |
+| [`avoid-schema-suffix`](./harnesses/effect/patterns/avoid-schema-suffix.md) | info | Schema constants suffixed with `Schema`; name them after the domain type. |
+| [`avoid-sync-fs`](./harnesses/effect/patterns/avoid-sync-fs.md) | high | Synchronous filesystem operations. |
+| [`avoid-try-catch`](./harnesses/effect/patterns/avoid-try-catch.md) | warning | `try`/`catch` in Effect code — use `Effect.try` or typed errors. |
+| [`avoid-ts-ignore`](./harnesses/effect/patterns/avoid-ts-ignore.md) | warning | `@ts-ignore` and `@ts-expect-error`. |
+| [`avoid-untagged-errors`](./harnesses/effect/patterns/avoid-untagged-errors.md) | warning | `instanceof Error` and `new Error` for recoverable failures — use `Schema.TaggedErrorClass`. |
+| [`avoid-yield-ref`](./harnesses/effect/patterns/avoid-yield-ref.md) | warning | Direct `yield* Ref/Deferred/Fiber/Latch` (removed in v4); use explicit method calls. |
 
 ### `prefer-*` (7)
 
 | Pattern | Level | Description |
 |---|---|---|
-| `prefer-arr-sort` | warning | `Arr.sort` with explicit `Order` over native `Array.prototype.sort`. |
-| `prefer-duration-values` | warning | `Duration` helpers over numeric literals for time. |
-| `prefer-effect-fn` | warning | `Effect.fn` for service methods (automatic tracing) over plain `Effect.gen` wrappers. |
-| `prefer-match-over-switch` | warning | `Match` over native `switch`. |
-| `prefer-option-over-null` | info | `Option` over `T \| null` unions. |
-| `prefer-redacted-config` | warning | `Config.redacted` / `Schema.Redacted` for secrets. |
-| `prefer-schema-class` | warning | `Schema.Class` over `Schema.Struct` for object/domain schemas. |
+| [`prefer-arr-sort`](./harnesses/effect/patterns/prefer-arr-sort.md) | warning | `Arr.sort` with explicit `Order` over native `Array.prototype.sort`. |
+| [`prefer-duration-values`](./harnesses/effect/patterns/prefer-duration-values.md) | warning | `Duration` helpers over numeric literals for time. |
+| [`prefer-effect-fn`](./harnesses/effect/patterns/prefer-effect-fn.md) | warning | `Effect.fn` for service methods (automatic tracing) over plain `Effect.gen` wrappers. |
+| [`prefer-match-over-switch`](./harnesses/effect/patterns/prefer-match-over-switch.md) | warning | `Match` over native `switch`. |
+| [`prefer-option-over-null`](./harnesses/effect/patterns/prefer-option-over-null.md) | info | `Option` over `T \| null` unions. |
+| [`prefer-redacted-config`](./harnesses/effect/patterns/prefer-redacted-config.md) | warning | `Config.redacted` / `Schema.Redacted` for secrets. |
+| [`prefer-schema-class`](./harnesses/effect/patterns/prefer-schema-class.md) | warning | `Schema.Class` over `Schema.Struct` for object/domain schemas. |
 
 ### `use-*` (7)
 
 | Pattern | Level | Description |
 |---|---|---|
-| `use-clock-service` | warning | `Clock` / `DateTime` over `new Date()` and `Date.now()`. |
-| `use-console-service` | warning | `Console` / `Effect.log*` over `console.*`. |
-| `use-context-service` | warning | `Context.Service` over legacy `ServiceMap.Service` APIs. |
-| `use-filesystem-service` | high | `FileSystem` service over direct `node:fs` imports. |
-| `use-path-service` | warning | `Path` service over direct `node:path` imports. |
-| `use-random-service` | warning | `Random` service over `Math.random()`. |
-| `use-temp-file-scoped` | warning | `makeTempFileScoped` / `makeTempDirectoryScoped` over `os.tmpdir()` or non-scoped variants. |
+| [`use-clock-service`](./harnesses/effect/patterns/use-clock-service.md) | warning | `Clock` / `DateTime` over `new Date()` and `Date.now()`. |
+| [`use-console-service`](./harnesses/effect/patterns/use-console-service.md) | warning | `Console` / `Effect.log*` over `console.*`. |
+| [`use-context-service`](./harnesses/effect/patterns/use-context-service.md) | warning | `Context.Service` over legacy `ServiceMap.Service` APIs. |
+| [`use-filesystem-service`](./harnesses/effect/patterns/use-filesystem-service.md) | high | `FileSystem` service over direct `node:fs` imports. |
+| [`use-path-service`](./harnesses/effect/patterns/use-path-service.md) | warning | `Path` service over direct `node:path` imports. |
+| [`use-random-service`](./harnesses/effect/patterns/use-random-service.md) | warning | `Random` service over `Math.random()`. |
+| [`use-temp-file-scoped`](./harnesses/effect/patterns/use-temp-file-scoped.md) | warning | `makeTempFileScoped` / `makeTempDirectoryScoped` over `os.tmpdir()` or non-scoped variants. |
 
 ### Other (11)
 
 | Pattern | Level | Description |
 |---|---|---|
-| `casting-awareness` | info | Type assertions in general — use type-safe alternatives. |
-| `context-tag-extends` | warning | `class *Tag extends Context.Tag` naming — use `Context.Service`. |
-| `effect-catchall-default` | warning | Broad `Effect.catch` defaults in domain logic — use `catchTag` unless it's an explicit boundary fallback. |
-| `effect-promise-vs-trypromise` | warning | `Effect.promise` over `Effect.tryPromise` (loses error handling). |
-| `effect-run-in-body` | warning | `Effect.runSync` / `runPromise` outside entry points. |
-| `imperative-loops` | warning | `for` / `for...of` over functional transformations. |
-| `require-effect-concurrency` | warning | `Effect.forEach` / `all` / `validate` without explicit concurrency on non-trivial fan-out. |
-| `stream-large-files` | info | Whole-file reads when the path looks large or unbounded. |
-| `throw-in-effect-gen` | **critical** | `throw` inside `Effect.gen` — use `yield* Effect.fail()`. |
-| `vm-in-wrong-file` | **critical** | View Model definitions outside `.vm.ts` files. |
-| `yield-in-for-loop` | warning | `yield*` in `for` loops — use `Effect.forEach` / `STM.forEach`. |
+| [`casting-awareness`](./harnesses/effect/patterns/casting-awareness.md) | info | Type assertions in general — use type-safe alternatives. |
+| [`context-tag-extends`](./harnesses/effect/patterns/context-tag-extends.md) | warning | `class *Tag extends Context.Tag` naming — use `Context.Service`. |
+| [`effect-catchall-default`](./harnesses/effect/patterns/effect-catchall-default.md) | warning | Broad `Effect.catch` defaults in domain logic — use `catchTag` unless it's an explicit boundary fallback. |
+| [`effect-promise-vs-trypromise`](./harnesses/effect/patterns/effect-promise-vs-trypromise.md) | warning | `Effect.promise` over `Effect.tryPromise` (loses error handling). |
+| [`effect-run-in-body`](./harnesses/effect/patterns/effect-run-in-body.md) | warning | `Effect.runSync` / `runPromise` outside entry points. |
+| [`imperative-loops`](./harnesses/effect/patterns/imperative-loops.md) | warning | `for` / `for...of` over functional transformations. |
+| [`require-effect-concurrency`](./harnesses/effect/patterns/require-effect-concurrency.md) | warning | `Effect.forEach` / `all` / `validate` without explicit concurrency on non-trivial fan-out. |
+| [`stream-large-files`](./harnesses/effect/patterns/stream-large-files.md) | info | Whole-file reads when the path looks large or unbounded. |
+| [`throw-in-effect-gen`](./harnesses/effect/patterns/throw-in-effect-gen.md) | **critical** | `throw` inside `Effect.gen` — use `yield* Effect.fail()`. |
+| [`vm-in-wrong-file`](./harnesses/effect/patterns/vm-in-wrong-file.md) | **critical** | View Model definitions outside `.vm.ts` files. |
+| [`yield-in-for-loop`](./harnesses/effect/patterns/yield-in-for-loop.md) | warning | `yield*` in `for` loops — use `Effect.forEach` / `STM.forEach`. |
 
 Each pattern's full markdown body — usually a Haskell-style transformation diagram, rationale, and a hint to load specific `effect-*` skills — is what gets sent back to the agent on a match.
 
