@@ -10,3 +10,5 @@ opencode.json
 .env
 .env.*
 !.env.example
+.notes/
+.plans/
