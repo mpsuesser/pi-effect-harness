@@ -127,6 +127,12 @@ const toolMatches = (pattern: Pattern.Value, toolName: string): boolean =>
 		onSome: (regex) => regex.test(toolName)
 	});
 
+const pathMatchesGlob = (glob: string, value: string): boolean =>
+	Option.match(globOption(glob), {
+		onNone: () => false,
+		onSome: (matcher) => matcher(value)
+	});
+
 const globMatches = (
 	pattern: Pattern.Value,
 	projection: MatcherInput.Value
@@ -138,13 +144,23 @@ const globMatches = (
 
 	return Option.match(filePath(projection), {
 		onNone: () => false,
-		onSome: (value) =>
-			Option.match(globOption(glob), {
-				onNone: () => false,
-				onSome: (matcher) => matcher(value)
-			})
+		onSome: (value) => pathMatchesGlob(glob, value)
 	});
 };
+
+const ignoreGlobMatches = (
+	pattern: Pattern.Value,
+	projection: MatcherInput.Value
+): boolean =>
+	pattern.ignoreGlob === undefined
+		? false
+		: Option.match(filePath(projection), {
+			onNone: () => false,
+			onSome: (value) =>
+				pattern.ignoreGlob?.some((glob) =>
+					pathMatchesGlob(glob, value)
+				) ?? false
+		});
 
 const globalRegex = (regex: RegExp): RegExp =>
 	new RegExp(
@@ -309,7 +325,8 @@ export const findPatternMatches = (
 	if (
 		pattern.event !== eventType ||
 		!toolMatches(pattern, toolName) ||
-		!globMatches(pattern, projection)
+		!globMatches(pattern, projection) ||
+		ignoreGlobMatches(pattern, projection)
 	) {
 		return [];
 	}

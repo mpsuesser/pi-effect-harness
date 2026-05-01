@@ -178,6 +178,7 @@ const toPattern = (
 		onSome: (value) => value
 	});
 	const glob = stringOption(raw.glob);
+	const ignoreGlob = readStringArray(raw.ignoreGlob);
 	const suggestedSkills = readStringArray(raw.suggestSkills);
 	return Option.some(
 		new Pattern.Value({
@@ -187,6 +188,9 @@ const toPattern = (
 			toolRegex,
 			level: patternLevel(stringOption(raw.level)),
 			...(Option.isSome(glob) ? { glob: glob.value } : undefined),
+			...(Option.isSome(ignoreGlob)
+				? { ignoreGlob: [...ignoreGlob.value] }
+				: undefined),
 			detector: detector.value,
 			guidance: extractBody(content),
 			...(Option.isSome(suggestedSkills)

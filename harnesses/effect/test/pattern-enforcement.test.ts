@@ -156,6 +156,69 @@ describe('pattern feedback policy', () => {
 				)
 		));
 
+	it.live('honors pattern ignoreGlob entries', () =>
+		withTempFile(
+			'pi-effect-enforcer-ignore-glob-patterns-',
+			'ignore-rule.md',
+			[
+				'---',
+				'action: context',
+				'tool: (edit|write)',
+				'event: after',
+				'name: no-console-except-fixtures',
+				'description: Test ignoreGlob support',
+				"glob: '**/*.ts'",
+				'ignoreGlob:',
+				"  - '**/*.fixture.ts'",
+				'detector: ast',
+				'pattern: console.$M($$$)',
+				'level: warning',
+				'---',
+				'No console calls.'
+			].join('\n'),
+			({ cwd }) =>
+				PatternCatalog.Service.use((catalog) =>
+					Effect.gen(function*() {
+						const patterns = yield* catalog.getPatterns;
+						const pattern = patterns[0];
+						if (pattern === undefined) {
+							return yield* new MissingPattern({
+								name: 'no-console-except-fixtures'
+							});
+						}
+
+						expect(
+							matchesPattern(
+								'write',
+								writeProjection(
+									'console.log("hello")',
+									'src/app.ts'
+								),
+								'after',
+								pattern
+							)
+						).toBe(true);
+						expect(
+							matchesPattern(
+								'write',
+								writeProjection(
+									'console.log("hello")',
+									'src/app.fixture.ts'
+								),
+								'after',
+								pattern
+							)
+						).toBe(false);
+					})
+				).pipe(
+					Effect.provide(
+						PatternCatalog.layer(cwd).pipe(
+							Layer.provide(nodePlatformLayer)
+						)
+					)
+				)
+		));
+
 	it.live('treats all pattern rules as post-write feedback', () =>
 		Effect.gen(function*() {
 			const patterns = yield* loadPatternsEffect;

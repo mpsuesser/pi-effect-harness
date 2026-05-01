@@ -55,6 +55,7 @@ export namespace Pattern {
 		toolRegex: Schema.String,
 		level: Rule.Severity,
 		glob: Schema.optionalKey(Schema.String),
+		ignoreGlob: Schema.optionalKey(Schema.Array(Schema.String)),
 		detector: Detector,
 		guidance: Schema.String,
 		suggestedSkills: Schema.optionalKey(Schema.Array(Schema.String)),
