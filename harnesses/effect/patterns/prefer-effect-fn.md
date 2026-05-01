@@ -10,8 +10,20 @@ rule:
     any:
         - pattern: ($$$ARGS) => Effect.gen($$$BODY)
         - pattern: '$NAME: ($$$ARGS) => Effect.gen($$$BODY)'
+        - all:
+              - kind: method_definition
+              - has:
+                    field: body
+                    regex: Effect\.gen
+        - all:
+              - kind: pair
+              - has:
+                    pattern: function($$$ARGS) { return Effect.gen($$$BODY) }
     inside:
-        pattern: Layer.effect($$$)
+        any:
+            - pattern: Layer.effect($$$)
+            - pattern: Layer.scoped($$$)
+            - pattern: Layer.succeed($$$)
         stopBy: end
     not:
         inside:
