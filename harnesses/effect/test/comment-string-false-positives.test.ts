@@ -313,7 +313,7 @@ describe('real code still matches (no regressions)', () => {
 	it.live('avoid-node-imports: import with string specifier should match', () =>
 		expectPatternMatch(
 			'avoid-node-imports',
-			"import * as fs from 'node:fs';",
+			"import * as http from 'node:http';",
 			true
 		));
 

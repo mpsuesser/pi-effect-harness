@@ -49,7 +49,7 @@ export const projectActualEffect = (cwd: string, intent: WriteIntentValue) =>
 			Effect.provide(writeProjectionLayer)
 		);
 
-export const withTempFile = <A, E>(
+export const withTempFile = <A, E, R>(
 	prefix: string,
 	filePath: string,
 	content: string,
@@ -57,7 +57,7 @@ export const withTempFile = <A, E>(
 		readonly cwd: string;
 		readonly filePath: string;
 		readonly absolutePath: string;
-	}) => Effect.Effect<A, E>
+	}) => Effect.Effect<A, E, R>
 ) => Effect.gen(function*() {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;

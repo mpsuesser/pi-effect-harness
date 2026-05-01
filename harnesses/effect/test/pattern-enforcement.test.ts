@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from '@effect/vitest';
-import { Effect, Layer, Option, Schema } from 'effect';
+import { Effect, FileSystem, Layer, Option, Schema } from 'effect';
 
 import { EditReplacement } from 'pi-harness-kit/EditReplacement.ts';
 import { MatcherInput } from 'pi-harness-kit/kernel/MatcherInput.ts';
@@ -355,7 +355,7 @@ describe('prospective output pattern matching', () => {
 				})
 		));
 
-	it.live('matches avoid-node-imports when node imports are added', () =>
+	it.live('matches avoid-node-imports when generic node imports are added', () =>
 		withTempFile(
 			'pi-effect-enforcer-patterns-',
 			'src/app.ts',
@@ -366,7 +366,7 @@ describe('prospective output pattern matching', () => {
 						{
 							oldText: 'export const value = 1;',
 							newText:
-								"import * as fs from 'node:fs';\nexport const value = fs.readFileSync('value.txt', 'utf8');"
+								"import * as http from 'node:http';\nexport const value = http.STATUS_CODES[200];"
 						}
 					]);
 					expect(
@@ -453,15 +453,24 @@ describe('prospective output pattern matching', () => {
 			'pi-effect-enforcer-patterns-',
 			'src/app.ts',
 			"import * as fs from 'node:fs';\nexport const value = 1;\n",
-			({ cwd, filePath }) =>
+			({ cwd, filePath, absolutePath }) =>
 				Effect.gen(function*() {
+					const fileSystem = yield* FileSystem.FileSystem;
+					yield* fileSystem.writeFileString(
+						absolutePath,
+						[
+							"import * as fs from 'node:fs';",
+							"import * as http from 'node:http';",
+							'export const value = 1;'
+						].join('\n')
+					);
 					const projected = yield* projectActualEffect(
 						cwd,
 						editIntent(filePath, [
 							{
 								oldText: 'export const value = 1;',
 								newText:
-									"import * as path from 'node:path';\nexport const value = 1;"
+									"import * as http from 'node:http';\nexport const value = 1;"
 							}
 						])
 					);
