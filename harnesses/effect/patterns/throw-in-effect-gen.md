@@ -6,8 +6,15 @@ name: throw-in-effect-gen
 description: Do not throw inside Effect.gen - use yield* Effect.fail() instead
 glob: '**/*.{ts,tsx}'
 detector: ast
-pattern: throw $ERR
-inside: Effect.gen($$$ARGS)
+rule:
+    pattern: throw $ERR
+    inside:
+        any:
+            - pattern: Effect.gen($$$ARGS)
+            - pattern: Effect.fn($$$ARGS)
+            - pattern: Effect.fn($$$ARGS)($$$BODY)
+            - pattern: Effect.fnUntraced($$$ARGS)
+        stopBy: end
 level: critical
 suggestSkills:
     - effect-error-handling
