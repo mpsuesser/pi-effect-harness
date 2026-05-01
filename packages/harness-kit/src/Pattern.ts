@@ -32,7 +32,10 @@ export namespace Pattern {
 			// array. Full ast-grep rule objects are read from `rule` / `rules`.
 			patterns: Schema.Array(Schema.String),
 			inside: Schema.optionalKey(Schema.String),
-			rules: Schema.optionalKey(Schema.Array(AstGrepRuleDefinition))
+			rules: Schema.optionalKey(Schema.Array(AstGrepRuleDefinition)),
+			constraints: Schema.optionalKey(
+				Schema.Record(Schema.String, AstGrepRuleDefinition)
+			)
 		}
 	) {}
 

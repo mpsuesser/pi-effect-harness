@@ -245,7 +245,13 @@ const astMatcherLocations = (
 			)
 	});
 
-const astRuleMatcher = (rule: AstGrepRuleDefinition): NapiConfig => ({ rule });
+const astRuleMatcher = (
+	pattern: Pattern.AstDetector,
+	rule: AstGrepRuleDefinition
+): NapiConfig =>
+	pattern.constraints === undefined
+		? { rule }
+		: { rule, constraints: pattern.constraints };
 
 // A detector matches if ANY of its patterns matches. This allows a single
 // pattern definition to target multiple distinct AST shapes (e.g. `new Date`
@@ -275,7 +281,7 @@ const astMatchLocationsForRoot = (
 		astMatcherLocations(root, legacyAstMatcher(pattern, candidate), source)
 	),
 	...(pattern.rules ?? []).flatMap((rule) =>
-		astMatcherLocations(root, astRuleMatcher(rule), source)
+		astMatcherLocations(root, astRuleMatcher(pattern, rule), source)
 	)
 ];
 

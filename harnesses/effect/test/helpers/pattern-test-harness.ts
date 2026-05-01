@@ -69,7 +69,11 @@ const matchesDetector = (pattern: Pattern.Value, input: string): boolean => {
 				});
 			return nodes.length > 0;
 		}) || (detector.rules ?? []).some((rule) =>
-			root.findAll({ rule }).length > 0
+			root.findAll(
+				detector.constraints === undefined
+					? { rule }
+					: { rule, constraints: detector.constraints }
+			).length > 0
 		);
 	}
 

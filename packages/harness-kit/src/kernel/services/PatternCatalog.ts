@@ -66,6 +66,22 @@ const readAstRuleList = (
 		: Option.none();
 };
 
+const readAstRuleRecord = (
+	value: unknown
+): Option.Option<Record<string, AstGrepRuleDefinition>> => {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		return Option.none();
+	}
+
+	const entries = Object.entries(value);
+	const rules = entries.flatMap(([key, entry]) =>
+		isAstGrepRuleDefinition(entry) ? [[key, entry] as const] : []
+	);
+	return rules.length === entries.length
+		? Option.some(Object.fromEntries(rules))
+		: Option.none();
+};
+
 const isSkippedFile = (name: string): boolean =>
 	SKIPPED_FILES.some(
 		(prefix) =>
@@ -116,10 +132,14 @@ const toDetector = (
 		const rule = readAstRuleList(raw.rule);
 		const rules = Option.isSome(rule) ? rule : readAstRuleList(raw.rules);
 		if (Option.isSome(rules)) {
+			const constraints = readAstRuleRecord(raw.constraints);
 			return Option.some(
 				new Pattern.AstDetector({
 					patterns: [],
-					rules: [...rules.value]
+					rules: [...rules.value],
+					...(Option.isSome(constraints)
+						? { constraints: constraints.value }
+						: undefined)
 				})
 			);
 		}

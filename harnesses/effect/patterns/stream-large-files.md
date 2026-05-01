@@ -3,12 +3,22 @@ action: context
 tool: (edit|write)
 event: after
 name: stream-large-files
-description: Consider streaming large files instead of reading into memory
+description: Review whole-file reads when the path appears large or unbounded
 glob: '**/*.{ts,tsx}'
 detector: ast
-pattern:
-    - fs.readFile($$$)
-    - fs.readFileString($$$)
+rule:
+    any:
+        - pattern: fs.readFile($PATH)
+        - pattern: fs.readFileString($PATH)
+constraints:
+    PATH:
+        any:
+            - regex: '(large|huge|dump|archive|dataset|backup|export|log|logs|jsonl|ndjson|csv)'
+            - pattern: $DIR + $FILE
+            - pattern: path.join($$$)
+            - pattern: path.resolve($$$)
+            - pattern: $FILES[$I]
+            - pattern: $ITEM.path
 level: info
 suggestSkills:
     - effect-stream

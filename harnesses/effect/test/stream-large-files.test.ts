@@ -4,16 +4,22 @@ testPattern({
 	name: 'stream-large-files',
 	tag: 'consider-streaming',
 	shouldMatch: [
-		'fs.readFile(path)',
-		'fs.readFileString(filePath)',
-		'fs.readFile (somePath)',
-		"await fs.readFileString('/data/large.txt')"
+		"await fs.readFileString('/data/large.txt')",
+		"fs.readFile('/var/log/app.log')",
+		'fs.readFileString(path.join(dir, fileName))',
+		'fs.readFileString(files[index])',
+		'fs.readFileString(entry.path)',
+		'fs.readFileString(logPath)'
 	],
 	shouldNotMatch: [
 		'fs.stream(path)',
 		'Stream.fromFile(path)',
 		'fs.writeFile(path, content)',
 		'fs.readDir(path)',
+		'fs.readFile(path)',
+		'fs.readFileString(filePath)',
+		"fs.readFileString('config.toml')",
+		"fs.readFileString('themes-by-mode.json')",
 		// Sync variants are flagged by avoid-sync-fs, not this pattern
 		'fs.readFileSync(path)',
 		// Non-fs objects with similarly-named methods
