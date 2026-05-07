@@ -971,11 +971,11 @@ Example:
 import { Duration, Effect } from 'effect';
 
 // One-shot lazy memoization
-const cachedConfig = yield * Effect.cached(loadConfig());
+const cachedConfig = yield* Effect.cached(loadConfig());
 
 // Manually invalidatable cache
 const [cachedConfig, invalidate] =
-	yield *
+	yield*
 	Effect.cachedInvalidateWithTTL(
 		loadConfig().pipe(Effect.orElseSucceed(() => defaultConfig)),
 		Duration.infinity

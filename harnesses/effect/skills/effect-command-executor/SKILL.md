@@ -521,17 +521,17 @@ const program = Effect.gen(function* () {
 
 ```typescript
 // These convenience methods handle scope internally
-const spawner = yield * ChildProcessSpawner.ChildProcessSpawner;
-const output = yield * spawner.string(ChildProcess.make`echo hello`);
-const lines = yield * spawner.lines(ChildProcess.make`ls -1`);
+const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+const output = yield* spawner.string(ChildProcess.make`echo hello`);
+const lines = yield* spawner.lines(ChildProcess.make`ls -1`);
 ```
 
 ### DON'T: Use `spawn` + manual stream collection when `string`/`lines` suffices
 
 ```typescript
 // Unnecessarily complex for simple output capture
-const handle = yield * spawner.spawn(ChildProcess.make`echo hello`);
-const chunks = yield * Stream.runCollect(handle.stdout);
+const handle = yield* spawner.spawn(ChildProcess.make`echo hello`);
+const chunks = yield* Stream.runCollect(handle.stdout);
 // ❌ overkill — just use spawner.string
 ```
 
@@ -543,7 +543,7 @@ class MyError extends Schema.TaggedErrorClass<MyError>()('MyError', {
 }) {}
 
 const result =
-	yield *
+	yield*
 	spawner
 		.string(ChildProcess.make`git status`)
 		.pipe(Effect.mapError((cause) => new MyError({ cause })));
@@ -565,7 +565,7 @@ class MyService extends Context.Service<
 
 ```typescript
 if (exitCode !== ChildProcessSpawner.ExitCode(0)) {
-	yield * Effect.fail(new Error(`command failed: ${exitCode}`));
+	yield* Effect.fail(new Error(`command failed: ${exitCode}`));
 }
 ```
 
@@ -581,7 +581,7 @@ if (exitCode !== 0) {
 ### DO: Use `handle.all` for interleaved stdout+stderr
 
 ```typescript
-yield *
+yield*
 	handle.all.pipe(
 		Stream.decodeText(),
 		Stream.splitLines,
@@ -593,7 +593,7 @@ yield *
 
 ```typescript
 // ❌ Using stdout/stderr alongside all may cause interleaving issues
-yield * Stream.merge(handle.stdout, handle.all).pipe(Stream.runCollect);
+yield* Stream.merge(handle.stdout, handle.all).pipe(Stream.runCollect);
 ```
 
 ## Error Handling
@@ -647,7 +647,7 @@ Combine `Effect.raceAll` with discriminated result types to handle exit, abort, 
 import { Effect } from 'effect';
 
 const exit =
-	yield *
+	yield*
 	Effect.raceAll([
 		handle.exitCode.pipe(
 			Effect.map((code) => ({ kind: 'exit' as const, code }))
@@ -660,7 +660,7 @@ const exit =
 		)
 	]);
 if (exit.kind !== 'exit') {
-	yield * handle.kill({ forceKillAfter: '3 seconds' });
+	yield* handle.kill({ forceKillAfter: '3 seconds' });
 }
 ```
 

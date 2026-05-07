@@ -285,7 +285,7 @@ layerHttp: (options: {
 Access the connecting client's capabilities from within tool/resource handlers:
 
 ```typescript
-const caps = yield * McpServer.clientCapabilities;
+const caps = yield* McpServer.clientCapabilities;
 // caps: ClientCapabilities
 ```
 

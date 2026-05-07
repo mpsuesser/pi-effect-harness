@@ -209,7 +209,7 @@ When multiple `Effect.request` calls run concurrently, they are automatically ba
 // These 5 lookups produce ONE call to the resolver
 // Duplicate IDs (1, 2) are deduplicated
 const result =
-	yield *
+	yield*
 	Effect.forEach([1, 2, 1, 3, 2], (id) => getUserById(id), {
 		concurrency: 'unbounded'
 	});
@@ -265,7 +265,7 @@ Adds an in-memory LRU or FIFO cache to a resolver. Cached requests skip the reso
 
 ```typescript
 const resolver =
-	yield *
+	yield*
 	RequestResolver.make<GetUserById>(/* ... */).pipe(
 		RequestResolver.withCache({ capacity: 1024 })
 		// or: RequestResolver.withCache({ capacity: 1024, strategy: "fifo" })
@@ -287,7 +287,7 @@ Converts a resolver into a `Cache` instance for more control (TTL, etc.):
 
 ```typescript
 const userCache =
-	yield *
+	yield*
 	pipe(
 		resolver,
 		RequestResolver.asCache({
@@ -297,7 +297,7 @@ const userCache =
 	);
 
 // Use as a Cache
-const user = yield * userCache.get(new GetUserById({ id: 1 }));
+const user = yield* userCache.get(new GetUserById({ id: 1 }));
 ```
 
 ## Observability
@@ -450,7 +450,7 @@ const insertUser = SqlResolver.request(Insert);
 
 // Batched: these two inserts become one SQL statement
 const results =
-	yield *
+	yield*
 	Effect.all(
 		{
 			one: insertUser('alice'),
@@ -585,12 +585,12 @@ const resolver = RequestResolver.make<GetUserById>(
 
 ```typescript
 // BAD - sequential execution, no batching occurs
-yield * Effect.forEach([1, 2, 3], getUserById);
+yield* Effect.forEach([1, 2, 3], getUserById);
 ```
 
 ### CORRECT: Enable concurrency for batching
 
 ```typescript
 // GOOD - concurrent execution triggers batching
-yield * Effect.forEach([1, 2, 3], getUserById, { concurrency: 'unbounded' });
+yield* Effect.forEach([1, 2, 3], getUserById, { concurrency: 'unbounded' });
 ```

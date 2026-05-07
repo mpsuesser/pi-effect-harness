@@ -131,7 +131,7 @@ ManagedRuntime **owns the scope** of the layers it builds. When you dispose the 
 await runtime.dispose();
 
 // Effect-based dispose (composable)
-yield * runtime.disposeEffect;
+yield* runtime.disposeEffect;
 ```
 
 ### Shutdown hook pattern

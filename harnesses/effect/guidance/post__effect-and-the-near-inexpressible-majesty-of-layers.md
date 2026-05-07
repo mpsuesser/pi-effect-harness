@@ -468,7 +468,7 @@ Then, when we finally `yield* FeatureFlags`, what we're really doing is just ind
 
 ```typescript
 // A simplified mental model of yield* FeatureFlags
-const context = yield * Effect.context();
+const context = yield* Effect.context();
 const flags = context.get(FeatureFlags.key)!; // => { isEnabled: ... }
 ```
 

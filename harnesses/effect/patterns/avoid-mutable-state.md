@@ -64,7 +64,7 @@ let task: Promise<Result> | undefined;
 const getResult = () => (task ??= computeExpensive());
 
 // After: Effect.cached inside service make block
-const cachedResult = yield * Effect.cached(computeExpensive());
+const cachedResult = yield* Effect.cached(computeExpensive());
 ```
 
 For invalidatable caches, use `Effect.cachedInvalidateWithTTL(effect, Duration.infinity)` instead of rebinding a `let`.

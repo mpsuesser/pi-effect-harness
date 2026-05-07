@@ -422,8 +422,8 @@ export namespace ToolRegistry {
 	}
 }
 
-const registry = yield * ToolRegistry.Service;
-const task = yield * Effect.promise(() => registry.named.task.init());
+const registry = yield* ToolRegistry.Service;
+const task = yield* Effect.promise(() => registry.named.task.init());
 ```
 
 Keep static descriptions on the tool for invariant behavior. Put runtime-specific descriptions and policy shaping in the registry layer.

@@ -534,7 +534,7 @@ Options: `{ capacity: number | "unbounded", strategy?: "sliding" | "dropping" | 
 Like broadcast but subscribes lazily when the first consumer starts, keeps upstream alive while consumers exist.
 
 ```ts
-const shared = yield * stream.pipe(Stream.share({ capacity: 16 }));
+const shared = yield* stream.pipe(Stream.share({ capacity: 16 }));
 ```
 
 ---

@@ -525,7 +525,7 @@ const user2 = new User({ name: 'Alice' }, { disableChecks: true });
 // Also available on make, makeEffect, and makeOption:
 const user3 = User.make({ name: 'Alice' }, { disableChecks: true });
 const user4 =
-	yield * User.makeEffect({ name: 'Alice' }, { disableChecks: true });
+	yield* User.makeEffect({ name: 'Alice' }, { disableChecks: true });
 const user5 = User.makeOption({ name: 'Alice' }, { disableChecks: true });
 ```
 

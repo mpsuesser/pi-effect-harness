@@ -91,7 +91,7 @@ const SendEmailLive = SendEmail.toLayer((payload, executionId) =>
 ```ts
 // Execute and wait for result
 const result =
-	yield *
+	yield*
 	SendEmail.execute({
 		to: 'user@example.com',
 		subject: 'Hello',
@@ -100,21 +100,21 @@ const result =
 
 // Fire-and-forget — returns the execution ID
 const executionId =
-	yield *
+	yield*
 	SendEmail.execute(
 		{ to: 'user@example.com', subject: 'Hello', body: 'World' },
 		{ discard: true }
 	);
 
 // Poll for result
-const result = yield * SendEmail.poll(executionId);
+const result = yield* SendEmail.poll(executionId);
 // returns Result<A, E> | undefined
 
 // Interrupt a running workflow
-yield * SendEmail.interrupt(executionId);
+yield* SendEmail.interrupt(executionId);
 
 // Resume a suspended workflow
-yield * SendEmail.resume(executionId);
+yield* SendEmail.resume(executionId);
 ```
 
 ### Deterministic Execution ID
@@ -123,7 +123,7 @@ The execution ID is computed as a hash of `"${name}-${idempotencyKey(payload)}"`
 
 ```ts
 const id =
-	yield *
+	yield*
 	SendEmail.executionId({
 		to: 'user@example.com',
 		subject: 'Hello',
@@ -195,12 +195,12 @@ Activity.make({
 Generate deterministic idempotency keys for external API calls within activities:
 
 ```ts
-const key = yield * Activity.idempotencyKey('stripe-charge');
+const key = yield* Activity.idempotencyKey('stripe-charge');
 // Incorporates the execution ID + activity name
 
 // Include the attempt number for retry-aware keys
 const keyWithAttempt =
-	yield *
+	yield*
 	Activity.idempotencyKey('stripe-charge', {
 		includeAttempt: true
 	});
@@ -212,7 +212,7 @@ Race multiple activities — the first to complete wins, and the result is durab
 
 ```ts
 const result =
-	yield *
+	yield*
 	Activity.raceAll('fastest-provider', [
 		sendViaProviderA,
 		sendViaProviderB,
@@ -228,14 +228,14 @@ const result =
 import { DurableClock } from 'effect/unstable/workflow';
 
 // Inside a workflow handler:
-yield *
+yield*
 	DurableClock.sleep({
 		name: 'wait-before-retry',
 		duration: '30 minutes'
 	});
 
 // Customize the in-memory threshold (default 60 seconds)
-yield *
+yield*
 	DurableClock.sleep({
 		name: 'cooldown',
 		duration: '5 minutes',
@@ -262,7 +262,7 @@ const PaymentConfirmation = DurableDeferred.make('payment-confirmation', {
 });
 
 // Inside a workflow: wait for the signal
-const confirmation = yield * DurableDeferred.await(PaymentConfirmation);
+const confirmation = yield* DurableDeferred.await(PaymentConfirmation);
 ```
 
 ### Completing from Outside
@@ -271,27 +271,27 @@ External code (e.g., a webhook handler) completes the deferred using a **token**
 
 ```ts
 // Inside the workflow: generate a token to give to external systems
-const token = yield * DurableDeferred.token(PaymentConfirmation);
+const token = yield* DurableDeferred.token(PaymentConfirmation);
 // token is a branded string encoding workflow + execution + deferred name
 
 // --- Later, from outside the workflow (e.g., webhook handler): ---
 
 // Succeed
-yield *
+yield*
 	DurableDeferred.succeed(PaymentConfirmation, {
 		token,
 		value: { transactionId: 'tx_123' }
 	});
 
 // Or fail
-yield *
+yield*
 	DurableDeferred.fail(PaymentConfirmation, {
 		token,
 		error: 'Payment declined'
 	});
 
 // Or use done() with a full Exit
-yield *
+yield*
 	DurableDeferred.done(PaymentConfirmation, {
 		token,
 		exit: Exit.succeed({ transactionId: 'tx_123' })
@@ -311,7 +311,7 @@ const token = DurableDeferred.tokenFromExecutionId(PaymentConfirmation, {
 
 // From payload (computes the execution ID)
 const token =
-	yield *
+	yield*
 	DurableDeferred.tokenFromPayload(PaymentConfirmation, {
 		workflow: SendEmail,
 		payload: { to: 'user@example.com', subject: 'Hello', body: 'World' }
@@ -332,7 +332,7 @@ const parsed = DurableDeferred.TokenParsed.fromString(token);
 `DurableDeferred.into` runs an effect and stores its result in the deferred on completion:
 
 ```ts
-yield * pipe(someEffect, DurableDeferred.into(PaymentConfirmation));
+yield* pipe(someEffect, DurableDeferred.into(PaymentConfirmation));
 ```
 
 ### Racing with DurableDeferred
@@ -341,7 +341,7 @@ yield * pipe(someEffect, DurableDeferred.into(PaymentConfirmation));
 
 ```ts
 const result =
-	yield *
+	yield*
 	DurableDeferred.raceAll({
 		name: 'first-response',
 		success: Schema.String,
@@ -413,13 +413,13 @@ Access the workflow's scope, which lives for the entire execution (across replay
 
 ```ts
 // Get the scope
-const workflowScope = yield * Workflow.scope;
+const workflowScope = yield* Workflow.scope;
 
 // Provide scope to a scoped effect
-yield * Workflow.provideScope(myScopedEffect);
+yield* Workflow.provideScope(myScopedEffect);
 
 // Add a finalizer to the workflow scope
-yield *
+yield*
 	Workflow.addFinalizer((exit) =>
 		Effect.log(`Workflow completed with: ${exit}`)
 	);
@@ -609,7 +609,7 @@ Non-activity code re-executes on every replay. Only put deterministic logic outs
 
 ```ts
 // BAD — this HTTP call runs on every replay
-const result = yield * httpClient.get('/api/data');
+const result = yield* httpClient.get('/api/data');
 
 // GOOD — wrap in an activity
 const fetchData = Activity.make({
@@ -617,7 +617,7 @@ const fetchData = Activity.make({
 	success: Schema.String,
 	execute: httpClient.get('/api/data')
 });
-const result = yield * fetchData;
+const result = yield* fetchData;
 ```
 
 ### DON'T use non-deterministic logic outside activities
@@ -626,7 +626,7 @@ Random numbers, current time, UUIDs — these all produce different values on re
 
 ```ts
 // BAD
-const id = yield * Effect.sync(() => crypto.randomUUID());
+const id = yield* Effect.sync(() => crypto.randomUUID());
 
 // GOOD
 const generateId = Activity.make({

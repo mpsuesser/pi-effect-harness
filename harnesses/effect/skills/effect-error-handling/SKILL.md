@@ -1379,10 +1379,10 @@ class TokenError extends Schema.Class<TokenError>('TokenError')({
 const TokenResponse = Schema.Union([TokenSuccess, TokenError]);
 
 // Decode and discriminate
-const response = yield * HttpClientResponse.schemaBodyJson(TokenResponse)(res);
+const response = yield* HttpClientResponse.schemaBodyJson(TokenResponse)(res);
 if (response instanceof TokenError) {
 	return (
-		yield *
+		yield*
 		new AuthError({
 			message: response.error_description ?? response.error
 		})

@@ -162,8 +162,8 @@ Create type-safe RPC clients:
 import { RpcClient } from 'effect/unstable/rpc';
 
 // Make a client from a group + protocol
-const client = yield * RpcClient.make(UsersGroup);
-const user = yield * client.GetUser({ id: '123' });
+const client = yield* RpcClient.make(UsersGroup);
+const user = yield* client.GetUser({ id: '123' });
 ```
 
 Client protocol layers:
@@ -178,8 +178,8 @@ Client protocol layers:
 ```typescript
 import { RpcTest } from 'effect/unstable/rpc';
 
-const client = yield * RpcTest.makeClient(UsersGroup);
-const user = yield * client.GetUser({ id: '123' });
+const client = yield* RpcTest.makeClient(UsersGroup);
+const user = yield* client.GetUser({ id: '123' });
 ```
 
 The test client requires the handler services (from `group.toLayer(...)`) in the context.
@@ -360,9 +360,9 @@ Layer.launch(ProductionLayer).pipe(NodeRuntime.runMain);
 Use `Entity.makeTestClient` for direct in-process entity testing:
 
 ```typescript
-const makeClient = yield * Entity.makeTestClient(Counter, CounterEntityLayer);
+const makeClient = yield* Entity.makeTestClient(Counter, CounterEntityLayer);
 const counter = makeClient('test-entity-1');
-const result = yield * counter.Increment({ amount: 5 });
+const result = yield* counter.Increment({ amount: 5 });
 ```
 
 ## Workflow
@@ -396,7 +396,7 @@ const SendEmail = Activity.make({
 });
 
 // Inside a workflow handler, yield the activity directly
-const result = yield * SendEmail;
+const result = yield* SendEmail;
 ```
 
 Activity features:
@@ -427,28 +427,28 @@ const ProcessOrderLayer = ProcessOrder.toLayer((payload, executionId) =>
 
 ```typescript
 // Fire and get result
-const result = yield * ProcessOrder.execute({ orderId: '123', amount: 99 });
+const result = yield* ProcessOrder.execute({ orderId: '123', amount: 99 });
 
 // Fire and forget — returns executionId
 const execId =
-	yield *
+	yield*
 	ProcessOrder.execute({ orderId: '123', amount: 99 }, { discard: true });
 
 // Poll for result
-const status = yield * ProcessOrder.poll(execId);
+const status = yield* ProcessOrder.poll(execId);
 
 // Interrupt
-yield * ProcessOrder.interrupt(execId);
+yield* ProcessOrder.interrupt(execId);
 
 // Resume suspended workflow
-yield * ProcessOrder.resume(execId);
+yield* ProcessOrder.resume(execId);
 ```
 
 ### Compensation (saga pattern)
 
 ```typescript
 const result =
-	yield *
+	yield*
 	ProcessOrder.withCompensation((chargeResult, cause) =>
 		refundPayment(chargeResult)
 	)(chargePayment(payload));

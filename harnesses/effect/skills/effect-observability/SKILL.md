@@ -41,8 +41,8 @@ const program = Effect.gen(function* () {
 Pass structured data as the second argument:
 
 ```ts
-yield * Effect.log('User action', { userId: 123, action: 'login' });
-yield * Effect.logInfo('Request processed', { duration: 150, statusCode: 200 });
+yield* Effect.log('User action', { userId: 123, action: 'login' });
+yield* Effect.logInfo('Request processed', { duration: 150, statusCode: 200 });
 ```
 
 ### Log Annotations
@@ -259,8 +259,8 @@ Annotate the current span with key-value attributes:
 
 ```ts
 // Annotate the current span from inside the effect
-yield * Effect.annotateCurrentSpan('order.id', orderId);
-yield * Effect.annotateCurrentSpan('order.total', 99.95);
+yield* Effect.annotateCurrentSpan('order.id', orderId);
+yield* Effect.annotateCurrentSpan('order.total', 99.95);
 
 // Annotate from outside using pipe
 const withAttributes = myEffect.pipe(
@@ -298,7 +298,7 @@ const requestCount = Metric.counter('http_requests_total', {
 	description: 'Total number of HTTP requests'
 });
 
-yield * Metric.update(requestCount, 1);
+yield* Metric.update(requestCount, 1);
 ```
 
 ### Gauge
@@ -310,7 +310,7 @@ const activeConnections = Metric.gauge('active_connections', {
 	description: 'Current active connections'
 });
 
-yield * Metric.update(activeConnections, 42);
+yield* Metric.update(activeConnections, 42);
 ```
 
 ### Histogram
@@ -323,7 +323,7 @@ const responseTime = Metric.histogram('http_response_time_ms', {
 	boundaries: Metric.linearBoundaries({ start: 0, width: 50, count: 20 })
 });
 
-yield * Metric.update(responseTime, 127);
+yield* Metric.update(responseTime, 127);
 ```
 
 ### Summary
@@ -337,7 +337,7 @@ const dbQueryTime = Metric.summary('db_query_duration', {
 	quantiles: [0.5, 0.9, 0.95, 0.99]
 });
 
-yield * Metric.update(dbQueryTime, durationMs);
+yield* Metric.update(dbQueryTime, durationMs);
 ```
 
 ### Frequency
@@ -349,8 +349,8 @@ const statusCodes = Metric.frequency('http_status_codes', {
 	description: 'HTTP status code distribution'
 });
 
-yield * Metric.update(statusCodes, '200');
-yield * Metric.update(statusCodes, '404');
+yield* Metric.update(statusCodes, '200');
+yield* Metric.update(statusCodes, '404');
 ```
 
 ### Metric Attributes
@@ -363,10 +363,10 @@ const taggedCounter = Metric.withAttributes(requestCount, {
 	method: 'GET'
 });
 
-yield * Metric.update(taggedCounter, 1);
+yield* Metric.update(taggedCounter, 1);
 
 // Or inline
-yield *
+yield*
 	Metric.update(
 		Metric.withAttributes(requestCount, {
 			endpoint: '/api/posts',
@@ -380,10 +380,10 @@ yield *
 
 ```ts
 // Get current value of a single metric
-const value = yield * Metric.value(requestCount);
+const value = yield* Metric.value(requestCount);
 
 // Snapshot all metrics
-const snapshots = yield * Metric.snapshot;
+const snapshots = yield* Metric.snapshot;
 for (const metric of snapshots) {
 	console.log(`${metric.id}: ${JSON.stringify(metric.state)}`);
 }

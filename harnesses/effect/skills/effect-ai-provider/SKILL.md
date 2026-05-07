@@ -193,11 +193,11 @@ const DraftPlan = ExecutionPlan.make(
 );
 
 // Inside a Layer.effect, call withRequirements to resolve the plan
-const draftsModel = yield * DraftPlan.withRequirements;
+const draftsModel = yield* DraftPlan.withRequirements;
 // This moves client requirements into the Layer's requirements
 
 // Apply the plan to an effect
-const result = yield * myEffect.pipe(Effect.withExecutionPlan(draftsModel));
+const result = yield* myEffect.pipe(Effect.withExecutionPlan(draftsModel));
 ```
 
 ## Chat Service (Stateful Conversations)
@@ -210,17 +210,17 @@ import { Chat, Prompt } from 'effect/unstable/ai';
 
 // Create with system prompt
 const session =
-	yield *
+	yield*
 	Chat.fromPrompt(
 		Prompt.empty.pipe(Prompt.setSystem('You are a helpful assistant.'))
 	);
 
 // Or create empty
-const emptySession = yield * Chat.empty;
+const emptySession = yield* Chat.empty;
 
 // Or from raw messages
 const agentSession =
-	yield *
+	yield*
 	Chat.fromPrompt([
 		{ role: 'system', content: 'You are an assistant.' },
 		{ role: 'user', content: 'Hello' }
@@ -228,7 +228,7 @@ const agentSession =
 
 // Generate text (history is maintained automatically)
 const response =
-	yield *
+	yield*
 	session
 		.generateText({
 			prompt: 'What is Effect?'
@@ -236,13 +236,13 @@ const response =
 		.pipe(Effect.provide(modelLayer));
 
 // Access conversation history
-const history = yield * Ref.get(session.history);
+const history = yield* Ref.get(session.history);
 
 // Export for persistence
-const json = yield * session.exportJson;
+const json = yield* session.exportJson;
 
 // Restore from persisted state
-const restored = yield * Chat.fromJson(json);
+const restored = yield* Chat.fromJson(json);
 ```
 
 ## Config Override Pattern
@@ -254,7 +254,7 @@ import { AnthropicLanguageModel } from '@effect/ai-anthropic';
 
 // Apply overrides to any effect that uses the LanguageModel
 const result =
-	yield *
+	yield*
 	model.generateText({ prompt: '...' }).pipe(
 		AnthropicLanguageModel.withConfigOverride({
 			temperature: 0.7,
@@ -266,7 +266,7 @@ const result =
 import { OpenAiLanguageModel } from '@effect/ai-openai';
 
 const result2 =
-	yield *
+	yield*
 	model.generateText({ prompt: '...' }).pipe(
 		OpenAiLanguageModel.withConfigOverride({
 			temperature: 0.9
@@ -536,11 +536,11 @@ AnthropicClient.layerConfig({ apiKey: Config.redacted('KEY') }).pipe(
 );
 
 // WRONG: Old Chat.make API
-const chat = yield * Chat.make({ system: 'You are helpful' });
+const chat = yield* Chat.make({ system: 'You are helpful' });
 
 // RIGHT: Chat.fromPrompt with Prompt composition
 const chat =
-	yield *
+	yield*
 	Chat.fromPrompt(Prompt.empty.pipe(Prompt.setSystem('You are helpful')));
 
 // WRONG: Old Model.make API with object arg

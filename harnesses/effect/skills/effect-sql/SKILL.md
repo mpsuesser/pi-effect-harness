@@ -82,22 +82,22 @@ Each tagged template expression produces a `Statement<A>` which is also an `Effe
 const stmt = sql`SELECT * FROM users`;
 
 // Execute as Effect (default) — returns ReadonlyArray<Row>
-yield * stmt;
+yield* stmt;
 
 // Stream results row by row (for large result sets)
 const stream = stmt.stream; // Stream<Row, SqlError>
 
 // Raw result without row transforms
-yield * stmt.withoutTransform;
+yield* stmt.withoutTransform;
 
 // Get raw result object
-yield * stmt.raw;
+yield* stmt.raw;
 
 // Get rows as arrays of values (no column names)
-yield * stmt.values;
+yield* stmt.values;
 
 // Execute without prepared statement
-yield * stmt.unprepared;
+yield* stmt.unprepared;
 
 // Compile to [sqlString, params] without executing
 const [sqlString, params] = stmt.compile();
@@ -106,7 +106,7 @@ const [sqlString, params] = stmt.compile();
 ### Identifiers, Literals, and Helpers
 
 ```ts
-const sql = yield * SqlClient;
+const sql = yield* SqlClient;
 
 // Identifier (table/column name) — properly escaped
 sql('users'); // => Identifier
@@ -116,7 +116,7 @@ sql`SELECT * FROM ${sql('users')}`;
 sql.literal('NOW()');
 
 // Unsafe raw query
-yield * sql.unsafe<User>('SELECT * FROM users WHERE id = $1', [userId]);
+yield* sql.unsafe<User>('SELECT * FROM users WHERE id = $1', [userId]);
 
 // IN clause
 sql`SELECT * FROM users WHERE ${sql.in('id', [1, 2, 3])}`;
@@ -131,10 +131,10 @@ sql`SELECT * FROM users ORDER BY ${sql.csv(['name', 'created_at'])}`;
 ### Transactions
 
 ```ts
-const sql = yield * SqlClient;
+const sql = yield* SqlClient;
 
 // Wrap any effect in a transaction — automatically handles BEGIN/COMMIT/ROLLBACK
-yield *
+yield*
 	sql.withTransaction(
 		Effect.gen(function* () {
 			yield* sql`INSERT INTO orders ${sql.insert(order)}`;
@@ -177,7 +177,7 @@ import { Schema } from 'effect';
 import { SqlClient } from 'effect/unstable/sql/SqlClient';
 import * as SqlSchema from 'effect/unstable/sql/SqlSchema';
 
-const sql = yield * SqlClient;
+const sql = yield* SqlClient;
 
 // findAll — returns Array<Res["Type"]>
 const listUsers = SqlSchema.findAll({
@@ -185,7 +185,7 @@ const listUsers = SqlSchema.findAll({
 	Result: User,
 	execute: () => sql`SELECT * FROM users`
 });
-const users = yield * listUsers(void 0);
+const users = yield* listUsers(void 0);
 
 // findOne — returns Res["Type"], fails with NoSuchElementError if empty
 const getUserById = SqlSchema.findOne({
@@ -193,7 +193,7 @@ const getUserById = SqlSchema.findOne({
 	Result: User,
 	execute: (id) => sql`SELECT * FROM users WHERE id = ${id}`
 });
-const user = yield * getUserById(42);
+const user = yield* getUserById(42);
 
 // findOneOption — returns Option<Res["Type"]>
 const findUser = SqlSchema.findOneOption({
@@ -201,7 +201,7 @@ const findUser = SqlSchema.findOneOption({
 	Result: User,
 	execute: (email) => sql`SELECT * FROM users WHERE email = ${email}`
 });
-const maybeUser = yield * findUser('alice@example.com');
+const maybeUser = yield* findUser('alice@example.com');
 
 // findNonEmpty — returns NonEmptyArray<Res["Type"]>, fails with NoSuchElementError if empty
 const getActiveUsers = SqlSchema.findNonEmpty({
@@ -215,7 +215,7 @@ const deleteUser = SqlSchema.void({
 	Request: Schema.Number,
 	execute: (id) => sql`DELETE FROM users WHERE id = ${id}`
 });
-yield * deleteUser(42);
+yield* deleteUser(42);
 ```
 
 ## Model — Schema Variant Classes
@@ -276,7 +276,7 @@ User.jsonUpdate;
 import { SqlModel } from 'effect/unstable/sql/SqlModel';
 
 const UserRepo =
-	yield *
+	yield*
 	SqlModel.makeRepository(User, {
 		tableName: 'users',
 		spanPrefix: 'UserRepo',
@@ -285,22 +285,22 @@ const UserRepo =
 
 // insert — returns the inserted row (decoded via Model schema)
 const user =
-	yield * UserRepo.insert({ name: 'Alice', email: 'alice@example.com' });
+	yield* UserRepo.insert({ name: 'Alice', email: 'alice@example.com' });
 
 // insertVoid — insert without returning the row
-yield * UserRepo.insertVoid({ name: 'Bob', email: 'bob@example.com' });
+yield* UserRepo.insertVoid({ name: 'Bob', email: 'bob@example.com' });
 
 // update — returns the updated row
-const updated = yield * UserRepo.update({ id: userId, name: 'Alice Updated' });
+const updated = yield* UserRepo.update({ id: userId, name: 'Alice Updated' });
 
 // updateVoid — update without returning the row
-yield * UserRepo.updateVoid({ id: userId, name: 'Alice Updated' });
+yield* UserRepo.updateVoid({ id: userId, name: 'Alice Updated' });
 
 // findById — returns the row, fails with NoSuchElementError if not found
-const found = yield * UserRepo.findById(userId);
+const found = yield* UserRepo.findById(userId);
 
 // delete
-yield * UserRepo.delete(userId);
+yield* UserRepo.delete(userId);
 ```
 
 ### Data Loaders (Batched CRUD)
@@ -309,7 +309,7 @@ yield * UserRepo.delete(userId);
 
 ```ts
 const UserLoaders =
-	yield *
+	yield*
 	SqlModel.makeDataLoaders(User, {
 		tableName: 'users',
 		spanPrefix: 'UserLoader',
@@ -319,9 +319,9 @@ const UserLoaders =
 	});
 
 // Same API as makeRepository, but requests within the window are batched:
-const user = yield * UserLoaders.findById(userId);
-yield * UserLoaders.insert({ name: 'Alice', email: 'alice@example.com' });
-yield * UserLoaders.delete(userId);
+const user = yield* UserLoaders.findById(userId);
+yield* UserLoaders.insert({ name: 'Alice', email: 'alice@example.com' });
+yield* UserLoaders.delete(userId);
 ```
 
 ## SqlResolver — Request Batching
@@ -344,7 +344,7 @@ const insertResolver = SqlResolver.ordered({
 
 // Use with SqlResolver.request
 const insertUser = SqlResolver.request(insertResolver);
-const user = yield * insertUser({ name: 'Alice', email: 'alice@example.com' });
+const user = yield* insertUser({ name: 'Alice', email: 'alice@example.com' });
 ```
 
 ### FindById Resolver
@@ -375,7 +375,7 @@ const userPostsResolver = SqlResolver.grouped({
 });
 
 // Returns NonEmptyArray<Post> per userId
-const posts = yield * SqlResolver.request(userPostsResolver)(userId);
+const posts = yield* SqlResolver.request(userPostsResolver)(userId);
 ```
 
 ### Void Resolver
@@ -442,7 +442,7 @@ const migrate = Migrator.make({
 
 // Load migrations from filesystem
 const completed =
-	yield *
+	yield*
 	migrate({
 		loader: Migrator.fromFileSystem('./migrations'),
 		schemaDirectory: './migrations', // optional: where to dump _schema.sql
@@ -542,23 +542,23 @@ const main = program.pipe(Effect.provide(DatabaseLayer));
 ### PgClient-Specific Features
 
 ```ts
-const pg = yield * PgClient;
+const pg = yield* PgClient;
 
 // JSON parameter helper
 sql`INSERT INTO data ${sql.insert({ metadata: pg.json({ key: 'value' }) })}`;
 
 // LISTEN/NOTIFY
 const notifications = pg.listen('my_channel'); // Stream<string, SqlError>
-yield * pg.notify('my_channel', 'hello');
+yield* pg.notify('my_channel', 'hello');
 ```
 
 ### Connection Reservation
 
 ```ts
-const sql = yield * SqlClient;
+const sql = yield* SqlClient;
 
 // Reserve a dedicated connection (useful for advisory locks, temp tables, etc.)
-const conn = yield * sql.reserve; // Effect<Connection, SqlError, Scope>
+const conn = yield* sql.reserve; // Effect<Connection, SqlError, Scope>
 ```
 
 ## Streaming Large Result Sets
@@ -568,13 +568,13 @@ Use `.stream` on any statement for memory-efficient processing of large result s
 ```ts
 import { Stream } from 'effect';
 
-const sql = yield * SqlClient;
+const sql = yield* SqlClient;
 
 // Stream rows one at a time
 const allUsers = sql`SELECT * FROM users`.stream;
 
 // Process with Stream combinators
-yield *
+yield*
 	allUsers.pipe(
 		Stream.filter((user) => user.active),
 		Stream.map((user) => user.email),
@@ -591,7 +591,7 @@ All SQL operations can fail with `SqlError`:
 ```ts
 import { SqlError } from 'effect/unstable/sql/SqlError';
 
-yield *
+yield*
 	sql`SELECT * FROM users`.pipe(
 		Effect.catchTag('SqlError', (err) => {
 			console.error('SQL failed:', err.message);

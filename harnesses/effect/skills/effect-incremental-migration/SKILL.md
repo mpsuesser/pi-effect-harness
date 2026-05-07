@@ -180,11 +180,11 @@ As soon as the service exists, replace `Effect.promise(() => facade())` calls in
 
 ```typescript
 // Before: calling through async facade
-const item = yield * Effect.promise(() => MyModule.get(id));
+const item = yield* Effect.promise(() => MyModule.get(id));
 
 // After: yielding the service directly
-const myModule = yield * MyModule.Service;
-const item = yield * myModule.get(id);
+const myModule = yield* MyModule.Service;
+const item = yield* myModule.get(id);
 ```
 
 When replacing `Effect.promise(() => facade())` with direct service yields, errors that previously flowed as defects become typed channel errors. Update any `catchDefect` handlers to `catch` or `catchTag`.
@@ -198,14 +198,14 @@ When migrating callers that use `Promise.all(items.map(async (x) => ...))`, repl
 ```typescript
 // Before: wrapped Promise.all fan-out
 const results =
-	yield *
+	yield*
 	Effect.promise(() =>
 		Promise.all(items.map(async (item) => processItem(item)))
 	);
 
 // After: Effect.forEach with explicit concurrency
 const results =
-	yield *
+	yield*
 	Effect.forEach(items, (item) => processItem(item), {
 		concurrency: 'unbounded'
 	});

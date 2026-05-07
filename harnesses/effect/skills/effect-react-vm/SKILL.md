@@ -367,7 +367,7 @@ Atoms are ONLY defined inside VM layers:
 
 ```typescript
 // Inside Layer.effect
-const registry = yield * AtomRegistry;
+const registry = yield* AtomRegistry;
 
 // Writable atom - camelCase with $ suffix
 const count$ = Atom.make(0);

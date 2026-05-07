@@ -195,7 +195,7 @@ const make = Effect.gen(function* () {
 Publish a final event before shutting down PubSub channels so subscribers can perform cleanup:
 
 ```typescript
-yield *
+yield*
 	Effect.addFinalizer(() =>
 		Effect.gen(function* () {
 			// Notify all subscribers that the bus is shutting down
@@ -212,7 +212,7 @@ yield *
 Subscribers can detect this event and perform teardown:
 
 ```typescript
-yield *
+yield*
 	bus.subscribeAll.pipe(
 		Stream.takeUntil((evt) => evt instanceof InstanceDisposed),
 		Stream.runForEach(handleEvent),
@@ -277,16 +277,16 @@ it.effect('should receive published events', () =>
 
 ```typescript
 // Unbounded — no backpressure, events never dropped
-const ps = yield * PubSub.unbounded<Event>();
+const ps = yield* PubSub.unbounded<Event>();
 
 // Bounded — applies backpressure when full
-const ps = yield * PubSub.bounded<Event>(1024);
+const ps = yield* PubSub.bounded<Event>(1024);
 
 // Sliding — drops oldest events when full
-const ps = yield * PubSub.sliding<Event>(1024);
+const ps = yield* PubSub.sliding<Event>(1024);
 
 // Dropping — drops newest events when full
-const ps = yield * PubSub.dropping<Event>(1024);
+const ps = yield* PubSub.dropping<Event>(1024);
 ```
 
 Choose based on your use case:
@@ -301,7 +301,7 @@ Choose based on your use case:
 ### DO: Use `Stream.fromPubSub` + `forkScoped` for subscriptions
 
 ```typescript
-yield *
+yield*
 	Stream.fromPubSub(pubsub).pipe(
 		Stream.filter(isRelevant),
 		Stream.runForEach(handle),
@@ -313,28 +313,28 @@ yield *
 
 ```typescript
 // ❌ Overly complex — manual subscription management
-const sub = yield * PubSub.subscribe(pubsub);
-yield * Effect.acquireRelease(Effect.succeed(sub), (s) => Queue.shutdown(s));
+const sub = yield* PubSub.subscribe(pubsub);
+yield* Effect.acquireRelease(Effect.succeed(sub), (s) => Queue.shutdown(s));
 ```
 
 ### DO: Shut down PubSub in finalizers
 
 ```typescript
-yield * Effect.addFinalizer(() => PubSub.shutdown(pubsub));
+yield* Effect.addFinalizer(() => PubSub.shutdown(pubsub));
 ```
 
 ### DON'T: Leave PubSub channels open
 
 ```typescript
 // ❌ Resource leak — subscribers may hang indefinitely
-const pubsub = yield * PubSub.unbounded<Event>();
+const pubsub = yield* PubSub.unbounded<Event>();
 // No shutdown registered
 ```
 
 ### DO: Use `Stream.takeUntil` for shutdown-aware subscriptions
 
 ```typescript
-yield *
+yield*
 	stream.pipe(
 		Stream.takeUntil((evt) => evt instanceof ShutdownEvent),
 		Stream.runForEach(handle),

@@ -97,7 +97,7 @@ const manualTools = LanguageModel.generateText({
 ### Response Accessors
 
 ```typescript
-const response = yield * LanguageModel.generateText({ prompt: '...' });
+const response = yield* LanguageModel.generateText({ prompt: '...' });
 
 response.text; // string - concatenated text content
 response.toolCalls; // Array<ToolCallParts> - tool invocations

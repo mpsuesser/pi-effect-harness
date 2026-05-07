@@ -46,14 +46,14 @@ The `Chat` module wraps `LanguageModel` with automatic conversation history mana
 ### Empty session
 
 ```ts
-const session = yield * Chat.empty;
+const session = yield* Chat.empty;
 ```
 
 ### With a system prompt
 
 ```ts
 const session =
-	yield *
+	yield*
 	Chat.fromPrompt(
 		Prompt.empty.pipe(Prompt.setSystem('You are a helpful assistant.'))
 	);
@@ -63,7 +63,7 @@ const session =
 
 ```ts
 const session =
-	yield *
+	yield*
 	Chat.fromPrompt([
 		{ role: 'system', content: 'You are an assistant that can use tools.' },
 		{ role: 'user', content: 'Hello!' }
@@ -73,9 +73,9 @@ const session =
 ### From serialized JSON (restoring a session)
 
 ```ts
-const session = yield * Chat.fromJson(savedJsonString);
+const session = yield* Chat.fromJson(savedJsonString);
 // Or from structured data:
-const session = yield * Chat.fromExport(savedData);
+const session = yield* Chat.fromExport(savedData);
 ```
 
 ## Generating Text (Single Turn)
@@ -84,7 +84,7 @@ Call `session.generateText` with a prompt. The prompt is concatenated with accum
 
 ```ts
 const response =
-	yield *
+	yield*
 	session
 		.generateText({
 			prompt: 'What is the capital of France?'
@@ -103,8 +103,8 @@ The `generateText` method requires `LanguageModel.LanguageModel` in its context.
 
 ```ts
 // Per-call — allows switching models between turns
-const modelLayer = yield * OpenAiLanguageModel.model('gpt-5.2');
-yield *
+const modelLayer = yield* OpenAiLanguageModel.model('gpt-5.2');
+yield*
 	session.generateText({ prompt: '...' }).pipe(Effect.provide(modelLayer));
 ```
 
@@ -114,10 +114,10 @@ The `prompt` option accepts `Prompt.RawInput` — a string, a message array, or 
 
 ```ts
 // String shorthand
-yield * session.generateText({ prompt: 'Hello' });
+yield* session.generateText({ prompt: 'Hello' });
 
 // Empty prompt (continue from history alone, useful in agentic loops)
-yield * session.generateText({ prompt: [] });
+yield* session.generateText({ prompt: [] });
 ```
 
 ## Streaming Text
@@ -125,7 +125,7 @@ yield * session.generateText({ prompt: [] });
 `streamText` returns a `Stream` of `Response.StreamPart` values. History is updated after the stream completes (via `acquireUseRelease`).
 
 ```ts
-yield *
+yield*
 	session
 		.streamText({
 			prompt: 'Write a story about space'
@@ -152,7 +152,7 @@ const ContactSchema = Schema.Struct({
 });
 
 const result =
-	yield *
+	yield*
 	session
 		.generateObject({
 			prompt: 'Extract: John Doe, john@example.com, 555-1234',
@@ -169,7 +169,7 @@ History is stored in `session.history`, a `Ref<Prompt.Prompt>`:
 
 ```ts
 // Read current history
-const history = yield * Ref.get(session.history);
+const history = yield* Ref.get(session.history);
 console.log(`${history.content.length} messages in conversation`);
 
 // Manually inspect messages
@@ -183,29 +183,29 @@ for (const msg of history.content) {
 ### Export to JSON
 
 ```ts
-const json = yield * session.exportJson;
+const json = yield* session.exportJson;
 // json is a string — store in database, file system, localStorage, etc.
 ```
 
 ### Export to structured data
 
 ```ts
-const data = yield * session.export;
+const data = yield* session.export;
 // data is `unknown` — the raw encoded form
 ```
 
 ### Restore from JSON
 
 ```ts
-const restored = yield * Chat.fromJson(json);
+const restored = yield* Chat.fromJson(json);
 // Continue conversation from where it left off
-yield * restored.generateText({ prompt: 'What were we discussing?' });
+yield* restored.generateText({ prompt: 'What were we discussing?' });
 ```
 
 ### Restore from structured data
 
 ```ts
-const restored = yield * Chat.fromExport(data);
+const restored = yield* Chat.fromExport(data);
 ```
 
 ## Chat Persistence Service
@@ -318,12 +318,12 @@ Key points:
 In production coding-agent harnesses, a `ToolRegistry` service often sits above the raw toolkit. Let the registry decide which tools are available, how they are described, and which runtime policy applies for the current agent/session.
 
 ```typescript
-const registry = yield * ToolRegistry.Service;
-const toolkit = yield * registry.toolkitFor(agentName);
-const promptBlock = yield * registry.descriptionBlock(agentName);
+const registry = yield* ToolRegistry.Service;
+const toolkit = yield* registry.toolkitFor(agentName);
+const promptBlock = yield* registry.descriptionBlock(agentName);
 
 const session =
-	yield * Chat.fromPrompt(Prompt.empty.pipe(Prompt.setSystem(promptBlock)));
+	yield* Chat.fromPrompt(Prompt.empty.pipe(Prompt.setSystem(promptBlock)));
 ```
 
 Prefer overriding registry handles or test layers in tests rather than spying on tool modules directly. That keeps tests aligned with production wiring.
