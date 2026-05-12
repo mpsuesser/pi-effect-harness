@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "pi-effect-enforcer",
+      "name": "pi-effect-harness",
       "devDependencies": {
         "@effect/tsgo": "^0.4.0",
         "@effect/vitest": "catalog:",
