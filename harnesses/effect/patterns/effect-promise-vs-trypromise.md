@@ -6,9 +6,7 @@ name: effect-promise-vs-trypromise
 description: Use Effect.tryPromise instead of Effect.promise for error handling
 glob: '**/*.{ts,tsx}'
 detector: ast
-pattern:
-    - 'yield* Effect.promise($$$)'
-    - 'yield* Effect.promise'
+pattern: Effect.promise
 level: warning
 suggestSkills:
     - effect-error-handling
@@ -45,3 +43,5 @@ defect = id    -- can't recover from defects
 ```
 
 `Effect.promise` converts rejections to uncatchable defects. Use `Effect.tryPromise` for typed, recoverable errors in the E channel.
+
+Any reference to `Effect.promise` is flagged — not just `yield* Effect.promise(...)`. Piping, passing, or returning `Effect.promise` propagates the same defect-conversion problem to the consumer and is equally wrong.

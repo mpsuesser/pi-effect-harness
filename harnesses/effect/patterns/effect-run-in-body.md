@@ -3,23 +3,25 @@ action: context
 tool: (edit|write)
 event: after
 name: effect-run-in-body
-description: Effect.runSync/runPromise should only be at entry points
+description: Effect.runSync/runPromise/runFork should only be at entry points
 glob: '**/*.{ts,tsx}'
 detector: ast
 pattern:
     - Effect.runSync
     - Effect.runPromise
+    - Effect.runFork
 level: warning
 suggestSkills:
     - effect-managed-runtime
 ---
 
-# Effect.runSync/runPromise Only at Entry Points
+# Effect.runSync / runPromise / runFork Only at Entry Points
 
 ```haskell
 -- Transformation
-runSync    :: Effect a E R → a        -- escapes Effect, loses composition
+runSync    :: Effect a E R → a         -- escapes Effect, loses composition
 runPromise :: Effect a E R → Promise a -- same problem
+runFork    :: Effect a E R → Fiber a   -- same problem, async variant
 
 -- Instead: compose until boundary
 compose :: Effect a E R → Effect b E R → Effect (a, b) E R
@@ -52,3 +54,5 @@ test = Effect.runPromise (testProgram)        -- ✓ test boundary
 ```
 
 Running effects mid-logic breaks composition. Keep effects as values until entry points (main, handlers, tests).
+
+`Effect.runFork` is just as much a runtime escape as `runSync` / `runPromise`: it materialises a `Fiber` at the call site instead of composing with `Effect.forkChild` / `Effect.forkDetach` (which stay inside the Effect world and respect structural concurrency). Reserve all three for the entrypoint / test harness boundary.

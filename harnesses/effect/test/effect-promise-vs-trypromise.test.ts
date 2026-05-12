@@ -4,6 +4,8 @@ testPattern({
 	name: 'effect-promise-vs-trypromise',
 	tag: 'use-effect-trypromise',
 	shouldMatch: [
+		// Phase D widened this rule — every reference to `Effect.promise`
+		// is flagged, not just the `yield*`-form.
 		'yield* Effect.promise(() => fetch(url))',
 		'yield* Effect.promise(() => api.call())',
 		'yield* Effect.promise(async () => await promise)',
@@ -11,13 +13,15 @@ testPattern({
 		'const result = yield* Effect.promise(() => asyncFn())',
 		'yield* Effect.promise(function() { return fetch() })',
 		'yield* Effect.promise(() =>\n      fetchData()\n    )',
-		'yield* Effect.promise( () => getData())'
+		'yield* Effect.promise( () => getData())',
+		// Non-yield references — also part of the widened scope.
+		'Effect.promise(() => fetch())',
+		'const promise = Effect.promise',
+		'const wrapper = (p) => Effect.promise(() => p)'
 	],
 	shouldNotMatch: [
 		'yield* Effect.tryPromise(() => fetch(url))',
-		'Effect.promise(() => fetch())',
 		'yield* Effect.tryPromise({ try: () => fetch(), catch: e => new Error() })',
-		'const promise = Effect.promise',
 		'effectPromise(() => fetch())',
 		'yield* promise(() => fetch())',
 		'yield* Effect.tryPromise({ try: () => api.call(), catch: (e) => new FetchError(e) })',

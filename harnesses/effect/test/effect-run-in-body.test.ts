@@ -13,13 +13,14 @@ testPattern({
 		'return Effect.runSync(computation)',
 		'const value = Effect.runSync(Effect.succeed(42))',
 		'pipe(someEffect, Effect.runSync)',
-		'Effect.runSync(\n      Effect.gen(function* () {\n        yield* doSomething\n      })\n    )'
+		'Effect.runSync(\n      Effect.gen(function* () {\n        yield* doSomething\n      })\n    )',
+		// Phase D added Effect.runFork — also a runtime escape hatch.
+		'Effect.runFork(program)'
 	],
 	shouldNotMatch: [
 		'effectRunSync(program)',
 		'runSync(effect)',
 		'Effect.run(program)',
-		'Effect.runFork(program)',
 		'Effect.runCallback(program, cb)',
 		'yield* someEffect',
 		'const effect = createEffect()',
