@@ -9,7 +9,7 @@ This skill provides a step-by-step template for converting existing async/Promis
 
 ## Effect Source Reference
 
-The Effect v4 source is available at `.references/effect-v4/` in your project root.
+The Effect v4 source is available at `~/.cache/effect-v4/`.
 Browse and read files there directly to look up APIs, types, and implementations.
 
 Reference this for:

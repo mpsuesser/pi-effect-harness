@@ -73,7 +73,7 @@ The dprint config (`dprint.json`) handles whitespace, quote style, semis, etc. �
 
 ## Effect references
 
-`.references/effect-v4/` is a git submodule pointing at [`Effect-TS/effect-smol`](https://github.com/Effect-TS/effect-smol). The harness clones the same repo into end-users' projects on activation, but in this repo it's a submodule pinned alongside the dependency. Use it. Don't guess at v4 APIs — `bun run typecheck` will catch you, but reading the source is faster.
+`~/.cache/effect-v4/` is the shared user-scoped clone of [`Effect-TS/effect-smol`](https://github.com/Effect-TS/effect-smol) maintained by the harness. Use it for Effect v4 API lookups. Don't guess at v4 APIs — `bun run typecheck` will catch you, but reading the source is faster.
 
 ## Things in flight
 

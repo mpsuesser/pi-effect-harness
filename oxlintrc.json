@@ -7,6 +7,5 @@
     "@typescript-eslint/no-extra-non-null-assertion": "error",
     "vitest/require-to-throw-message": "off",
     "jest/valid-expect": "off"
-  },
-  "ignorePatterns": [".references/**"]
+  }
 }

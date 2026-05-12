@@ -20,12 +20,10 @@ import { clearPendingSkillReadsHooks } from '../hooks/ClearPendingSkillReads.ts'
 import { emitSkillLoadedEntryHook } from '../hooks/EmitSkillLoadedEntry.ts';
 import { ensureReferenceCloneHooks } from '../hooks/EnsureReferenceClone.ts';
 import { rebuildSkillCatalogHooks } from '../hooks/RebuildSkillCatalog.ts';
-import { refreshEffectVersionHooks } from '../hooks/RefreshEffectVersion.ts';
 import { trackSkillReadHook } from '../hooks/TrackSkillRead.ts';
 import { injectEffectPolicyHeaderRule } from '../rules/InjectEffectPolicyHeader.ts';
 import { requireLoadedSkillsForEffectWritesRule } from '../rules/RequireLoadedSkillsForEffectWrites.ts';
 import { sendPatternFeedbackAfterWriteRule } from '../rules/SendPatternFeedbackAfterWrite.ts';
-import { EffectVersion } from '../services/EffectVersion.ts';
 import { GuidanceCatalog } from '../services/GuidanceCatalog.ts';
 import { PendingSkillReads } from '../services/PendingSkillReads.ts';
 import { ReferenceClone } from '../services/ReferenceClone.ts';
@@ -77,7 +75,6 @@ export namespace EffectHarnessLayer {
 	const baseLayer = Layer.mergeAll(
 		kernelLayer,
 		PendingSkillReads.layer,
-		EffectVersion.layer,
 		gitBranchLayer,
 		guidanceCatalogLayer,
 		modePersistenceLayer,
@@ -122,7 +119,6 @@ export namespace EffectHarnessLayer {
 
 	const effectHookSetLayer = HookSet.fromEffect(
 		Effect.gen(function*() {
-			const effectVersion = yield* EffectVersion.Service;
 			const modeState = yield* ModeState.Service;
 			const pendingSkillReads = yield* PendingSkillReads.Service;
 			const referenceClone = yield* ReferenceClone.Service;
@@ -131,9 +127,7 @@ export namespace EffectHarnessLayer {
 			const hooks: ReadonlyArray<HarnessHook.Any> = [
 				...clearPendingSkillReadsHooks({ pendingSkillReads }),
 				...rebuildSkillCatalogHooks({ skillCatalog }),
-				...refreshEffectVersionHooks({ effectVersion }),
 				...ensureReferenceCloneHooks({
-					effectVersion,
 					modeState,
 					referenceClone
 				}),

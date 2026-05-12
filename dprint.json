@@ -5,7 +5,6 @@
   "newLineKind": "lf",
   "excludes": [
     "node_modules",
-    ".references",
     "bun.lock",
     "tsconfig.tsbuildinfo"
   ],

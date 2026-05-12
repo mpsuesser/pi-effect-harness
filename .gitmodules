@@ -1,4 +1,0 @@
-[submodule ".references/effect-v4"]
-	path = .references/effect-v4
-	url = https://github.com/Effect-TS/effect-smol.git
-	ignore = untracked

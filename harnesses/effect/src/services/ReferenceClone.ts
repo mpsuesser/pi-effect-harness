@@ -12,10 +12,7 @@ class ReferenceCloneFailed
 
 export namespace ReferenceClone {
 	export interface Interface {
-		readonly ensure: (
-			cwd: string,
-			version: string
-		) => Effect.Effect<void>;
+		readonly ensure: () => Effect.Effect<void>;
 	}
 
 	export class Service extends Context.Service<Service, Interface>()(
@@ -25,12 +22,9 @@ export namespace ReferenceClone {
 	export const layer = Layer.succeed(
 		Service,
 		Service.of({
-			ensure: Effect.fn('ReferenceClone.ensure')(function*(
-				cwd: string,
-				version: string
-			) {
+			ensure: Effect.fn('ReferenceClone.ensure')(function*() {
 				yield* Effect.tryPromise({
-					try: () => ensureReferenceClone(cwd, version),
+					try: () => ensureReferenceClone(),
 					catch: () =>
 						new ReferenceCloneFailed({
 							message: 'Reference clone failed'

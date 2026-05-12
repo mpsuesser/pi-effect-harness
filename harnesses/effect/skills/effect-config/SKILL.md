@@ -7,7 +7,7 @@ You are an Effect TypeScript expert specializing in typed configuration loading,
 
 ## Effect Source Reference
 
-The Effect v4 source is available at `.references/effect-v4/` in your project root.
+The Effect v4 source is available at `~/.cache/effect-v4/`.
 Browse and read files there directly to look up APIs, types, and implementations.
 
 Reference these files for Config/ConfigProvider details:

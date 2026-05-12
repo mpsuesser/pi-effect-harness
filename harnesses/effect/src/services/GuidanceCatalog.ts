@@ -14,11 +14,11 @@ import { Pattern } from 'pi-harness-kit/Pattern.ts';
 import { MIN_EFFECT_SKILLS } from '../constants.ts';
 
 const EFFECT_REFERENCE_HINTS = [
-	'.references/effect-v4/LLMS.md',
-	'.references/effect-v4/MIGRATION.md',
-	'.references/effect-v4/packages/effect/SCHEMA.md',
-	'.references/effect-v4/packages/effect/HTTPAPI.md',
-	'.references/effect-v4/packages/effect/src/'
+	'~/.cache/effect-v4/LLMS.md',
+	'~/.cache/effect-v4/MIGRATION.md',
+	'~/.cache/effect-v4/packages/effect/SCHEMA.md',
+	'~/.cache/effect-v4/packages/effect/HTTPAPI.md',
+	'~/.cache/effect-v4/packages/effect/src/'
 ] as const;
 
 const patternOrder = Order.mapInput(
@@ -88,7 +88,7 @@ export const buildSkillGateReason = (loadedCount: number): string => {
 		`Read at least ${
 			String(missing)
 		} more relevant effect-* skill files before writing Effect code.`,
-		'If an API is unclear, read from .references/effect-v4/ before continuing.'
+		'If an API is unclear, read from ~/.cache/effect-v4/ before continuing.'
 	].join(' ');
 };
 

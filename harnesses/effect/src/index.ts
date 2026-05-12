@@ -25,7 +25,6 @@ import { ModeState } from 'pi-harness-kit/mode/ModeState.ts';
 
 import { EFFECT_STATUS } from './constants.ts';
 import { EffectHarnessLayer } from './layers/EffectHarnessLayer.ts';
-import { EffectVersion } from './services/EffectVersion.ts';
 import { ReferenceClone } from './services/ReferenceClone.ts';
 
 const EFFECT_MODE_ID = 'effect';
@@ -114,7 +113,7 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 		})
 	);
 
-	const ensureReferenceIfEnabled = (cwd: string, enabled: boolean) =>
+	const ensureReferenceIfEnabled = (enabled: boolean) =>
 		run(
 			Effect.gen(function*() {
 				const modeState = yield* ModeState.Service;
@@ -123,10 +122,8 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 					return;
 				}
 
-				const effectVersion = yield* EffectVersion.Service;
 				const referenceClone = yield* ReferenceClone.Service;
-				const version = yield* effectVersion.refresh(cwd);
-				yield* referenceClone.ensure(cwd, version);
+				yield* referenceClone.ensure();
 			})
 		);
 
@@ -151,7 +148,7 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 			).catch(() => {
 				ctx.ui.notify('Failed to persist effect mode state', 'warning');
 			});
-			void ensureReferenceIfEnabled(ctx.cwd, enabled);
+			void ensureReferenceIfEnabled(enabled);
 		}
 	});
 

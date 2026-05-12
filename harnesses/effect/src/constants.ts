@@ -1,9 +1,6 @@
 /** Effect-smol repository URL for reference cloning. */
 export const GITHUB_REPO = 'https://github.com/Effect-TS/effect-smol.git';
 
-/** Fallback Effect version when the project has no installed copy. */
-export const DEFAULT_VERSION = '4.0.0-beta.59';
-
 /** Minimum number of effect-* skills required before writing Effect code. */
 export const MIN_EFFECT_SKILLS = 7;
 
