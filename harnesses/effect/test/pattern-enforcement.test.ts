@@ -362,11 +362,13 @@ describe('prospective output pattern matching', () => {
 			'export const value = 1;\n',
 			({ cwd, filePath }) =>
 				Effect.gen(function*() {
+					// `node:http` has its own dedicated `use-http-client-service`
+					// rule — exercise the catch-all with an unhandled module.
 					const projected = yield* projectEditEffect(cwd, filePath, [
 						{
 							oldText: 'export const value = 1;',
 							newText:
-								"import * as http from 'node:http';\nexport const value = http.STATUS_CODES[200];"
+								"import * as stream from 'node:stream';\nexport const value = stream;"
 						}
 					]);
 					expect(
@@ -460,17 +462,19 @@ describe('prospective output pattern matching', () => {
 						absolutePath,
 						[
 							"import * as fs from 'node:fs';",
-							"import * as http from 'node:http';",
+							"import * as stream from 'node:stream';",
 							'export const value = 1;'
 						].join('\n')
 					);
+					// `node:stream` has no dedicated rule — it's the catch-all
+					// surface that `avoid-node-imports` should still flag.
 					const projected = yield* projectActualEffect(
 						cwd,
 						editIntent(filePath, [
 							{
 								oldText: 'export const value = 1;',
 								newText:
-									"import * as http from 'node:http';\nexport const value = 1;"
+									"import * as stream from 'node:stream';\nexport const value = 1;"
 							}
 						])
 					);

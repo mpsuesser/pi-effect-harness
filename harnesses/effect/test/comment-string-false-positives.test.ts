@@ -310,12 +310,17 @@ describe('real code still matches (no regressions)', () => {
 			false
 		));
 
-	it.live('avoid-node-imports: import with string specifier should match', () =>
-		expectPatternMatch(
-			'avoid-node-imports',
-			"import * as http from 'node:http';",
-			true
-		));
+	it.live(
+		'avoid-node-imports: import with string specifier (catch-all) should match',
+		() =>
+			expectPatternMatch(
+				'avoid-node-imports',
+				// `node:http` has its own dedicated rule — use an unhandled module
+				// like `node:stream` so this exercises the catch-all surface.
+				"import * as stream from 'node:stream';",
+				true
+			)
+	);
 
 	it.live('avoid-direct-tag-checks: tag check with string should match', () =>
 		expectPatternMatch(
