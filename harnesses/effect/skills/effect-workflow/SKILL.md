@@ -7,7 +7,7 @@ You are an Effect TypeScript expert specializing in durable workflow execution u
 
 ## Effect Source Reference
 
-The Effect v4 source is available at `.references/effect-v4/` in your project root.
+The Effect v4 source is available at `~/.cache/effect-v4/`.
 Browse and read files there directly to look up APIs, types, and implementations.
 
 Key source files:
@@ -107,8 +107,11 @@ const executionId =
 	);
 
 // Poll for result
-const result = yield* SendEmail.poll(executionId);
-// returns Result<A, E> | undefined
+const maybeResult = yield* SendEmail.poll(executionId);
+// returns Effect<Option<Result<A, E>>>
+//   Option.None  → workflow not yet started or no record
+//   Option.Some(Workflow.Complete<A, E>)   → finished; .exit holds the Exit
+//   Option.Some(Workflow.Suspended)        → suspended waiting on something
 
 // Interrupt a running workflow
 yield* SendEmail.interrupt(executionId);
@@ -165,7 +168,7 @@ const handler = SendEmail.toLayer((payload, executionId) =>
 
 ### Activity Retry
 
-Use `Activity.retry` to retry an effect within an activity. This tracks attempt counts:
+Use `Activity.retry` to retry an effect within an activity. The engine tracks the attempt count automatically and exposes it via `Activity.CurrentAttempt`:
 
 ```ts
 import { Activity } from 'effect/unstable/workflow';
@@ -177,6 +180,32 @@ const sendWithRetry = Activity.make({
 	execute: pipe(sendEmailEffect, Activity.retry({ times: 3 }))
 });
 ```
+
+`Activity.retry` accepts the same options as `Effect.retry` *minus* `schedule` — the activity owns the attempt counter, so retries are attempt-based (`times`, `until`, `while`, `catch`, etc.) rather than schedule-based.
+
+Note: when piping an activity through combinators like `retry` or `withCompensation`, you may need `.asEffect()` first because activities are `Effect.Yieldable`, not bare `Effect`s:
+
+```ts
+yield* SomeActivity.asEffect().pipe(
+	workflow.withCompensation((value, cause) => rollback(value)),
+	Activity.retry({ times: 5 })
+);
+```
+
+You can also access `Activity.CurrentAttempt` directly inside an activity's `execute` to branch by attempt:
+
+```ts
+Activity.make({
+	name: 'SendEmail',
+	execute: Effect.gen(function*() {
+		const attempt = yield* Activity.CurrentAttempt;
+		if (attempt < 5) return yield* Effect.fail(new TransientError());
+		return yield* sendEmail();
+	})
+});
+```
+
+Activities also expose `.execute` and `.executeEncoded` properties — the latter returns the JSON-encoded form of success/error, useful for generic activity wrappers and logging.
 
 ### Interrupt Retry Policy
 
@@ -444,6 +473,24 @@ const TestLayer = Layer.mergeAll(
 
 **Warning**: The in-memory engine does NOT provide durability guarantees. Use it only for testing.
 
+### Production Engine — `ClusterWorkflowEngine.layer`
+
+For production, use `ClusterWorkflowEngine.layer` from `effect/unstable/cluster`. It wires the workflow engine into `Sharding` + `MessageStorage` so executions, activities, and durable signals survive restarts and can be distributed across runners:
+
+```ts
+import { Layer } from 'effect';
+import { ClusterWorkflowEngine } from 'effect/unstable/cluster';
+
+const WorkflowsLayer = Layer.mergeAll(
+	SendEmailLive,
+	ProcessOrderLive
+).pipe(Layer.provideMerge(ClusterWorkflowEngine.layer));
+
+// then provide the cluster bundle (NodeClusterSocket.layer / SingleRunner.layer / TestRunner.layer)
+```
+
+The `ClusterWorkflowEngine` requires `Sharding | MessageStorage` in context; both come from any of the cluster runtime bundles. See the `effect-rpc-cluster` skill for cluster setup.
+
 ### Custom Engine Implementation
 
 For production, implement the `WorkflowEngine.Encoded` interface and use `WorkflowEngine.makeUnsafe`:
@@ -642,8 +689,20 @@ Compensation finalizers are only registered for top-level effects in the workflo
 
 ## Integration with Effect Cluster
 
-Workflows integrate with Effect Cluster for distributed execution. The Cluster module can provide a `WorkflowEngine` backed by persistent storage (e.g., a database), enabling workflows to run across multiple nodes with proper leader election and work distribution.
+For production durability and distribution, swap `WorkflowEngine.layerMemory` for `ClusterWorkflowEngine.layer` (from `effect/unstable/cluster`):
 
-The `Workflow.Execution<Name>` type in the context represents the execution identity within the cluster, allowing the engine to route workflow steps to the correct node.
+```ts
+import { ClusterWorkflowEngine } from 'effect/unstable/cluster';
+import { NodeClusterSocket } from '@effect/platform-node';
 
-> **Note**: Cluster-specific `WorkflowEngine` implementations are provided by separate packages (not in the core `effect` package). The core module defines the interfaces; storage backends plug in via the `WorkflowEngine.Encoded` interface.
+const MainLive = Layer.mergeAll(SendEmailLive, ProcessOrderLive).pipe(
+	Layer.provideMerge(ClusterWorkflowEngine.layer),
+	Layer.provide(
+		NodeClusterSocket.layer({ storage: 'sql' }).pipe(Layer.provide(SqlClientLayer))
+	)
+);
+```
+
+`ClusterWorkflowEngine.layer` builds an `Entity` per workflow under the hood — durable execution state lives in `MessageStorage`, runner-to-runner routing comes from `Sharding`, and replays are driven by the entity's mailbox. The `Workflow.Execution<Name>` type in the context represents the execution identity within the cluster.
+
+To expose workflows over RPC or HTTP without writing dispatch glue, use `WorkflowProxy.toRpcGroup` / `WorkflowProxy.toHttpApiGroup` and the matching `WorkflowProxyServer.layerRpcHandlers` / `layerHttpApi`. See the `effect-rpc-cluster` skill for the bridge patterns.
