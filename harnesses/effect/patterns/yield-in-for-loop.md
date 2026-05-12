@@ -55,3 +55,7 @@ effectfulFilter users = do
 ```
 
 For loops with `yield*` are imperative. `Effect.forEach` enables parallel execution, uniform error handling, and composition.
+
+All three for-statement shapes are flagged: classic `for (i; cond; step)`, `for...in`, and `for...of`. The `for...of` form is the most common way this anti-pattern appears in Effect code (`for (const item of items) yield* process(item)`) — it loses concurrency control and uniform error handling just like the others.
+
+Note: in tree-sitter TypeScript, `for ... of` parses as `for_in_statement` (the kinds are shared), so listing `for_in_statement` covers both `for...in` and `for...of`.
