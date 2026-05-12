@@ -316,7 +316,7 @@ The agent doesn't have to know any of this. It sees `~/.cache/effect-v4/LLMS.md`
 
 46 patterns run after successful `edit`/`write` tool calls when the written path matches the pattern's frontmatter `glob`. Most target TypeScript/TSX, but some use narrower or negated globs. Detectors are declared per pattern as either ast-grep rules or comment-skipping regex.
 
-### `avoid-*` (21)
+### `avoid-*` (20)
 
 | Pattern | Level | Description |
 |---|---|---|
@@ -325,10 +325,9 @@ The agent doesn't have to know any of this. It sees `~/.cache/effect-v4/LLMS.md`
 | [`avoid-direct-json`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-direct-json.md) | info | `JSON.parse` / `JSON.stringify` — use `Schema.fromJsonString` or `Schema.UnknownFromJsonString`. |
 | [`avoid-direct-tag-checks`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-direct-tag-checks.md) | warning | Direct `_tag` property checks; use exported refinements/predicates. |
 | [`avoid-expect-in-if`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-expect-in-if.md) | warning | `expect()` calls nested inside `if` blocks in tests. |
-| [`avoid-fs-promises`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-fs-promises.md) | warning | `fs/promises` direct usage — wrap with Effect. |
 | [`avoid-mutable-state`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-mutable-state.md) | info | `let` bindings inside Effect services; prefer `Ref`. |
 | [`avoid-native-fetch`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-native-fetch.md) | warning | Native `fetch` — use Effect HTTP modules. |
-| [`avoid-node-imports`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-node-imports.md) | warning | `node:` imports — use `@effect/platform` abstractions. |
+| [`avoid-node-imports`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-node-imports.md) | warning | Catch-all for `node:` imports not covered by a dedicated `use-*-service` rule. |
 | [`avoid-non-null-assertion`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-non-null-assertion.md) | warning | `!` non-null assertion operator. |
 | [`avoid-object-type`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-object-type.md) | warning | `Object` and `{}` as types. |
 | [`avoid-option-getorthrow`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-option-getorthrow.md) | warning | `Option.getOrThrow` — use `Option.match` or `Option.getOrElse`. |
@@ -339,7 +338,7 @@ The agent doesn't have to know any of this. It sees `~/.cache/effect-v4/LLMS.md`
 | [`avoid-sync-fs`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-sync-fs.md) | high | Synchronous filesystem operations. |
 | [`avoid-try-catch`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-try-catch.md) | warning | `try`/`catch` in Effect code — use `Effect.try` or typed errors. |
 | [`avoid-ts-ignore`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-ts-ignore.md) | warning | `@ts-ignore` and `@ts-expect-error`. |
-| [`avoid-untagged-errors`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-untagged-errors.md) | warning | `instanceof Error` and `new Error` for recoverable failures — use `Schema.TaggedErrorClass`. |
+| [`avoid-untagged-errors`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-untagged-errors.md) | warning | `new Error(...)` and `instanceof Error` for recoverable failures — use `Schema.TaggedErrorClass`. |
 | [`avoid-yield-ref`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/avoid-yield-ref.md) | warning | Direct `yield* Ref/Deferred/Fiber/Latch` (removed in v4); use explicit method calls. |
 
 ### `prefer-*` (7)
@@ -354,14 +353,15 @@ The agent doesn't have to know any of this. It sees `~/.cache/effect-v4/LLMS.md`
 | [`prefer-redacted-config`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/prefer-redacted-config.md) | warning | `Config.redacted` / `Schema.Redacted` for secrets. |
 | [`prefer-schema-class`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/prefer-schema-class.md) | warning | `Schema.Class` over `Schema.Struct` for object/domain schemas. |
 
-### `use-*` (7)
+### `use-*` (8)
 
 | Pattern | Level | Description |
 |---|---|---|
-| [`use-clock-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-clock-service.md) | warning | `Clock` / `DateTime` over `new Date()` and `Date.now()`. |
+| [`use-clock-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-clock-service.md) | warning | `Clock` / `DateTime` over `new Date(...)` and `Date.*` statics. |
+| [`use-command-executor-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-command-executor-service.md) | warning | `ChildProcessSpawner` / `CommandExecutor` over `node:child_process`. |
 | [`use-console-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-console-service.md) | warning | `Console` / `Effect.log*` over `console.*`. |
-| [`use-context-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-context-service.md) | warning | `Context.Service` over legacy `ServiceMap.Service` APIs. |
-| [`use-filesystem-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-filesystem-service.md) | high | `FileSystem` service over direct `node:fs` imports. |
+| [`use-filesystem-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-filesystem-service.md) | high | `FileSystem` service over direct `node:fs` / `node:fs/promises` imports. |
+| [`use-http-client-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-http-client-service.md) | warning | Effect `HttpClient` over `node:http` / `node:https`. |
 | [`use-path-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-path-service.md) | warning | `Path` service over direct `node:path` imports. |
 | [`use-random-service`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-random-service.md) | warning | `Random` service over `Math.random()`. |
 | [`use-temp-file-scoped`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/use-temp-file-scoped.md) | warning | `makeTempFileScoped` / `makeTempDirectoryScoped` over `os.tmpdir()` or non-scoped variants. |
@@ -371,11 +371,11 @@ The agent doesn't have to know any of this. It sees `~/.cache/effect-v4/LLMS.md`
 | Pattern | Level | Description |
 |---|---|---|
 | [`casting-awareness`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/casting-awareness.md) | info | Type assertions in general — use type-safe alternatives. |
-| [`context-tag-extends`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/context-tag-extends.md) | warning | `class *Tag extends Context.Tag` naming — use `Context.Service`. |
+| [`context-tag-extends`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/context-tag-extends.md) | warning | `Context.Tag`, `Effect.Service`, and legacy `ServiceMap.*` APIs — use `Context.Service`. |
 | [`effect-catchall-default`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/effect-catchall-default.md) | warning | Broad `Effect.catch` defaults in domain logic — use `catchTag` unless it's an explicit boundary fallback. |
 | [`effect-promise-vs-trypromise`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/effect-promise-vs-trypromise.md) | warning | `Effect.promise` over `Effect.tryPromise` (loses error handling). |
 | [`effect-run-in-body`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/effect-run-in-body.md) | warning | `Effect.runSync` / `runPromise` outside entry points. |
-| [`imperative-loops`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/imperative-loops.md) | warning | `for` / `for...of` over functional transformations. |
+| [`imperative-loops`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/imperative-loops.md) | warning | `for` / `for...of` / `while` / `do...while` loops — use functional transformations or `Effect.forEach`. |
 | [`require-effect-concurrency`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/require-effect-concurrency.md) | warning | `Effect.forEach` / `all` / `validate` without explicit concurrency on non-trivial fan-out. |
 | [`stream-large-files`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/stream-large-files.md) | info | Whole-file reads when the path looks large or unbounded. |
 | [`throw-in-effect-gen`](https://github.com/mpsuesser/pi-effect-harness/blob/main/harnesses/effect/patterns/throw-in-effect-gen.md) | **critical** | `throw` inside `Effect.gen` — use `yield* Effect.fail()`. |
