@@ -28,7 +28,7 @@ When `/toggle-effect-harness` mode is enabled in the active Pi session:
 - The system prompt is augmented every turn with `effect-first-development.md` (40+ rules covering errors, schemas, layers, services, retries, timeouts, structured concurrency, and observability), a progressive-disclosure agent rules doc, and a "loaded *N*/7 effect-\* skills on this branch" preview.
 - Tool calls that would write Effect code are **blocked** until at least 7 `effect-*` skills have been read on the active branch. The check uses a prospective write projection: it looks at the resulting file, so deletion-only changes that leave no Effect code are not blocked.
 - After every successful write, the post-write file is matched against 46 pattern detectors. Matches are sorted by severity and replied back to the agent in-band as a single user message — including the pattern's transformation guidance and a hint to load any suggested skills.
-- A shallow clone of [`Effect-TS/effect-smol`](https://github.com/Effect-TS/effect-smol) is maintained at `.references/effect-v4/`, pinned to the tag matching your project's installed `effect` version. The agent reads from it to verify v4 APIs instead of guessing.
+- A shallow clone of [`Effect-TS/effect-smol`](https://github.com/Effect-TS/effect-smol) is maintained at `~/.cache/effect-v4/` and refreshed to the latest Effect v4 beta source. The agent reads from this shared user cache to verify v4 APIs instead of guessing.
 
 Everything else about your Pi session is unchanged. Toggle `/toggle-effect-harness` off and the harness disengages cleanly — the system prompt reverts on the next turn, the gate stops firing, and the pattern loop stops emitting feedback.
 
@@ -42,11 +42,7 @@ pi install npm:pi-effect-harness
 
 This registers the extension and all 41 `effect-*` skills via the package's `pi` manifest. Pi auto-loads on the next session start.
 
-The first time you enable `/toggle-effect-harness` in a project, the harness clones `effect-smol` at the tag matching your installed `effect` version into `.references/effect-v4/` (≈30s, shallow, fail-silent). Add to your project's `.gitignore`:
-
-```gitignore
-.references/
-```
+The first time you enable `/toggle-effect-harness`, the harness creates a shared user-level `effect-smol` clone at `~/.cache/effect-v4/` (≈30s, shallow, fail-silent). Later sessions reuse that single cache and refresh it to the latest Effect v4 beta source.
 
 ---
 
@@ -57,7 +53,7 @@ The first time you enable `/toggle-effect-harness` in a project, the harness clo
 | Toggle | `/toggle-effect-harness` (interactive), or via Pi's mode toggle UI |
 | Status | Gold `effect` badge in the footer |
 | Persistence | Project-scoped Pi session state; survives session restart |
-| Activation cost | First time per project: shallow clone of `effect-smol` |
+| Activation cost | First time per user cache: shallow clone of `effect-smol`; later enabled turns do a shallow refresh |
 | Per-turn cost | ~3 KB of system-prompt headers + the merged guidance docs |
 
 When mode is off, no policy header is injected and no write gate or pattern feedback fires. The harness may still rebuild its command/skill catalog and record successful `effect-*` skill reads as invisible branch metadata, so the loaded-skill count is ready if you re-enable the mode later.
@@ -72,13 +68,13 @@ The harness is a thin shell around an [Effect](https://effect.website) `ManagedR
 
 ```
 session_start ─► restore mode state · clear pending skill reads · rebuild SkillCatalog
-              · refresh EffectVersion · ensure ReferenceClone if enabled
+              · ensure ReferenceClone if enabled
 
 session_tree  ─► sync mode badge · clear pending skill reads · rebuild SkillCatalog
 
 before_agent_start
   ├─► HookSet
-  │     └─► EnsureReferenceClone (if enabled, using the latest refreshed EffectVersion)
+  │     └─► EnsureReferenceClone (if enabled, refresh shared user cache)
   └─► RuleSet
         └─► InjectEffectPolicyHeader
               └─► Decision.InjectSystemPrompt
@@ -106,7 +102,7 @@ tool_result
 session_shutdown ─► unregister mode badge
 ```
 
-Three rules plus session/tool hooks. Session hooks keep the skill catalog, version cache, and reference clone current; tool events record skill reads and run write checks. Everything that touches Pi runs through `Decision` — there is no direct mutation of session state from rule code, which keeps the rules trivially testable in isolation.
+Three rules plus session/tool hooks. Session hooks keep the skill catalog and shared reference clone current; tool events record skill reads and run write checks. Everything that touches Pi runs through `Decision` — there is no direct mutation of session state from rule code, which keeps the rules trivially testable in isolation.
 
 ### The skill gate
 
@@ -134,7 +130,7 @@ Effect v4 is wide. A model writing Effect cold — without any in-context skill 
 
 **Why prospective projection matters.** The gate runs on `WriteProjection.prospective(cwd, writeIntent)`, which reconstructs *what the file will look like after the write/edit applies*. A change whose resulting file no longer matches `\bEffect\b|from\s+['"]effect.*['"]` is allowed through. A change whose resulting file contains Effect code is gated. This means deletion-only Effect cleanup can proceed without artificially incrementing the skill counter.
 
-**The block message** quotes the loaded count, the missing count, and a hint to read from `.references/effect-v4/` if any API is unclear. The agent retries after loading more skills.
+**The block message** quotes the loaded count, the missing count, and a hint to read from `~/.cache/effect-v4/` if any API is unclear. The agent retries after loading more skills.
 
 ### The policy header
 
@@ -143,7 +139,7 @@ Every turn while mode is enabled, `InjectEffectPolicyHeader` emits a `Decision.I
 | File | Contents |
 |---|---|
 | `effect-first-development.md` | The full Effect-first specification: 40+ numbered laws (EF-1 … EF-40) covering tagged errors, `Option`, schema, canonical imports, `Match`, services & layers, `Clock`, observability, `Duration`, JSON via `Schema`, scoped resources, retries, timeouts, structured concurrency, parallel concurrency, `Config`, `Redacted`, defects vs. failures, layer memoization isolation, schema-first domain modeling, schema defaults, branded guards, equivalence, transformations, native sort, dual APIs. Followed by copy-paste templates and a 45-item LLM review checklist. |
-| `progressive-disclosure-guidance.md` | Short, imperative agent rules: "load AT LEAST 7 effect-\* skills before any Effect work; if anything is unclear, read from `.references/effect-v4/`." |
+| `progressive-disclosure-guidance.md` | Short, imperative agent rules: "load AT LEAST 7 effect-\* skills before any Effect work; if anything is unclear, read from `~/.cache/effect-v4/`." |
 | `post__effect-and-the-near-inexpressible-majesty-of-layers.md` | A long-form essay defending Effect's `Layer` type. Included for the same reason a system prompt cites a style guide: priors matter. |
 
 Followed by a runtime line:
@@ -153,9 +149,9 @@ pi-effect-harness policy:
 - Before planning or writing Effect code, read at least 7 relevant effect-* skills.
   Loaded on this branch: 3/7 (effect-error-handling, effect-layer-design, effect-schema-v4).
 - If any Effect v4 API is unclear, read from the local Effect reference clone instead of guessing.
-- Key reference paths: .references/effect-v4/LLMS.md, .references/effect-v4/MIGRATION.md,
-  .references/effect-v4/packages/effect/SCHEMA.md, .references/effect-v4/packages/effect/HTTPAPI.md,
-  .references/effect-v4/packages/effect/src/.
+- Key reference paths: ~/.cache/effect-v4/LLMS.md, ~/.cache/effect-v4/MIGRATION.md,
+  ~/.cache/effect-v4/packages/effect/SCHEMA.md, ~/.cache/effect-v4/packages/effect/HTTPAPI.md,
+  ~/.cache/effect-v4/packages/effect/src/.
 ```
 
 The skill preview is sorted, capped at 7 names, with `(+N more)` for overflow. The full guidance is loaded once at layer construction and re-emitted from memory each turn.
@@ -210,16 +206,17 @@ The `suggestedSkills` field is appended to the matched-pattern feedback as: *"If
 
 Effect v4 is moving fast. Beta releases ship with API renames in nearly every minor (`catchAll → catch`, `parseJson → fromJsonString`, `Either → Result`, `compose → decodeTo`, the entire `*FromSelf` suffix removal, etc.). The most reliable way to keep an agent honest is to give it the source.
 
-After `/toggle-effect-harness` is enabled, and again on enabled session starts / before agent turns, `EnsureReferenceClone` runs `git clone --depth 1 --branch effect@<version>` of `Effect-TS/effect-smol` into `.references/effect-v4.cloning/`, writes a `.pi-effect-harness-version` marker file, and atomically renames into place. The version is detected on session start and toggle-on by reading `node_modules/effect/package.json` (falling back to `4.0.0-beta.59` if absent).
+After `/toggle-effect-harness` is enabled, and again on enabled session starts / before agent turns, `EnsureReferenceClone` maintains a single user-scoped clone of `Effect-TS/effect-smol` at `~/.cache/effect-v4/`. If the cache is absent, it runs `git clone --depth 1 --single-branch` into `~/.cache/effect-v4.cloning/` and atomically renames it into place. If the cache already exists, it refreshes `origin`, updates `origin/HEAD`, and hard-resets to the latest Effect v4 beta source commit.
 
 Properties:
 
-- **Atomic**: the clone happens in a temp directory and is `rename()`-d into place. Either `.references/effect-v4/` is present and complete, or it is absent.
-- **Idempotent**: a marker file (`.pi-effect-harness-version`) records the cloned tag. If the marker matches the installed version, the clone is skipped. If it mismatches, the stale clone is removed and re-cloned.
-- **Single-flight**: a module-level `clonePromise` deduplicates concurrent invocations across hooks.
-- **Fail-silent**: a clone failure (no network, missing tag, git not on PATH) never blocks the agent. The harness continues without the reference; the policy header still tells the agent the paths to look for.
+- **Atomic first clone**: the initial clone happens in a temp directory and is `rename()`-d into place. Either `~/.cache/effect-v4/` is present and complete, or it is absent.
+- **Shared**: the cache is user-scoped, not project-scoped; all projects with Effect mode enabled reuse the same clone.
+- **Always refreshed**: existing clones fetch `origin` with depth 1, update `origin/HEAD`, reset to it, and clean untracked files. No project-local `effect` version is detected or matched.
+- **Single-flight**: a module-level `clonePromise` deduplicates concurrent invocations across hooks, and a lightweight cache lock avoids cross-process clone/update races.
+- **Fail-silent**: a clone or refresh failure (no network, git not on PATH) never blocks the agent. The harness continues without the reference; the policy header still tells the agent the paths to look for.
 
-The agent doesn't have to know any of this. It sees `.references/effect-v4/LLMS.md` and `.references/effect-v4/packages/effect/SCHEMA.md` mentioned in the policy header, and reads them like any other file.
+The agent doesn't have to know any of this. It sees `~/.cache/effect-v4/LLMS.md` and `~/.cache/effect-v4/packages/effect/SCHEMA.md` mentioned in the policy header, and reads them like any other file.
 
 ---
 
@@ -391,13 +388,11 @@ Each pattern's full markdown body — usually a Haskell-style transformation dia
 
 ## Configuration
 
-### Effect version detection
+### Reference clone location and refresh
 
-`EffectVersion.refresh(cwd)` reads `node_modules/effect/package.json` and falls back to `4.0.0-beta.59`. The detected version is used as the `effect@<version>` git tag for the reference clone. Refreshing the version happens on `session_start` and when `/toggle-effect-harness` is toggled on; the before-turn clone hook then uses the latest cached version. The clone hook compares the marker file to that version and only reclones on mismatch.
+The reference clone is hardcoded to `~/.cache/effect-v4/` (`path.join(os.homedir(), '.cache', 'effect-v4')`). It is shared across every project on the machine. The harness does not read `node_modules/effect/package.json`, does not compute an `effect@<version>` tag, and does not create project-local reference directories.
 
-### Reference clone location
-
-Hardcoded to `<cwd>/.references/effect-v4/`. The `<cwd>/.references/` parent is created if absent. The marker file is `<cwd>/.references/effect-v4/.pi-effect-harness-version`.
+When Effect mode is enabled, session-start and before-turn hooks ensure the cache exists and refresh existing clones to the latest Effect v4 beta source in `Effect-TS/effect-smol`.
 
 ### Skill threshold
 
@@ -413,20 +408,20 @@ Matches an `Effect` identifier or any `from "effect..."` import. The gate is int
 
 ### What this extension never does
 
-- Modifies application source files directly. It may create/update `.references/` for the reference clone and Pi's project-scoped session-state file for mode persistence.
+- Modifies application source files directly. It may create/update `~/.cache/effect-v4/` for the shared reference clone and Pi's project-scoped session-state file for mode persistence.
 - Blocks Read tool calls. The gate fires on writes only.
 - Persists state across projects. Mode state is project-scoped.
-- Calls the network outside the `git clone` of the reference repo.
+- Calls the network outside `git clone` / `git fetch` for the reference repo.
 - Talks to Pi events outside the lifecycle listed above.
 
 ---
 
 ## Caveats
 
-- **Beta on beta.** Effect v4 is itself in beta (pinned to `4.0.0-beta.59`), and so is this harness. Pin both deliberately. The reference clone tracks whichever Effect version your project installs, so v4 ABI churn won't break the agent's ability to read accurate sources.
+- **Beta on beta.** Effect v4 is itself in beta, and so is this harness. Keep your project dependency current deliberately. The reference clone tracks the latest Effect v4 beta source rather than any project-local dependency version, so still trust typecheck/tests for ABI compatibility.
 - **The patterns are tripwires, not a linter.** They catch the common v3 → v4 confusions and the most expensive-to-debug Effect-specific mistakes. They do not replace `bun run check && bun run test`. Treat a clean pattern run as "the agent didn't trigger the obvious traps," not as "the code is correct."
 - **The skill gate is branch-scoped, not session-scoped.** `/compact`, `/fork`, and `/clone` reset the loaded-skill set. This is deliberate: post-compaction, the agent has a smaller working memory, and re-establishing the relevant skill context is cheaper than letting it write Effect code from a partial summary.
-- **First activation requires git on PATH and network access.** If the clone fails, the harness continues without it; the agent will still be told the paths exist and will get a "file not found" if it tries to read them. Re-toggling `/toggle-effect-harness` retries.
+- **First cache creation and refresh require git on PATH and network access.** If clone/refresh fails, the harness continues without blocking the agent. The policy header still points at the cache path; re-toggling `/toggle-effect-harness` or starting the next turn retries.
 - **The pattern-feedback loop runs after every successful write.** On a large refactor the agent may receive several pattern-feedback messages in a row. This is by design — each one is severity-sorted and de-duplicated, but the rate is determined by the rate of writes.
 
 ---
