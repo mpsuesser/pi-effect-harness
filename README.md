@@ -25,8 +25,8 @@
 When `/toggle-effect-harness` mode is enabled in the active Pi session:
 
 - A gold `effect` badge appears in the Pi footer; mode state persists per-project.
-- The system prompt is augmented every turn with `effect-first-development.md` (40+ rules covering errors, schemas, layers, services, retries, timeouts, structured concurrency, and observability), a progressive-disclosure agent rules doc, and a "loaded *N*/7 effect-\* skills on this branch" preview.
-- Tool calls that would write Effect code are **blocked** until at least 7 `effect-*` skills have been read on the active branch. The check uses a prospective write projection: it looks at the resulting file, so deletion-only changes that leave no Effect code are not blocked.
+- The system prompt is augmented every turn with `effect-first-development.md` (40+ rules covering errors, schemas, layers, services, retries, timeouts, structured concurrency, and observability), a progressive-disclosure agent rules doc, and a "loaded *N*/5 effect-\* skills on this branch" preview.
+- Tool calls that would write Effect code are **blocked** until at least 5 `effect-*` skills have been read on the active branch. The check uses a prospective write projection: it looks at the resulting file, so deletion-only changes that leave no Effect code are not blocked.
 - After every successful write, the post-write file is matched against 46 pattern detectors. Matches are sorted by severity and replied back to the agent in-band as a single user message — including the pattern's transformation guidance and a hint to load any suggested skills.
 - A shallow clone of [`Effect-TS/effect-smol`](https://github.com/Effect-TS/effect-smol) is maintained at `~/.cache/effect-v4/` and refreshed to the latest Effect v4 beta source. The agent reads from this shared user cache to verify v4 APIs instead of guessing.
 
@@ -86,7 +86,7 @@ tool_call
   └─► RuleSet
         └─► RequireLoadedSkillsForEffectWrites
               ├─► WriteProjection.prospective(cwd, writeIntent)
-              └─► Decision.BlockToolCall  (if Effect code present and skills < 7)
+              └─► Decision.BlockToolCall  (if Effect code present and skills < 5)
 
 tool_result
   ├─► HookSet
@@ -126,7 +126,7 @@ Effect v4 is wide. A model writing Effect cold — without any in-context skill 
 - The count is monotonic *within* a branch.
 - Counting pending reads in addition to confirmed loads avoids a race where the gate fires between the Read tool call and its result.
 
-**The threshold.** `MIN_EFFECT_SKILLS = 7`. Schema, Error Handling, and Layers cover ~70% of any Effect codebase; the remaining four should be task-relevant (AI, SQL, HTTP, CLI, RPC, Workflow, Stream, Testing, Observability, etc.). Seven is calibrated, not arbitrary — fewer and the model still hallucinates; more and the activation friction outweighs the benefit.
+**The threshold.** `MIN_EFFECT_SKILLS = 5`. Schema, Error Handling, and Layers cover ~70% of any Effect codebase; the remaining two should be task-relevant (AI, SQL, HTTP, CLI, RPC, Workflow, Stream, Testing, Observability, etc.). Five is calibrated, not arbitrary — fewer and the model still hallucinates; more and the activation friction outweighs the benefit.
 
 **Why prospective projection matters.** The gate runs on `WriteProjection.prospective(cwd, writeIntent)`, which reconstructs *what the file will look like after the write/edit applies*. A change whose resulting file no longer matches `\bEffect\b|from\s+['"]effect.*['"]` is allowed through. A change whose resulting file contains Effect code is gated. This means deletion-only Effect cleanup can proceed without artificially incrementing the skill counter.
 
@@ -139,22 +139,22 @@ Every turn while mode is enabled, `InjectEffectPolicyHeader` emits a `Decision.I
 | File | Contents |
 |---|---|
 | `effect-first-development.md` | The full Effect-first specification: 40+ numbered laws (EF-1 … EF-40) covering tagged errors, `Option`, schema, canonical imports, `Match`, services & layers, `Clock`, observability, `Duration`, JSON via `Schema`, scoped resources, retries, timeouts, structured concurrency, parallel concurrency, `Config`, `Redacted`, defects vs. failures, layer memoization isolation, schema-first domain modeling, schema defaults, branded guards, equivalence, transformations, native sort, dual APIs. Followed by copy-paste templates and a 45-item LLM review checklist. |
-| `progressive-disclosure-guidance.md` | Short, imperative agent rules: "load AT LEAST 7 effect-\* skills before any Effect work; if anything is unclear, read from `~/.cache/effect-v4/`." |
+| `progressive-disclosure-guidance.md` | Short, imperative agent rules: "load AT LEAST 5 effect-\* skills before any Effect work; if anything is unclear, read from `~/.cache/effect-v4/`." |
 | `post__effect-and-the-near-inexpressible-majesty-of-layers.md` | A long-form essay defending Effect's `Layer` type. Included for the same reason a system prompt cites a style guide: priors matter. |
 
 Followed by a runtime line:
 
 ```
 pi-effect-harness policy:
-- Before planning or writing Effect code, read at least 7 relevant effect-* skills.
-  Loaded on this branch: 3/7 (effect-error-handling, effect-layer-design, effect-schema-v4).
+- Before planning or writing Effect code, read at least 5 relevant effect-* skills.
+  Loaded on this branch: 3/5 (effect-error-handling, effect-layer-design, effect-schema-v4).
 - If any Effect v4 API is unclear, read from the local Effect reference clone instead of guessing.
 - Key reference paths: ~/.cache/effect-v4/LLMS.md, ~/.cache/effect-v4/MIGRATION.md,
   ~/.cache/effect-v4/packages/effect/SCHEMA.md, ~/.cache/effect-v4/packages/effect/HTTPAPI.md,
   ~/.cache/effect-v4/packages/effect/src/.
 ```
 
-The skill preview is sorted, capped at 7 names, with `(+N more)` for overflow. The full guidance is loaded once at layer construction and re-emitted from memory each turn.
+The skill preview is sorted, capped at 5 names, with `(+N more)` for overflow. The full guidance is loaded once at layer construction and re-emitted from memory each turn.
 
 ### The pattern feedback loop
 
@@ -396,7 +396,7 @@ When Effect mode is enabled, session-start and before-turn hooks ensure the cach
 
 ### Skill threshold
 
-`MIN_EFFECT_SKILLS = 7`, defined in `harnesses/effect/src/constants.ts`. Not currently configurable per-project; if you want a different threshold, fork.
+`MIN_EFFECT_SKILLS = 5`, defined in `harnesses/effect/src/constants.ts`. Not currently configurable per-project; if you want a different threshold, fork.
 
 ### Effect-code regex
 
