@@ -13,8 +13,8 @@
     "@ast-grep/napi": "catalog:",
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
-    "picomatch": "^4.0.3",
-    "yaml": "^2.8.2"
+    "picomatch": "^4.0.4",
+    "yaml": "^2.9.0"
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*"

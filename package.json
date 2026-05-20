@@ -30,24 +30,24 @@
     "prepare": "effect-tsgo patch"
   },
   "devDependencies": {
-    "@effect/tsgo": "^0.4.0",
+    "@effect/tsgo": "^0.7.4",
     "@effect/vitest": "catalog:",
-    "@mariozechner/pi-coding-agent": "^0.67.1",
-    "@types/bun": "^1.3.12",
-    "@typescript/native-preview": "^7.0.0-dev.20260415.1",
-    "dprint": "^0.49.0",
-    "oxlint": "^1.58.0",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.0"
+    "@mariozechner/pi-coding-agent": "^0.73.1",
+    "@types/bun": "^1.3.14",
+    "@typescript/native-preview": "^7.0.0-dev.20260519.1",
+    "dprint": "^0.54.0",
+    "oxlint": "^1.66.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
   },
   "catalog": {
-    "@ast-grep/napi": "^0.40.5",
-    "@effect/platform-node": "4.0.0-beta.59",
-    "@effect/vitest": "4.0.0-beta.59",
-    "effect": "4.0.0-beta.59"
+    "@ast-grep/napi": "^0.42.3",
+    "@effect/platform-node": "4.0.0-beta.69",
+    "@effect/vitest": "4.0.0-beta.69",
+    "effect": "4.0.0-beta.69"
   },
   "overrides": {
-    "effect": "4.0.0-beta.59"
+    "effect": "4.0.0-beta.69"
   },
-  "packageManager": "bun@1.3.12"
+  "packageManager": "bun@1.3.14"
 }
