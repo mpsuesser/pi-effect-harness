@@ -42,7 +42,7 @@ import {
 } from 'effect/unstable/reactivity';
 import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
 import { FetchHttpClient } from 'effect/unstable/http';
-import { useAtomValue, useAtomSet } from '@effect-atom/atom-react';
+import { useAtomValue, useAtomSet } from '@effect/atom-react';
 ```
 
 ## Core idea
@@ -137,7 +137,7 @@ client.query(tag, payload, options?) =>
 Query atoms are **cached by request key** — calling `query('GetUser', { id: '1' })` from many components returns the *same* atom, so the rpc fires once and shares the result.
 
 ```ts
-import { useAtomValue } from '@effect-atom/atom-react';
+import { useAtomValue } from '@effect/atom-react';
 
 function UserProfile({ id }: { id: string }) {
 	const result = useAtomValue(
@@ -150,7 +150,7 @@ function UserProfile({ id }: { id: string }) {
 
 	return AsyncResult.builder(result)
 		.onWaiting(() => <Spinner />)
-		.onFailure((error) => <ErrorView error={error} />)
+		.onError((error) => <ErrorView error={error} />)
 		.onSuccess((user) => <UserCard user={user} />)
 		.render();
 }
@@ -170,20 +170,35 @@ client.query(tag, payload, {
 
 - **`reactivityKeys`** — keys this atom listens to. When a `mutation` (or any `Reactivity.invalidate`) fires with overlapping keys, this atom re-fetches.
 - **`timeToLive`** — `Duration.Input | "infinity"`. With a finite duration, the atom is removed from the cache after that long without subscribers (`Atom.setIdleTTL`). With `Duration.infinity`, the atom is `Atom.keepAlive`'d (never evicted). Without `timeToLive`, the atom resets when the last subscriber unmounts.
-- **`serializationKey`** — when set, the atom is wrapped with `Atom.serializable` keyed by `AtomRpc:${tag}:${serializationKey}`. This lets SSR dehydrate the atom on the server, ship it in the page, and have the client hydrate without re-fetching. Stream rpcs cannot be serializable.
+- **`serializationKey`** — for non-stream queries, a stable key opts the atom into `Atom.serializable` keyed by `AtomRpc:${tag}:${serializationKey}`. Without a `serializationKey`, the query atom is cached for the current registry but is not serializable/hydratable, so SSR clients will fetch again. Stream rpcs cannot be serializable.
 
 ### Stream rpcs
 
 When the rpc has `stream: true`, `query` returns an `Atom.Writable<PullResult<A, E>, void>` instead of `Atom<AsyncResult<A, E>>`:
 
-```ts
+```tsx
 const messageAtom = ChatClient.query('Subscribe', { roomId: 'r1' });
 
-// useAtomValue gives you a PullResult<Message, ChatError>
-// useAtomSet(messageAtom)() pulls the next chunk
+function Messages() {
+	const result = useAtomValue(messageAtom);
+	const pullNext = useAtomSet(messageAtom);
+
+	return AsyncResult.matchWithWaiting(result, {
+		onWaiting: () => <Spinner />,
+		onError: (error) => <ErrorView error={error} />,
+		onDefect: (defect) => <ErrorView error={defect} />,
+		onSuccess: (success) => (
+			<MessageList
+				items={success.value.items}
+				done={success.value.done}
+				onLoadMore={() => pullNext()}
+			/>
+		)
+	});
+}
 ```
 
-The `PullResult` exposes `.items` (accumulator), `.waiting` (loading), `.done` (stream complete), and the standard `AsyncResult` discriminator. Use `Atom.runtime.pull` semantics — write `void` to request the next chunk.
+`PullResult<A, E>` is an `AsyncResult<{ done: boolean; items: NonEmptyArray<A> }, E | NoSuchElementError>`. The `waiting` flag is top-level on the `AsyncResult`; `items` and `done` live under the success `value`. Use `Atom.runtime.pull` semantics — write `void` to request the next chunk.
 
 ## `mutation` — invalidating writes
 
@@ -191,12 +206,12 @@ The `PullResult` exposes `.items` (accumulator), `.waiting` (loading), `.done` (
 client.mutation(tag) => Atom.AtomResultFn<
 	{ payload, headers?, reactivityKeys? },
 	Success,
-	Error | RpcClientError | ...
+	Error | RpcClientError | MiddlewareError
 >;
 ```
 
 ```ts
-import { useAtomSet } from '@effect-atom/atom-react';
+import { useAtomSet } from '@effect/atom-react';
 
 function CreateUserButton() {
 	const createUser = useAtomSet(UsersClient.mutation('CreateUser'));
@@ -280,16 +295,17 @@ unmount();
 ```tsx
 // --- client: hydrate before rendering ---
 import { AtomRegistry, Hydration } from 'effect/unstable/reactivity';
+import { RegistryContext } from '@effect/atom-react';
 
 const registry = AtomRegistry.make();
 Hydration.hydrate(registry, dehydratedFromServer);
 
-<RegistryProvider value={registry}>
+<RegistryContext.Provider value={registry}>
 	<App />
-</RegistryProvider>;
+</RegistryContext.Provider>;
 ```
 
-Stream rpcs are not serializable — only non-stream `query` atoms with a `serializationKey`.
+Stream rpcs are not serializable — only non-stream `query` atoms with a stable `serializationKey` can be dehydrated and hydrated.
 
 ## Custom runtime
 
@@ -361,7 +377,7 @@ export class UsersClient extends AtomRpc.Service<UsersClient>()('UsersClient', {
 
 ```tsx
 // --- frontend/components/UserList.tsx ---
-import { useAtomValue, useAtomSet } from '@effect-atom/atom-react';
+import { useAtomValue, useAtomSet } from '@effect/atom-react';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { UsersClient } from '../clients/users-client';
 
@@ -387,7 +403,7 @@ export function UserList() {
 			<button onClick={onAdd}>Add user</button>
 			{AsyncResult.builder(users)
 				.onWaiting(() => <p>Loading…</p>)
-				.onFailure((err) => <p>Error: {String(err)}</p>)
+				.onError((err) => <p>Error: {String(err)}</p>)
 				.onSuccess((list) => (
 					<ul>
 						{list.map((u) => <li key={u.id}>{u.name}</li>)}
@@ -412,11 +428,8 @@ export function UserDetail({ id }: { id: string }) {
 
 	return AsyncResult.builder(user)
 		.onWaiting(() => <Spinner />)
-		.onFailure((err) =>
-			err._tag === 'UserNotFound'
-				? <NotFound id={err.id} />
-				: <ErrorView error={err} />
-		)
+		.onErrorTag('UserNotFound', (err) => <NotFound id={err.id} />)
+		.onError((err) => <ErrorView error={err} />)
 		.onSuccess((u) => <UserCard user={u} />)
 		.render();
 }
@@ -436,15 +449,18 @@ class ApiClient extends AtomHttpApi.Service<ApiClient>()('ApiClient', {
 }) {}
 
 ApiClient.query('users', 'getById', {
-	path: { id: 'u1' },
+	params: { id: 'u1' },
 	timeToLive: '30 seconds',
-	reactivityKeys: ['users', 'user-u1']
+	reactivityKeys: ['users', 'user-u1'],
+	serializationKey: 'user-u1'
 });
 
 const updateUser = useAtomSet(ApiClient.mutation('users', 'update'));
 ```
 
-The `query`/`mutation` arguments differ (you pass `groupName, endpointName, request` because HttpApi has groups), but the caching, reactivity-key, and serialization mechanics are identical.
+The `query`/`mutation` arguments differ (you pass `groupName, endpointName, request` because HttpApi has groups). Non-stream `AtomHttpApi.query` atoms are serializable only in decoded-only mode **and** when you provide a stable `serializationKey`; query hydration keys use `AtomHttpApi:${group}:${endpoint}:${serializationKey}`. Decoded-only AtomHttpApi query/mutation serialization uses endpoint + endpoint-middleware wire error schemas; do not document client-only middleware errors as serialized failures.
+
+`AtomHttpApi` error types follow the `HttpApiClient` endpoint shape: endpoint decoded errors, endpoint middleware errors, and client middleware errors. With `responseMode: 'response-only'`, endpoint decoded errors are excluded because the caller receives the raw response, but endpoint middleware and client middleware errors remain typed failures. Low-level `HttpClientError` and `SchemaError` are raised as defects by the AtomHttpApi runtime.
 
 ## Anti-patterns
 
@@ -454,7 +470,7 @@ The `query`/`mutation` arguments differ (you pass `groupName, endpointName, requ
 4. **Forgetting `reactivityKeys` on mutations.** A mutation that doesn't list keys won't invalidate any queries — the UI will look stale until the user refreshes.
 5. **Trying to make a stream rpc serializable.** Not supported — `serializationKey` is silently ignored on streams.
 6. **Overlapping reactivity keys without intent.** A widely-used key like `['users']` invalidates *every* user query. Scope keys narrowly (`['user-${id}']`) when only one entry changes; use the broad key only when a list-level refresh is intended.
-7. **Not handling `error._tag` in success-fallback chains.** The error channel includes typed rpc errors *and* `RpcClientError` (transport faults). Always pattern-match on `_tag` to distinguish — don't blanket-render error messages.
+7. **Assuming every error has `_tag`.** The failure channel includes declared RPC errors, RPC middleware wire errors, and `RpcClientError` transport faults. When you model errors as tagged schemas, use `.onErrorTag(...)` or check `_tag`; otherwise handle by schema/predicate with `.onError(...)` / `.onErrorIf(...)`.
 8. **Mixing `Atom.runtime` factories.** If you specify a custom `runtime` for `AtomRpc.Service`, use it consistently across related queries; mixing runtimes scopes reactivity differently and breaks invalidation.
 
 ## Rules
@@ -464,7 +480,7 @@ The `query`/`mutation` arguments differ (you pass `groupName, endpointName, requ
 - Always pass `reactivityKeys` to mutations so dependent queries refresh.
 - Pass `serializationKey` to every query you want SSR-hydratable.
 - Pick `timeToLive` deliberately: short (`'10 seconds'`) for hot data, long (`Duration.infinity`) for reference data, omit for "tear down on unmount".
-- Use `AsyncResult.builder(...).onWaiting(...).onFailure(...).onSuccess(...)` (or `AsyncResult.matchWithWaiting`) to render — never check `.waiting` and `.error` ad-hoc.
+- Use `AsyncResult.builder(...).onWaiting(...).onError(...).onSuccess(...)` (or `AsyncResult.matchWithWaiting`) to render — never check `.waiting` and `.error` ad-hoc. Reserve `.onFailure((cause) => ...)` for whole-`Cause` fallbacks after typed error branches.
 - For protocol layers that depend on auth tokens or other reactive state, use the `(get) => Layer` form of `protocol` so the client rebuilds when those atoms change.
-- For typed error recovery, branch on `error._tag` — the union always includes both your declared rpc errors and `RpcClientError`.
+- For typed error recovery, handle declared RPC errors, RPC middleware wire errors, and `RpcClientError`; branch on `_tag` only when the relevant errors are tagged.
 - Cross-link to `effect-atom-state` and `effect-react-vm` skills for atom-side patterns; this skill covers only the RPC bridge.

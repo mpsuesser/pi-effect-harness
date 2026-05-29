@@ -286,27 +286,49 @@ export const notifications = Atom.make(
 
 Use `Atom.pull` for stream-based pagination:
 
-```typescript
+```tsx
 export const pagedItems = Atom.pull(
 	Stream.fromIterable(itemsSource).pipe(
 		Stream.grouped(10) // Pages of 10 items
 	)
 );
 
-// In component - automatically fetches next page when called
-const loadMore = useAtomSet(pagedItems);
+function PagedList() {
+	const result = useAtomValue(pagedItems);
+	const pullNext = useAtomSet(pagedItems);
+
+	return AsyncResult.matchWithWaiting(result, {
+		onWaiting: () => <Loading />,
+		onError: (error) => <Error message={String(error)} />,
+		onDefect: (defect) => <Error message={String(defect)} />,
+		onSuccess: (success) => (
+			<>
+				<ItemList items={success.value.items} />
+				<button
+					disabled={success.value.done}
+					onClick={() => pullNext()}
+				>
+					Load more
+				</button>
+			</>
+		)
+	});
+}
 ```
+
+`Atom.pull` returns a writable `PullResult`, which is an `AsyncResult` whose success value is `{ done, items }`. The `waiting` flag stays on the top-level result; read pages from `success.value.items` and call `useAtomSet(pagedItems)()` to pull the next chunk.
 
 ## Pattern: Persistence
 
 Use `Atom.kvs` for persisted state:
 
 ```typescript
-import { KeyValueStore } from 'effect/unstable/persistence/KeyValueStore';
+import { BrowserKeyValueStore as BrowserKvs } from '@effect/platform-browser';
+import * as Atom from 'effect/unstable/reactivity/Atom';
 import * as Schema from 'effect/Schema';
 
 export const userSettings = Atom.kvs({
-	runtime: Atom.runtime(KeyValueStore.layerLocalStorage),
+	runtime: Atom.runtime(BrowserKvs.layerLocalStorage),
 	key: 'user-settings',
 	schema: Schema.Struct({
 		theme: Schema.Literals(['light', 'dark']),
@@ -320,6 +342,8 @@ export const userSettings = Atom.kvs({
 	})
 });
 ```
+
+If you want to use the core Web Storage layer directly, import the module namespace and pass `Atom.runtime(KeyValueStore.layerStorage(() => globalThis.localStorage))`.
 
 ## React Integration
 
@@ -480,29 +504,29 @@ export const filteredItems = Atom.make((get) => {
 });
 ```
 
-## Atom.transform
+## External push sources
 
-Self-updating derived state that runs an effect when subscribed:
+For browser APIs or other external sources that push updates, create an atom with `Atom.make((get) => ...)` and use `get.setSelf` plus `get.addFinalizer`:
 
 ```typescript
 // System theme detection — updates reactively via matchMedia listener
-export const systemThemeAtom = Atom.transform(
-	'light' as 'light' | 'dark',
-	(setSelf) =>
-		Effect.gen(function* () {
-			const mql = window.matchMedia('(prefers-color-scheme: dark)');
-			setSelf(mql.matches ? 'dark' : 'light');
-			const handler = (e: MediaQueryListEvent) =>
-				setSelf(e.matches ? 'dark' : 'light');
-			mql.addEventListener('change', handler);
-			yield* Effect.addFinalizer(() =>
-				Effect.sync(() => mql.removeEventListener('change', handler))
-			);
-		})
-);
+export const systemThemeAtom = Atom.make((get) => {
+	const mql = window.matchMedia('(prefers-color-scheme: dark)');
+	const readTheme = (): 'light' | 'dark' =>
+		mql.matches ? 'dark' : 'light';
+
+	const handler = (event: MediaQueryListEvent) => {
+		get.setSelf(event.matches ? 'dark' : 'light');
+	};
+
+	mql.addEventListener('change', handler);
+	get.addFinalizer(() => mql.removeEventListener('change', handler));
+
+	return readTheme();
+});
 ```
 
-Use `Atom.transform` when the atom needs to subscribe to an external source and push updates.
+Use `Atom.transform` only to transform an existing source atom; it is not a standalone constructor that accepts an initial value and subscription effect.
 
 ## Atom.batch
 
@@ -510,12 +534,14 @@ Batch multiple atom updates into a single notification cycle:
 
 ```typescript
 Atom.batch(() => {
-	set(nameAtom, 'Alice');
-	set(ageAtom, 30);
-	set(statusAtom, 'active');
+	registry.set(nameAtom, 'Alice');
+	registry.set(ageAtom, 30);
+	registry.set(statusAtom, 'active');
 });
 // Subscribers notified once, not three times
 ```
+
+Outside Effect/Atom contexts, use an `AtomRegistry` (`registry.set(...)`) inside the batch. Inside an atom or write context, use that context (`ctx.set(...)`) in the same pattern. `Atom.batch` only batches notifications; it does not introduce a free `set` function.
 
 Use when multiple atoms must update atomically to avoid intermediate renders.
 
@@ -529,18 +555,24 @@ const UserProfile = ({ userId }: { userId: string }) => {
 
   return AsyncResult.builder(user)
     .onInitial(() => <LoadingSkeleton />)
-    .onError(UserNotFoundError, (err) => <NotFound id={err.userId} />)
-    .onError(NetworkError, () => <RetryPrompt />)
+    .onErrorTag('UserNotFound', (err) => <NotFound id={err.userId} />)
+    .onErrorIf(
+      (err): err is NetworkError => err instanceof NetworkError,
+      () => <RetryPrompt />
+    )
+    .onError((err) => <Error message={String(err)} />)
     .onSuccess((user) => <ProfileCard user={user} />)
     .render()
 }
 ```
 
-- `onInitial` — loading/pending state
-- `onError` — handle specific tagged errors (type-safe via `catchTag` semantics)
-- `onErrorTag` — alternative syntax matching on `_tag`
+- `onInitial` — initial/pending state
+- `onError` — handle any typed error value
+- `onErrorIf` — handle typed errors with a predicate or refinement
+- `onErrorTag` — handle tagged errors by `_tag`
+- `onFailure` — receives the whole `Cause.Cause<E>`; reserve it for cause-level fallback handling
 - `onSuccess` — render the success value
-- `render()` — finalize and return JSX
+- `render()` — finalize and return JSX; it throws unhandled failures, so handle every expected error/defect or use `orElse` / `orNull`
 
 ## useAtomMount
 

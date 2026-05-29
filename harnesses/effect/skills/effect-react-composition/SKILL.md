@@ -479,19 +479,13 @@ function CartControls() {
 
 ### Pattern: Async Operations with Atoms
 
+Use `runtime.atom` and `Atom.family` for query-like data. The runtime wraps the Effect result as `AsyncResult` automatically, so you do not need a separate result atom or a `useEffect` trigger.
+
 ```typescript
 // state/User.ts
 import * as Atom from 'effect/unstable/reactivity/Atom';
-import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult';
-import { Effect, Layer, Cause } from 'effect';
-import type { UserService } from '@/services/UserService';
-
-/**
- * User data with AsyncResult type for error handling
- */
-export const userData = Atom.make<AsyncResult.AsyncResult<User, Error>>(
-	AsyncResult.initial()
-);
+import { Effect } from 'effect';
+import { UserService } from '@/services/UserService';
 
 /**
  * Runtime with UserService
@@ -499,47 +493,32 @@ export const userData = Atom.make<AsyncResult.AsyncResult<User, Error>>(
 const runtime = Atom.runtime(UserService.Live);
 
 /**
- * Load user data
+ * User data keyed by id. Each atom value is AsyncResult<User, UserError>.
  */
-export const loadUser = runtime.fn(
-	Effect.fnUntraced(function* (userId: string) {
-		const userService = yield* UserService;
-
-		// Set loading state
-		yield* Atom.set(userData, AsyncResult.initial());
-
-		// Fetch data
-		const result = yield* Effect.result(userService.getUser(userId));
-
-		// Update atom with result
-		yield* Atom.set(
-			userData,
-			result._tag === 'Success'
-				? AsyncResult.success(result.success)
-				: AsyncResult.failure(Cause.fail(result.failure))
-		);
-	})
+export const userData = Atom.family((userId: string) =>
+	runtime.atom(
+		Effect.gen(function* () {
+			const userService = yield* UserService;
+			return yield* userService.getUser(userId);
+		})
+	)
 );
 ```
 
 **Component with AsyncResult Handling**
 
 ```tsx
-import { useAtomValue, useAtomSet } from '@effect/atom-react';
+import { useAtomValue } from '@effect/atom-react';
 import * as AsyncResult from 'effect/unstable/reactivity/AsyncResult';
 import * as User from '@/state/User';
 
 function UserProfile({ userId }: { userId: string }) {
-	const result = useAtomValue(User.userData);
-	const loadUser = useAtomSet(User.loadUser);
+	const result = useAtomValue(User.userData(userId));
 
-	React.useEffect(() => {
-		loadUser(userId);
-	}, [userId, loadUser]);
-
-	return AsyncResult.match(result, {
-		onInitial: () => <Loading />,
-		onFailure: ({ cause }) => <Error message={String(cause)} />,
+	return AsyncResult.matchWithWaiting(result, {
+		onWaiting: () => <Loading />,
+		onError: (error) => <Error message={String(error)} />,
+		onDefect: (defect) => <Error message={String(defect)} />,
 		onSuccess: ({ value: user }) => (
 			<div className="user-profile">
 				<h2>{user.name}</h2>

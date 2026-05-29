@@ -78,7 +78,7 @@ export class AnalyticsService extends Context.Service<
 
 ```typescript
 import { Context, Effect, Layer } from 'effect';
-import { AtomRegistry } from 'effect/unstable/reactivity/AtomRegistry';
+import { AtomRegistry } from 'effect/unstable/reactivity';
 interface Consent {
 	id: string;
 }
@@ -96,7 +96,7 @@ const layer = Layer.effect(
 	ConsentListVM,
 	Effect.gen(function* () {
 		const consentService = yield* ConsentService; // Compose over service
-		const registry = yield* AtomRegistry;
+		const registry = yield* AtomRegistry.AtomRegistry;
 		// ... VM-specific UI state
 	})
 );
@@ -119,7 +119,7 @@ Each VM file contains: interface, tag, and default `{ tag, layer }` export.
 ```typescript
 // components/Wallet/Wallet.vm.ts
 import * as Atom from 'effect/unstable/reactivity/Atom';
-import { AtomRegistry } from 'effect/unstable/reactivity/AtomRegistry';
+import { AtomRegistry } from 'effect/unstable/reactivity';
 import { Context, Layer, Effect, pipe, Data } from 'effect';
 
 // State machine
@@ -146,7 +146,7 @@ export const WalletVM = Context.Service<WalletVM>('WalletVM');
 const layer = Layer.effect(
 	WalletVM,
 	Effect.gen(function* () {
-		const registry = yield* AtomRegistry;
+		const registry = yield* AtomRegistry.AtomRegistry;
 		const walletService = yield* WalletService;
 
 		// Atoms defined here, inside the layer
@@ -248,7 +248,7 @@ export default function Wallet() {
 **Key insight**: Use `Atom.fn` with `Effect.fnUntraced` for effect-based actions. This gives you:
 
 1. Automatic `waiting` flag for loading state
-2. `Result<Success, Error>` with Initial/Success/Failure states
+2. `AsyncResult<Success, Error>` with `Initial`, `Success`, and `Failure` variants plus a top-level `waiting` overlay
 3. No manual state management or void wrappers
 
 ```tsx
@@ -367,7 +367,7 @@ Atoms are ONLY defined inside VM layers:
 
 ```typescript
 // Inside Layer.effect
-const registry = yield* AtomRegistry;
+const registry = yield* AtomRegistry.AtomRegistry;
 
 // Writable atom - camelCase with $ suffix
 const count$ = Atom.make(0);
@@ -500,7 +500,7 @@ const vmAtom = Atom.family(<Id, Value, E>(key: VmKey<Id, Value, E>) =>
 
 export const useVM = <Id, Value, E>(
 	tag: Context.Service<Id, Value>,
-	layer: Layer.Layer<Id, E, Scope.Scope | AtomRegistry>
+	layer: Layer.Layer<Id, E, Scope.Scope | AtomRegistry.AtomRegistry>
 ): AsyncResult.AsyncResult<Value, E> =>
 	useAtomValue(vmAtom(makeVmKey(tag, layer)));
 ```
@@ -522,11 +522,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 ### Hooks Reference
 
-| Hook                  | Purpose               |
-| --------------------- | --------------------- |
-| `useAtomValue(atom$)` | Subscribe to value    |
-| `useAtomSet(atom$)`   | Get setter function   |
-| `useAtom(atom$)`      | Get `[value, setter]` |
+| Hook                                           | Purpose                                                            |
+| ---------------------------------------------- | ------------------------------------------------------------------ |
+| `useAtomValue(atom$)`                          | Subscribe to value                                                 |
+| `useAtomSet(atom$)`                            | Get setter function and mount writable atom                        |
+| `useAtom(atom$)`                               | Get `[value, setter]`                                              |
+| `useAtomMount(atom$)`                          | Mount side-effect atoms without reading                            |
+| `useAtomRefresh(atom$)`                        | Mount and get a refresh callback                                   |
+| `useAtomSuspense(asyncResultAtom$, options?)`  | Read `AsyncResult` atoms through React Suspense                    |
+| `useAtomInitialValues(values)`                 | Seed initial atom values in the current registry                   |
+| `useAtomSubscribe(atom$, callback, options?)`  | Subscribe to changes without rendering from the atom               |
+| `useAtomRef(ref)`                              | Subscribe to an `AtomRef` value directly                           |
+| `useAtomRefProp(ref, key)`                     | Memoize an `AtomRef` for an object property                        |
+| `useAtomRefPropValue(ref, key)`                | Subscribe to one property value from an object-shaped `AtomRef`    |
 
 ---
 
