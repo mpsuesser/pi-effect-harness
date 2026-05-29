@@ -24,7 +24,7 @@ Reference this for:
 
 ### Log Functions
 
-Effect provides log functions at every level. Each accepts a message and optional structured data:
+Effect provides log functions at every level. Each is variadic and accepts one or more message values:
 
 ```ts
 import { Effect } from 'effect';
@@ -38,12 +38,14 @@ const program = Effect.gen(function* () {
 });
 ```
 
-Pass structured data as the second argument:
+Pass additional message values after the first. These extra values become part of the log message/body — they are **not** automatically indexed as queryable annotations:
 
 ```ts
 yield* Effect.log('User action', { userId: 123, action: 'login' });
 yield* Effect.logInfo('Request processed', { duration: 150, statusCode: 200 });
 ```
+
+For **queryable dimensions** (fields you want to filter or group on in your logging/tracing backend), prefer `Effect.annotateLogs` or span annotations (`Effect.annotateCurrentSpan` / `Effect.annotateSpans`) rather than passing objects as message values.
 
 ### Log Annotations
 
@@ -476,18 +478,28 @@ const ObservabilityLayer = Layer.mergeAll(
 
 ### OTLP Layer Options
 
-Common options for all OTLP exporters:
+Common options for the individual OTLP exporters (`OtlpLogger.layer`, `OtlpTracer.layer`, `OtlpMetrics.layer`):
 
-| Option                    | Default     | Description                         |
-| ------------------------- | ----------- | ----------------------------------- |
-| `url`                     | required    | OTLP endpoint URL                   |
-| `resource.serviceName`    | —           | Service name in exported telemetry  |
-| `resource.serviceVersion` | —           | Service version                     |
-| `resource.attributes`     | —           | Additional resource attributes      |
-| `headers`                 | —           | HTTP headers for auth etc.          |
-| `exportInterval`          | `5 seconds` | How often to flush batches          |
-| `maxBatchSize`            | `1000`      | Max items per export batch          |
-| `shutdownTimeout`         | `3 seconds` | Timeout for final flush on shutdown |
+| Option                    | Default          | Description                              |
+| ------------------------- | ---------------- | ---------------------------------------- |
+| `url`                     | required         | OTLP endpoint URL                        |
+| `resource.serviceName`    | —                | Service name in exported telemetry       |
+| `resource.serviceVersion` | —                | Service version                          |
+| `resource.attributes`     | —                | Additional resource attributes           |
+| `headers`                 | —                | HTTP headers for auth etc.               |
+| `exportInterval`          | signal-specific  | How often to flush batches (see below)   |
+| `maxBatchSize`            | signal-specific  | Max items per export batch (see below)   |
+| `shutdownTimeout`         | `3 seconds`      | Timeout for final flush on shutdown      |
+
+Batch/flush defaults differ by signal:
+
+| Exporter            | `exportInterval` | `maxBatchSize`                 | `shutdownTimeout` |
+| ------------------- | ---------------- | ------------------------------ | ----------------- |
+| `OtlpLogger.layer`  | `1 second`       | `1000`                         | `3 seconds`       |
+| `OtlpTracer.layer`  | `5 seconds`      | `1000`                         | `3 seconds`       |
+| `OtlpMetrics.layer` | `10 seconds`     | disabled (pull-style snapshot) | `3 seconds`       |
+
+The all-in-one `Otlp.layerJson` / `Otlp.layerProtobuf` use **signal-specific** interval option names instead of a single `exportInterval`: `loggerExportInterval`, `metricsExportInterval`, and `tracerExportInterval` (plus a shared `maxBatchSize`, `shutdownTimeout`, and `metricsTemporality`).
 
 `OtlpMetrics.layer` additionally accepts:
 
@@ -682,7 +694,7 @@ class Checkout extends Context.Service<
 2. **`Logger.tracerLogger` is included by default** — log messages automatically become span events. If you override loggers, include it explicitly if you want this behavior.
 3. **`Effect.fn("name")` creates auto-spans** — prefer this over manual `Effect.withSpan` for service methods.
 4. **Provide observability layers outermost** — so all application spans and logs are captured for export.
-5. **OTLP exporters require `HttpClient` and `OtlpSerialization`** — use `Otlp.layerJson` to get both wired automatically, or provide `OtlpSerialization.layerJson` + `FetchHttpClient.layer` manually.
+5. **OTLP exporters require `HttpClient` and `OtlpSerialization`** — `Otlp.layerJson` (and `layerProtobuf`) wires `OtlpSerialization` for you but still requires an `HttpClient`, so provide a client layer such as `FetchHttpClient.layer`. With `Otlp.layer` or the individual exporters, provide both `OtlpSerialization.layerJson` and `FetchHttpClient.layer` manually.
 6. **`References.MinimumLogLevel`** controls filtering — not a logger concern, set it via `Layer.succeed`.
 7. **Metric names should follow conventions** — snake_case with units suffix (e.g., `http_request_duration_ms`).
 8. **`Metric.withAttributes` creates a tagged variant** — it does not mutate the original metric.

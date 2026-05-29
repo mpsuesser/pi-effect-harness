@@ -19,6 +19,10 @@ wide-events    := mental-model for annotation strategy
 annotate(span, context) where context = {
 business ∪ user ∪ technical ∪ outcome
 }
+
+effect-api    := Effect.annotateCurrentSpan ∨ Effect.annotateLogs
+queryable-via := annotations  ⊄  log-message-args
+// extra log-message args → message body, not auto-indexed dimensions
 </current-practice>
 
 <dimensionality>

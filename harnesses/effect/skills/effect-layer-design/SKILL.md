@@ -422,6 +422,8 @@ const program = Effect.all([
 ]).pipe(Effect.provide(ConfigLive));
 ```
 
+> **Memo-map fork nuance:** Sharing is mediated by a `MemoMap`. A root memo map (`Layer.makeMemoMapUnsafe()`, used implicitly by `Effect.provide`) shares every layer allocation it builds. A _forked_ memo map (`Layer.forkMemoMap` / `Layer.forkMemoMapUnsafe`) can still see allocations its parent already built, but new allocations it builds stay isolated and are not written back to the parent. This is the mechanism `@effect/vitest` uses to reuse parent layers while isolating nested `it.layer` suites.
+
 ## Error Handling in Layers
 
 Handle construction errors:

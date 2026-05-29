@@ -442,7 +442,7 @@ export class AuthError extends Schema.TaggedErrorClass<AuthError>()(
 
 ## Yieldable Errors
 
-In `Effect.gen` blocks, tagged error instances can be yielded directly as a shorthand for `yield* Effect.fail(...)`. This works because `Schema.TaggedErrorClass`, `Schema.ErrorClass`, and `Data.TaggedError` all implement the `Yieldable` interface.
+In `Effect.gen` blocks, tagged error instances can be yielded directly as a shorthand for `yield* Effect.fail(...)`. This works because `Schema.TaggedErrorClass`, `Schema.ErrorClass`, and `Data.TaggedError` all extend `Cause.YieldableError`.
 
 ```typescript
 import { Effect } from 'effect';
@@ -588,6 +588,8 @@ const program2 = riskyOp().pipe(
 	)
 );
 ```
+
+> **Type preservation (beta.71):** When you omit `orElse`, the tags you do not handle stay in the error channel — `catchTag(['NotFound'], ...)` on `Effect<string, NotFound | Forbidden | ServerError>` yields `Effect<string, Forbidden | ServerError>`. Supplying `orElse` handles those remaining variants, so the resulting error channel reflects only what the fallback produces. A beta.71 fix ensures `catchTag` / `catchTags` / `catchIf` no longer silently drop the unhandled error types from the inferred type.
 
 ### catchTags - Multiple Error Types
 
@@ -1095,9 +1097,7 @@ const unreliableOperation: Effect.Effect<Data, TransientError> = Effect.fail(
 // Retry with exponential backoff
 const program = unreliableOperation.pipe(
 	Effect.retry(
-		Schedule.exponential('100 millis').pipe(
-			Schedule.compose(Schedule.recurs(5)) // Max 5 retries
-		)
+		Schedule.exponential('100 millis').pipe(Schedule.take(5)) // Max 5 retries
 	)
 );
 ```
@@ -1219,11 +1219,11 @@ The `ErrorReporter` module is new in v4. It provides pluggable, structured error
 ### Defining a Reporter
 
 ```typescript
-import { Effect, ErrorReporter, Layer } from 'effect';
+import { ErrorReporter } from 'effect';
 
-// Create a custom reporter
-const myReporter = ErrorReporter.make((cause, context) => {
-	console.error('Error reported:', cause);
+// Create a custom reporter — the callback receives a single options object
+const myReporter = ErrorReporter.make(({ cause, error, severity, attributes }) => {
+	console.error(`[${severity}]`, error.message, attributes);
 });
 
 // Register reporters via Layer
@@ -1236,12 +1236,17 @@ const ReporterLayer = ErrorReporter.layer([myReporter]);
 import { Effect, ErrorReporter } from 'effect';
 
 // Automatically report errors from an effect
-const program = riskyOperation.pipe(Effect.withErrorReporting());
+const program = riskyOperation.pipe(Effect.withErrorReporting);
+
+// Or, to report defects only:
+const defectsOnly = riskyOperation.pipe(
+	Effect.withErrorReporting({ defectsOnly: true })
+);
 ```
 
 ### Per-Error Annotations
 
-Error objects can carry reporting annotations as symbol-keyed properties:
+Error objects can carry reporting annotations as string-keyed properties (the keys are namespaced strings such as `"~effect/ErrorReporter/severity"`):
 
 ```typescript
 import { ErrorReporter, Schema } from 'effect';
@@ -1253,13 +1258,13 @@ class MyError extends Schema.TaggedErrorClass<MyError>()('MyError', {
 const error = new MyError({ message: 'something went wrong' });
 
 // Mark an error to be ignored by reporters
-ErrorReporter.ignore; // symbol key — set to true to skip reporting
+ErrorReporter.ignore; // string key — set to true to skip reporting
 
-// Override severity (default derived from Cause variant)
-ErrorReporter.severity; // "Trace" | "Debug" | "Info" | "Warn" | "Error" | "Fatal"
+// Override severity (defaults to "Info" when unset or invalid)
+ErrorReporter.severity; // string key — "Trace" | "Debug" | "Info" | "Warn" | "Error" | "Fatal"
 
 // Attach extra structured metadata
-ErrorReporter.attributes; // Record<string, unknown>
+ErrorReporter.attributes; // string key — Record<string, unknown>
 
 // Guards
 ErrorReporter.isIgnored(error); // check if ignored

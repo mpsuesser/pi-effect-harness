@@ -46,10 +46,11 @@ Config.boolean('DEBUG'); // boolean (accepts true/false, yes/no, on/off, 1/0, y/
 Config.port('PORT'); // number (integer in 1–65535)
 Config.url('CALLBACK_URL'); // URL
 Config.date('EXPIRES_AT'); // Date (rejects invalid dates)
-Config.duration('TIMEOUT'); // Duration (parses "10 seconds", "500 millis", etc.)
+Config.duration('TIMEOUT'); // Duration (parses "10 seconds", "500 millis", "Infinity", "-Infinity")
 Config.logLevel('LOG_LEVEL'); // string (All|Fatal|Error|Warn|Info|Debug|Trace|None)
 Config.redacted('API_KEY'); // Redacted<string> (hidden from logs and toString)
 Config.literal('production', 'ENV'); // literal type (accepts only the given literal)
+Config.literals(['development', 'production'], 'ENV'); // accepts one of several literals
 ```
 
 ## Config Combinators
@@ -150,7 +151,7 @@ const ServerConfig = Config.schema(
 | Schema                      | Type           | Notes                                      |
 | --------------------------- | -------------- | ------------------------------------------ |
 | `Config.Boolean`            | `boolean`      | Decodes `true/false/yes/no/on/off/1/0/y/n` |
-| `Config.Duration`           | `Duration`     | Decodes human-readable duration strings    |
+| `Schema.DurationFromString` | `Duration`     | Decodes duration strings; accepts `"Infinity"` / `"-Infinity"` |
 | `Config.Port`               | `number`       | Integer in 1–65535                         |
 | `Config.LogLevel`           | `string`       | One of the standard log level literals     |
 | `Config.Record(key, value)` | `Record<K, V>` | Also parses flat `"k1=v1,k2=v2"` strings   |

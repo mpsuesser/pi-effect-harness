@@ -154,6 +154,8 @@ Then in the module namespace, create the bridge from the service and its default
 const { runPromise } = makeRuntime(MyModule.Service, MyModule.defaultLayer);
 ```
 
+> **Memo-map nuance:** Keep the bridge `memoMap` shared (the root `Layer.makeMemoMapUnsafe()` above) so every per-service runtime reuses the same layer allocations. Do not `Layer.forkMemoMap` it unless a specific child runtime intentionally needs isolated allocations — a forked memo map can read the parent's existing allocations but builds new ones in isolation, which defeats the deduplication this bridge exists to provide.
+
 ### Step 6: Keep Boundary Facades Only When Still Needed
 
 If non-Effect callers still exist, wrap each service method in a thin `async` function that delegates to `runPromise`. Do not keep facades as the primary API once Effect callers can `yield*` the service directly.

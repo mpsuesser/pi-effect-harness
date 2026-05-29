@@ -125,7 +125,8 @@ Do not wrap every `defaultLayer` in `Layer.unwrap(Effect.sync(...))` by default.
 For simple services or when namespace encapsulation is not needed, the class-statics pattern is acceptable:
 
 ```typescript
-import { Effect, Layer, Context } from 'effect';
+import { Context, Crypto, Effect, Layer } from 'effect';
+import { NodeCrypto } from '@effect/platform-node';
 
 export class IdGenerator extends Context.Service<
 	IdGenerator,
@@ -133,15 +134,21 @@ export class IdGenerator extends Context.Service<
 		readonly generate: Effect.Effect<string>;
 	}
 >()('@services/IdGenerator', {
-	make: Effect.succeed({
-		generate: Effect.sync(() => crypto.randomUUID())
+	make: Effect.gen(function* () {
+		const crypto = yield* Crypto.Crypto;
+		// `randomUUIDv4` fails with PlatformError; UUID generation is
+		// unrecoverable here, so collapse it into a defect with `Effect.orDie`.
+		return { generate: crypto.randomUUIDv4.pipe(Effect.orDie) };
 	})
 }) {
 	static readonly layer = Layer.effect(this, this.make);
+	static readonly defaultLayer = this.layer.pipe(
+		Layer.provide(NodeCrypto.layer)
+	);
 }
 ```
 
-Use the class-statics pattern only for leaf services with no dependencies. For services that capture dependencies via `yield*`, prefer the namespace-module pattern.
+Use the class-statics pattern for small services with at most a single, simple dependency. For richer dependency graphs, prefer the namespace-module pattern. Provide a platform `Crypto` implementation such as `NodeCrypto.layer` at the app edge — here `defaultLayer` wires it.
 
 ## Anti-Pattern: Monolithic Services
 
@@ -362,12 +369,13 @@ Both keep the method signatures clean (`R = never`).
 
 Update Effect callers to `yield* SomeService.Service` as early as possible once the service exists. Keep async facades only for non-Effect boundaries that still need compatibility.
 
-## Pattern: Simple Services Without Dependencies
+## Pattern: Leaf Services with a Platform Dependency
 
-For services with no external dependencies, `layer` is self-contained and no `defaultLayer` is needed:
+Even a small "leaf" service often needs a platform capability such as cryptographic UUID generation. Use the platform-agnostic `Crypto` service instead of the global `crypto.randomUUID`, capture it in `Layer.effect`, and wire a concrete implementation (e.g. `NodeCrypto.layer`) in `defaultLayer`:
 
 ```typescript
-import { Effect, Layer, Context } from 'effect';
+import { Context, Crypto, Effect, Layer } from 'effect';
+import { NodeCrypto } from '@effect/platform-node';
 
 export namespace IdGenerator {
 	export interface Interface {
@@ -378,14 +386,23 @@ export namespace IdGenerator {
 		'@services/IdGenerator'
 	) {}
 
-	export const layer = Layer.succeed(
+	export const layer = Layer.effect(
 		Service,
-		Service.of({
-			generate: Effect.sync(() => crypto.randomUUID())
+		Effect.gen(function* () {
+			const crypto = yield* Crypto.Crypto;
+			// UUID generation failure is unrecoverable here, so collapse the
+			// PlatformError into a defect at this boundary with `Effect.orDie`.
+			return Service.of({
+				generate: crypto.randomUUIDv4.pipe(Effect.orDie)
+			});
 		})
 	);
+
+	export const defaultLayer = layer.pipe(Layer.provide(NodeCrypto.layer));
 }
 ```
+
+A genuinely dependency-free service can still keep `layer` self-contained with `Layer.succeed` and skip `defaultLayer` (see the rule of thumb below).
 
 ## Pattern: Composing Capabilities
 
