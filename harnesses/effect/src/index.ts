@@ -28,6 +28,7 @@ import { EffectHarnessLayer } from './layers/EffectHarnessLayer.ts';
 import { ReferenceClone } from './services/ReferenceClone.ts';
 
 const EFFECT_MODE_ID = 'effect';
+const EFFECT_MODE_KEY = 'e';
 const EFFECT_MODE_COLOR = '#d4af37';
 const EFFECT_MODE_DESCRIPTION =
 	'Enable Effect v4 guidance, skill gating, and pattern checks';
@@ -129,6 +130,7 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 
 	const mode = createModeToggle(pi, {
 		id: EFFECT_MODE_ID,
+		key: EFFECT_MODE_KEY,
 		color: EFFECT_MODE_COLOR,
 		statusText: EFFECT_STATUS,
 		description: EFFECT_MODE_DESCRIPTION,

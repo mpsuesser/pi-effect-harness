@@ -50,7 +50,7 @@ The first time you enable `/toggle-effect-harness`, the harness creates a shared
 
 | | |
 |---|---|
-| Toggle | `/toggle-effect-harness` (interactive), or via Pi's mode toggle UI |
+| Toggle | `/toggle-effect-harness` (interactive), or `Tab` then `E` via Pi's mode toggle UI |
 | Status | Gold `effect` badge in the footer |
 | Persistence | Project-scoped Pi session state; survives session restart |
 | Activation cost | First time per user cache: shallow clone of `effect-smol`; later enabled turns do a shallow refresh |

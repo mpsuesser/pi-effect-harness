@@ -9,6 +9,7 @@ import { MODE_REGISTER_EVENT, MODE_UNREGISTER_EVENT } from './constants.ts';
 export interface ModeRegistration {
 	readonly id: string;
 	readonly name: string;
+	readonly key: string;
 	readonly color: string;
 	readonly description?: string;
 	readonly persistenceScope: 'none';
@@ -19,6 +20,7 @@ export interface ModeRegistration {
 export interface CreateModeToggleOptions {
 	readonly id: string;
 	readonly name?: string;
+	readonly key: string;
 	readonly color: string;
 	readonly statusText: string;
 	readonly description?: string;
@@ -39,6 +41,7 @@ export interface CreateModeToggleOptions {
 export interface ModeToggle {
 	readonly id: string;
 	readonly name: string;
+	readonly key: string;
 	isEnabled(): boolean;
 	setEnabled(enabled: boolean, ctx: ExtensionContext): void;
 	toggle(ctx: ExtensionContext): void;
@@ -79,6 +82,7 @@ export const createModeToggle = (
 		const registration: ModeRegistration = {
 			id: options.id,
 			name,
+			key: options.key,
 			color: options.color,
 			persistenceScope: PERSISTENCE_SCOPE,
 			...(options.description !== undefined
@@ -99,6 +103,7 @@ export const createModeToggle = (
 	const mode: ModeToggle = {
 		id: options.id,
 		name,
+		key: options.key,
 		isEnabled: () => enabled,
 		setEnabled: (nextEnabled, ctx) => {
 			if (enabled === nextEnabled) {
