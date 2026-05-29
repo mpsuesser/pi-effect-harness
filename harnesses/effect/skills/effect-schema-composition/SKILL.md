@@ -248,11 +248,14 @@ const LongString = Schema.String.check(
 
 The filter predicate can return:
 
-| Return Type           | Meaning                             |
-| --------------------- | ----------------------------------- |
-| `true` or `undefined` | Validation passes                   |
-| `false`               | Validation fails (no error message) |
-| `string`              | Validation fails with error message |
+| Return Type                            | Meaning                                      |
+| -------------------------------------- | -------------------------------------------- |
+| `true` or `undefined`                  | Validation passes                            |
+| `false`                                | Validation fails (no error message)          |
+| `string`                               | Validation fails with error message          |
+| `SchemaIssue.Issue`                    | Validation fails with a structured issue     |
+| `{ path, issue }`                      | Validation fails at a nested path            |
+| `ReadonlyArray<Schema.FilterIssue>`    | Reports multiple filter issues together      |
 
 ### Filter Annotations
 
@@ -310,7 +313,7 @@ const MyForm = Schema.Struct({
 		if (input.password !== input.confirm_password) {
 			return {
 				path: ['confirm_password'],
-				message: 'Passwords do not match'
+				issue: 'Passwords do not match'
 			};
 		}
 	})
@@ -406,6 +409,19 @@ Schema.Finite.pipe(
 );
 ```
 
+### Duration Transformations
+
+```typescript
+import { Schema, SchemaTransformation } from 'effect';
+
+// Built-in duration parsing, including "Infinity" and "-Infinity"
+Schema.DurationFromString; // "1 second" → Duration.Duration
+
+const DurationFromString = Schema.String.pipe(
+	Schema.decodeTo(Schema.Duration, SchemaTransformation.durationFromString)
+);
+```
+
 ### Split (manual implementation)
 
 `Schema.split` was removed in v4. Implement it manually:
@@ -462,15 +478,15 @@ import {
 
 const NumberFromString = Schema.String.pipe(
 	Schema.decodeTo(Schema.Number, {
-		decode: SchemaGetter.transformOrFail((s) => {
-			const n = Number.parse(s);
-			if (n === undefined) {
-				return Effect.fail(
-					new SchemaIssue.InvalidValue(Option.some(s))
-				);
-			}
-			return Effect.succeed(n);
-		}),
+		decode: SchemaGetter.transformOrFail((s) =>
+			Option.match(Number.parse(s), {
+				onNone: () =>
+					Effect.fail(
+						new SchemaIssue.InvalidValue(Option.some(s))
+					),
+				onSome: (n) => Effect.succeed(n)
+			})
+		),
 		encode: SchemaGetter.String()
 	})
 );
@@ -746,17 +762,29 @@ const schema = Schema.Struct({
 
 ### Decoding Defaults
 
+`Schema.withDecodingDefaultKey` / `Schema.withDecodingDefault` take defaults on the **Encoded** side. For `Schema.FiniteFromString`, that means a string default such as `'1'`.
+
+`Schema.withDecodingDefaultTypeKey` / `Schema.withDecodingDefaultType` take defaults on the decoded **Type** side, such as `1`. Default effects may require services and may fail with `Schema.SchemaError`.
+
 ```typescript
 import { Effect, Schema } from 'effect';
 
 const schema = Schema.Struct({
-	a: Schema.FiniteFromString.pipe(
+	encodedDefault: Schema.FiniteFromString.pipe(
 		Schema.withDecodingDefault(Effect.succeed('1'))
+	),
+	typeDefault: Schema.FiniteFromString.pipe(
+		Schema.withDecodingDefaultType(Effect.succeed(1))
+	),
+	typeKeyDefault: Schema.FiniteFromString.pipe(
+		Schema.withDecodingDefaultTypeKey(Effect.succeed(10))
 	)
 });
 
-Schema.decodeUnknownSync(schema)({}); // { a: 1 }
-Schema.decodeUnknownSync(schema)({ a: '2' }); // { a: 2 }
+Schema.decodeUnknownSync(schema)({});
+// { encodedDefault: 1, typeDefault: 1, typeKeyDefault: 10 }
+Schema.decodeUnknownSync(schema)({ encodedDefault: '2' });
+// { encodedDefault: 2, typeDefault: 1, typeKeyDefault: 10 }
 ```
 
 ## Common Patterns

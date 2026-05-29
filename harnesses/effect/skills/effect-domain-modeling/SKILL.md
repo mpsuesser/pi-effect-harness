@@ -352,7 +352,7 @@ declare const Task: Schema.Schema<Task, any, never>;
  * const areTasksSame = Task.EquivalenceById(task1, task2)
  */
 export const EquivalenceById = Equivalence.mapInput(
-	Equivalence.string,
+	Equivalence.String,
 	(task: Task) => task.id
 );
 ```
@@ -475,7 +475,7 @@ declare type Task =
 /**
  * Order by tag (pending < active < completed).
  *
- * Uses Order.mapInput to compose from Order.number.
+ * Uses Order.mapInput to compose from Order.Number.
  *
  * @category Orders
  * @since 0.1.0
@@ -487,7 +487,7 @@ declare type Task =
  * const sorted = pipe(tasks, Array.sort(Task.OrderByTag))
  */
 export const OrderByTag: Order.Order<Task> = Order.mapInput(
-	Order.number,
+	Order.Number,
 	(task) => {
 		const priorities = { pending: 0, active: 1, completed: 2 };
 		return priorities[task._tag];
@@ -501,7 +501,7 @@ export const OrderByTag: Order.Order<Task> = Order.mapInput(
  * @since 0.1.0
  */
 export const OrderById: Order.Order<Task> = Order.mapInput(
-	Order.string,
+	Order.String,
 	(task) => task.id
 );
 
@@ -1101,7 +1101,7 @@ export const match = Match.typeTags<User>();
  * @since 0.1.0
  */
 export const EquivalenceById = Equivalence.mapInput(
-	Equivalence.string,
+	Equivalence.String,
 	(user: User) => user.id
 );
 
@@ -1116,7 +1116,7 @@ export const EquivalenceById = Equivalence.mapInput(
  * @since 0.1.0
  */
 export const OrderByName: Order.Order<User> = Order.mapInput(
-	Order.string,
+	Order.String,
 	(user) => user.name
 );
 
@@ -1138,7 +1138,7 @@ export const OrderByCreatedAt: Order.Order<User> = Order.mapInput(
  * @since 0.1.0
  */
 export const OrderByTag: Order.Order<User> = Order.mapInput(
-	Order.number,
+	Order.Number,
 	(user) => (isAdmin(user) ? 0 : 1)
 );
 

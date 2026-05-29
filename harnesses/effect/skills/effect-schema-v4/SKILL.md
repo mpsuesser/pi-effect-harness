@@ -22,7 +22,7 @@ Reference this for:
 | v3                            | v4                                  | Notes                                     |
 | ----------------------------- | ----------------------------------- | ----------------------------------------- |
 | `annotations(ann)`            | `annotate(ann)`                     |                                           |
-| `compose(schemaB)`            | `decodeTo(schemaB, transformation)` | Now requires a transformation argument    |
+| `compose(schemaB)`            | `decodeTo(schemaB)` or `decodeTo(schemaB, transformation)` | Transformation is optional; omitted uses passthrough composition |
 | `typeSchema(schema)`          | `toType(schema)`                    |                                           |
 | `asSchema(schema)`            | `revealCodec(schema)`               |                                           |
 | `equivalence()`               | `toEquivalence()`                   |                                           |
@@ -38,8 +38,8 @@ Reference this for:
 | `DurationFromSelf`            | `Duration`                          |                                           |
 | `OptionFromSelf`              | `Option`                            |                                           |
 | `EitherFromSelf`              | `Result`                            | Also renamed from Either to Result        |
-| `RedactedFromSelf`            | `Redacted`                          |                                           |
-| `Redacted`                    | `RedactedFromValue`                 | The encoding version moved                |
+| `RedactedFromSelf`            | `Redacted`                          | Expects `Redacted` values; JSON encoding is allowed by default |
+| `Redacted`                    | `RedactedFromValue`                 | Raw value → `Redacted`; encoding is allowed by default |
 | `ChunkFromSelf`               | `Chunk`                             | `*FromSelf` suffix removed                |
 | `ReadonlyMapFromSelf`         | `ReadonlyMap`                       | `*FromSelf` suffix removed                |
 | `ReadonlySetFromSelf`         | `ReadonlySet`                       | `*FromSelf` suffix removed                |
@@ -73,6 +73,8 @@ All parsing functions were renamed to clarify whether they return an `Effect` or
 
 Note: `decodeUnknownSync` and `encodeSync` are **unchanged** — they still exist on `Schema`.
 
+**Redacted encoding:** `Schema.Redacted` and `Schema.RedactedFromValue` encode by default. Opt out with `Schema.Redacted(schema, { disallowJsonEncode: true })` for JSON encoding or `Schema.RedactedFromValue(schema, { disallowEncode: true })` for all encoding.
+
 ## 2. Variadic → Array Arguments
 
 Several APIs that accepted variadic args now take arrays:
@@ -90,8 +92,6 @@ Schema.Union([A, B]); // Array form is the canonical v4 signature
 Schema.Tuple([A, B]);
 Schema.TemplateLiteral([A, B]);
 ```
-
-> **Note:** `Schema.Union` in v4 still accepts both the array form `Schema.Union([A, B])` and the variadic form `Schema.Union(A, B)` for backward compatibility. The array form is the canonical v4 signature and is preferred in new code.
 
 ### Record: Object → Positional Args
 
@@ -171,9 +171,9 @@ Schema.Option(Schema.String).pipe(Schema.refine(Option.isSome));
 // v4: string transformations use SchemaTransformation + .decode()
 import { Schema, SchemaTransformation } from 'effect';
 
-Schema.String.decode(SchemaTransformation.trim());
-Schema.String.decode(SchemaTransformation.toLowerCase());
-Schema.String.decode(SchemaTransformation.toUpperCase());
+Schema.String.pipe(Schema.decode(SchemaTransformation.trim()));
+Schema.String.pipe(Schema.decode(SchemaTransformation.toLowerCase()));
+Schema.String.pipe(Schema.decode(SchemaTransformation.toUpperCase()));
 ```
 
 ## 4. Transform Migration
@@ -238,15 +238,15 @@ import {
 
 const NumberFromString = Schema.String.pipe(
 	Schema.decodeTo(Schema.Number, {
-		decode: SchemaGetter.transformOrFail((s) => {
-			const n = Number.parse(s);
-			if (n === undefined) {
-				return Effect.fail(
-					new SchemaIssue.InvalidValue(Option.some(s))
-				);
-			}
-			return Effect.succeed(n);
-		}),
+		decode: SchemaGetter.transformOrFail((s) =>
+			Option.match(Number.parse(s), {
+				onNone: () =>
+					Effect.fail(
+						new SchemaIssue.InvalidValue(Option.some(s))
+					),
+				onSome: (n) => Effect.succeed(n)
+			})
+		),
 		encode: SchemaGetter.String()
 	})
 );
@@ -336,20 +336,30 @@ v4 distinguishes between two kinds of optional struct fields:
 | `Schema.optional(S)`    | `readonly a?: T \| undefined` | Key may be absent OR explicitly `undefined` |
 | `Schema.mutableKey(S)`  | `a: T`                        | Writable (removes `readonly`)               |
 
-Use `Schema.withDecodingDefault(Effect.succeed(value))` to provide defaults for missing/undefined fields.
-Use `Schema.withDecodingDefaultKey(Effect.succeed(value))` for optionalKey fields only.
+Use `Schema.withDecodingDefaultKey` / `Schema.withDecodingDefault` when the default is on the schema **Encoded** side. For transformed schemas (for example `Schema.FiniteFromString`), that means the default is the pre-decoded input such as `'1'`.
+
+Use `Schema.withDecodingDefaultTypeKey` / `Schema.withDecodingDefaultType` when the default is on the decoded **Type** side, such as `1` for `Schema.FiniteFromString`.
+
+Defaults are `Effect` values: they may require services and may fail with `Schema.SchemaError`.
 
 ```ts
 import { Effect, Schema, SchemaGetter } from 'effect';
 
 const User = Schema.Struct({
 	name: Schema.String.pipe(
-		Schema.optionalKey,
 		Schema.withDecodingDefaultKey(Effect.succeed('anonymous'))
 	),
 	role: Schema.String.pipe(
-		Schema.optional,
 		Schema.withDecodingDefault(Effect.succeed('viewer'))
+	),
+	retriesEncoded: Schema.FiniteFromString.pipe(
+		Schema.withDecodingDefault(Effect.succeed('1'))
+	),
+	retriesType: Schema.FiniteFromString.pipe(
+		Schema.withDecodingDefaultType(Effect.succeed(1))
+	),
+	quotaTypeKey: Schema.FiniteFromString.pipe(
+		Schema.withDecodingDefaultTypeKey(Effect.succeed(10))
 	)
 });
 
@@ -361,6 +371,7 @@ const fallback = SchemaGetter.withDefault(Effect.succeed('viewer'));
 - `Schema.makeEffect(input, options?)` on schemas and schema-backed classes returns an `Effect` that fails with `Schema.SchemaError`.
 - `Schema.resolveInto` was renamed to `Schema.resolveAnnotations`.
 - `Schema.resolveAnnotationsKey(schema)` returns key-level annotations.
+- `Schema.annotateEncoded({...})` annotates the encoded side of a transformed schema; use `Schema.annotate({...})` for the decoded Type side.
 - `Schema.asClass(schema)` turns any schema into an extendable class with static helpers.
 - New built-in schemas:
     - `Schema.DateFromString`
@@ -369,6 +380,7 @@ const fallback = SchemaGetter.withDefault(Effect.succeed('viewer'));
     - `Schema.TimeZoneNamedFromString`
     - `Schema.TimeZoneFromString`
     - `Schema.DateTimeZonedFromString`
+    - `Schema.DurationFromString`
     - `Schema.StringFromBase64`
     - `Schema.StringFromBase64Url`
     - `Schema.StringFromHex`
@@ -391,6 +403,12 @@ const resolvedKey = Schema.resolveAnnotationsKey(
 	Schema.String.annotateKey({ description: 'Primary user id' })
 );
 
+const annotatedEncoded = Schema.NumberFromString.pipe(
+	Schema.annotateEncoded({ description: 'Numeric string input' })
+);
+
+const duration = Schema.DurationFromString;
+
 const parsed = Schema.String.makeEffect('alice');
 ```
 
@@ -403,9 +421,10 @@ Bidirectional transformation pairs (decode + encode getters). Key exports:
 - `transform({ decode, encode })` — pure bidirectional transform
 - `passthrough()` — identity (no conversion)
 - `trim()`, `toLowerCase()`, `toUpperCase()`, `capitalize()` — string transforms
-- `numberFromString()`, `bigintFromString()` — parsing transforms
+- `numberFromString`, `bigintFromString` — parsing transforms
+- `durationFromString` — string ↔ `Duration.Duration` transform
 - `optionFromNullOr()`, `optionFromOptionalKey()` — Option wrapping
-- `fromJsonString()` — JSON string codec
+- `fromJsonString` — JSON string codec
 - `Middleware` class — wraps the full parsing Effect pipeline (for fallbacks, retries)
 
 ```ts
@@ -420,6 +439,10 @@ const Cents = Schema.Number.pipe(
 			encode: (cents) => cents / 100
 		})
 	)
+);
+
+const DurationFromString = Schema.String.pipe(
+	Schema.decodeTo(Schema.Duration, SchemaTransformation.durationFromString)
 );
 ```
 
@@ -570,8 +593,7 @@ const recovered = program.pipe(
 | -------------------------------- | ------- | ------------------------------------- |
 | `validate*` (validateSync, etc.) | removed | `Schema.decode*` + `Schema.toType`    |
 | `keyof`                          | removed | —                                     |
-| `ArrayEnsure`                    | removed | —                                     |
-| `NonEmptyArrayEnsure`            | removed | —                                     |
+| non-empty array ensure helper    | not present | `Schema.NonEmptyArray(S)` or `Schema.Array(S).check(Schema.isMinLength(1))` |
 | `withDefaults`                   | removed | —                                     |
 | `fromKey`                        | removed | —                                     |
 | `Data(schema)`                   | removed | Not needed (deep equality is default) |
@@ -588,7 +610,7 @@ const recovered = program.pipe(
 | Pick/omit fields           | `struct.mapFields(Struct.pick(["a"]))`                                                                   |
 | Extend a struct            | `struct.mapFields(Struct.assign({ newField: Schema.X }))`                                                |
 | Parse JSON string          | `Schema.UnknownFromJsonString` or `Schema.fromJsonString(schema)`                                        |
-| Add default value          | `Schema.withDecodingDefault(Effect.succeed(value))`                                                      |
+| Add default value          | `Schema.withDecodingDefault(Effect.succeed(encoded))` or `Schema.withDecodingDefaultType(Effect.succeed(type))` |
 | Create tagged error        | `class E extends Schema.TaggedErrorClass<E>()("E", { ... }) {}`                                          |
 | Rename fields              | `struct.pipe(Schema.encodeKeys({ oldName: "newName" }))`                                                 |
 | Discriminated union        | `Schema.Union([TaggedClassA, TaggedClassB])`                                                             |

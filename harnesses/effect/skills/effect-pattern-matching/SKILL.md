@@ -78,7 +78,7 @@ const WalletState = Data.taggedEnum<WalletState>();
  * - WalletState.Connected({ address }) - Constructor
  * - WalletState.Error({ message }) - Constructor
  * - WalletState.$match(state, { ... }) - Pattern matching
- * - WalletState.$is("Connected")(state) - Type guard
+ * - WalletState.$is("Connected")(state) - Type guard (`_tag` check only)
  */
 
 // Usage
@@ -97,6 +97,8 @@ if (WalletState.$is('Connected')(state)) {
 	console.log(state.address); // Type-safe access
 }
 ```
+
+> **Caveat:** `Data.$is(tag)` / `TaggedEnum.$is(tag)` only checks the `_tag` field, not the full structure. Use it for values produced by your constructors; validate untrusted input with `Schema` before relying on `$is`.
 
 ### Benefits of Data.TaggedEnum
 
@@ -344,7 +346,7 @@ const getStatus = (workflow: Workflow): string =>
 
 ## Pattern 4: Use $is for Single-Case Type Guards
 
-Use `TaggedEnum.$is` instead of manual `_tag` checks.
+Use `TaggedEnum.$is` instead of manual `_tag` checks. It only checks `_tag`, so validate untrusted input with `Schema` before using it as a structural guarantee.
 
 ### The Problem: Manual \_tag Checks
 
@@ -643,7 +645,8 @@ const processState = (state: State): string =>
 
 ```typescript
 // ✅ CORRECT - testable with Clock service
-import { Clock, Effect, Data, TestClock } from 'effect';
+import { Clock, Effect, Data } from 'effect';
+import { TestClock } from 'effect/testing';
 
 type State = Data.TaggedEnum<{
 	Active: {};
@@ -663,7 +666,7 @@ const processState = (state: State): Effect.Effect<string> =>
 
 // In tests, use TestClock for deterministic time
 const testProgram = processState(State.Active()).pipe(
-	Effect.provide(TestClock.make())
+	Effect.provide(TestClock.layer())
 );
 ```
 

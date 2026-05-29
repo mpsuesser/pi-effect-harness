@@ -93,7 +93,7 @@ interface Task {
  * const uniqueById = Array.dedupeWith(tasks, Task.EquivalenceById)
  */
 export const EquivalenceById = Equivalence.mapInput(
-	Equivalence.string,
+	Equivalence.String,
 	(task: Task) => task.id
 );
 
@@ -104,7 +104,7 @@ export const EquivalenceById = Equivalence.mapInput(
  * @since 0.1.0
  */
 export const EquivalenceByTag = Equivalence.mapInput(
-	Equivalence.string,
+	Equivalence.String,
 	(task: Task) => task._tag
 );
 
@@ -129,7 +129,7 @@ export const EquivalenceByCreatedAt = Equivalence.mapInput(
 
 ## Pattern: Combining Equivalences
 
-Use `Equivalence.combine` for multi-field equality:
+Use `Equivalence.combine` for two-field equality and `Equivalence.combineAll` for three or more fields:
 
 ```typescript
 import { DateTime } from 'effect';
@@ -168,16 +168,17 @@ export const EquivalenceByTagAndId = Equivalence.combine(
  * @category Equivalence
  * @since 0.1.0
  */
-export const EquivalenceComplete = Equivalence.combine(
+export const EquivalenceComplete = Equivalence.combineAll([
 	EquivalenceByTag,
 	EquivalenceById,
 	EquivalenceByCreatedAt
-);
+]);
 ```
 
-**Key Pattern: Equivalence.combine**
+**Key Pattern: Equivalence.combine / combineAll**
 
-- Combines multiple equivalences
+- `Equivalence.combine` combines two equivalences
+- Use `Equivalence.combineAll([...])` for three or more equivalences
 - All must match for equivalence (AND logic)
 - Order doesn't matter (unlike Order.combine)
 
@@ -273,7 +274,7 @@ export const Schedulable = Schedulable$.make<Appointment>(
 export const Durable = Durable$.make<Appointment>(
 	(self: Appointment) => self.duration,
 	(self: Appointment, duration: Duration.Duration) =>
-		Appointment.make({ ...self, duration: Duration.decode(duration) })
+		Appointment.make({ ...self, duration })
 );
 
 // Re-export all Schedulable predicates
@@ -321,7 +322,7 @@ interface Task {
  * const sorted = Array.sort(tasks, Task.OrderById)
  */
 export const OrderById: Order.Order<Task> = Order.mapInput(
-	Order.string,
+	Order.String,
 	(task: Task) => task.id
 );
 
@@ -343,7 +344,7 @@ export const OrderByCreatedAt: Order.Order<Task> = Order.mapInput(
  * @since 0.1.0
  */
 export const OrderByTag: Order.Order<Task> = Order.mapInput(
-	Order.string,
+	Order.String,
 	(task: Task) => task._tag
 );
 
@@ -354,7 +355,7 @@ export const OrderByTag: Order.Order<Task> = Order.mapInput(
  * @since 0.1.0
  */
 export const OrderByPriority: Order.Order<Task> = Order.mapInput(
-	Order.number,
+	Order.Number,
 	(task: Task) => {
 		const priorities = { pending: 0, active: 1, completed: 2 };
 		return priorities[task._tag];
@@ -365,7 +366,7 @@ export const OrderByPriority: Order.Order<Task> = Order.mapInput(
 **Key Pattern: Order.mapInput**
 
 - Signature: `Order.mapInput(baseOrder, (value) => extractField)`
-- Compose from existing orders (Order.string, Order.number, DateTime.Order, etc.)
+- Compose from existing orders (Order.String, Order.Number, DateTime.Order, etc.)
 - Map domain type to comparable value
 - Dual API: data-first and data-last
 
@@ -411,16 +412,17 @@ export const OrderByPriorityThenDate: Order.Order<Task> = Order.combine(
  * @category Orders
  * @since 0.1.0
  */
-export const OrderComplex: Order.Order<Task> = Order.combine(
+export const OrderComplex: Order.Order<Task> = Order.combineAll([
 	OrderByTag,
 	OrderById,
 	OrderByCreatedAt
-);
+]);
 ```
 
-**Key Pattern: Order.combine**
+**Key Pattern: Order.combine / combineAll**
 
-- Combines multiple orders for multi-criteria sorting
+- `Order.combine` combines two orders for multi-criteria sorting
+- Use `Order.combineAll([...])` for three or more orders
 - First order takes precedence, then second, etc.
 - Order matters (unlike Equivalence.combine)
 - Returns combined order that can be used with Array.sort
@@ -513,7 +515,7 @@ export const OrderByStatus: Order.Order<Appointment> = Order.mapInput(
 );
 
 export const OrderByStatusPriority: Order.Order<Appointment> = Order.mapInput(
-	Order.number,
+	Order.Number,
 	(appt: Appointment) => {
 		const priorities: Record<AppointmentStatus, number> = {
 			scheduled: 0,
@@ -810,7 +812,7 @@ interface Task {
 }
 
 const EquivalenceById = Equivalence.mapInput(
-	Equivalence.string,
+	Equivalence.String,
 	(t: Task) => t.id
 );
 ```
@@ -843,7 +845,7 @@ interface Task {
 	readonly id: string;
 }
 
-const OrderById = Order.mapInput(Order.string, (t: Task) => t.id);
+const OrderById = Order.mapInput(Order.String, (t: Task) => t.id);
 ```
 
 **6. Order.combine for Multi-Criteria Sorting**
