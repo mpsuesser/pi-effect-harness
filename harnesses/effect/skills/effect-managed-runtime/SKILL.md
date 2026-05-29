@@ -314,8 +314,9 @@ export const handler = async (event: APIGatewayEvent) => {
 	};
 };
 
-// Note: Lambda manages lifecycle externally — no explicit dispose needed.
-// The runtime is garbage collected when the execution environment is recycled.
+// Keep the module-scoped runtime alive for warm reuse.
+// Do not dispose after every invocation; dispose only when the runtime is
+// no longer needed or if your host exposes a real shutdown/lifecycle hook.
 ```
 
 ### Cloudflare Workers
@@ -323,7 +324,7 @@ export const handler = async (event: APIGatewayEvent) => {
 ```ts
 import { ManagedRuntime } from 'effect';
 
-// Module-level runtime for durable state across requests
+// Module-level runtime for warm reuse while the Worker isolate stays alive
 const runtime = ManagedRuntime.make(AppLayer);
 
 export default {
@@ -380,7 +381,7 @@ ManagedRuntime.isManagedRuntime(value); // type guard
 
 ## Common Mistakes
 
-1. **Forgetting to dispose** — Leaks resources. Always wire up shutdown hooks when not in serverless.
+1. **Forgetting to dispose** — Leaks resources. Wire up shutdown hooks for long-running hosts; in serverless, keep warm runtimes alive and dispose only when the runtime is no longer needed or the host exposes a real shutdown/lifecycle hook.
 2. **Creating a runtime per request** — Expensive. Create once at module/app scope, share across handlers.
 3. **Not sharing MemoMap** — If you have multiple runtimes, layers won't be deduplicated without a shared MemoMap.
 4. **Using runSync for async effects** — Will throw. Use `runPromise` for anything that might be async.

@@ -81,18 +81,22 @@ Each platform context (`NodeServices.layer`, `BunServices.layer`) provides these
 | **Path**                | `Path.Path`                               | Path manipulation (join, normalize, relative, etc.) | `effect`                  |
 | **Stdio**               | `Stdio.Stdio`                             | Standard I/O streams (stdin, stdout, stderr)        | `effect`                  |
 | **Terminal**            | `Terminal.Terminal`                       | Terminal/console I/O with ANSI support              | `effect`                  |
+| **Crypto**              | `Crypto.Crypto`                           | Cryptographic random bytes, UUIDs, and digests      | `effect`                  |
 | **ChildProcessSpawner** | `ChildProcessSpawner.ChildProcessSpawner` | Spawn and manage child processes                    | `effect/unstable/process` |
+
+`Crypto.Crypto` is included in the Node/Bun aggregate layers; browser applications can provide `BrowserCrypto.layer` when they need the crypto service. These aggregate layers are core service bundles: they do **not** provide specialized integrations such as HTTP clients/servers, sockets, workers, or Redis. For sockets, import `Socket.Socket` / `SocketServer.SocketServer` from `effect/unstable/socket` and provide socket-specific layers such as `NodeSocket.layerWebSocket(...)`, `NodeSocket.layerNet(...)`, `BunSocket.layerWebSocket(...)`, `BrowserSocket.layerWebSocket(...)`, or Node/Bun socket-server layers as appropriate.
 
 ### Usage Example
 
 ```typescript
-import { Console, Effect, FileSystem, Path, Stream, Terminal } from 'effect';
+import { Console, Crypto, Effect, FileSystem, Path, Stream, Terminal } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 
 const buildProject = Effect.gen(function* () {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const terminal = yield* Terminal.Terminal;
+	const crypto = yield* Crypto.Crypto;
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
 	// Use Path for cross-platform paths
@@ -101,8 +105,11 @@ const buildProject = Effect.gen(function* () {
 	// Use FileSystem for I/O
 	yield* fs.makeDirectory(outDir, { recursive: true });
 
-	// Use Terminal for output
-	yield* terminal.display('Building project...\n');
+	// Use Terminal dimensions and Crypto for output metadata
+	const columns = yield* terminal.columns;
+	const rows = yield* terminal.rows;
+	const buildId = yield* crypto.randomUUIDv7;
+	yield* terminal.display(`Building project ${buildId} (${columns}x${rows})...\n`);
 
 	// Use ChildProcessSpawner for processes
 	const handle = yield* spawner.spawn(
@@ -226,11 +233,16 @@ const TestContext = Layer.mergeAll(
 		// ...
 	} as Path.Path),
 
-	Layer.succeed(Terminal.Terminal, {
-		display: () => Effect.void,
-		readLine: () => Effect.succeed('test input')
-		// ...
-	} as Terminal.Terminal)
+	Layer.succeed(
+		Terminal.Terminal,
+		Terminal.make({
+			columns: Effect.succeed(80),
+			rows: Effect.succeed(24),
+			readInput: Effect.dieMessage('readInput not used in this test'),
+			readLine: Effect.succeed('test input'),
+			display: () => Effect.void
+		})
+	)
 );
 
 test('integration test', () =>

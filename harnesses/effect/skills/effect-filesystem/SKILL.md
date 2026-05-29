@@ -1,11 +1,11 @@
 ---
 name: effect-filesystem
-description: Use Effect FileSystem for cross-platform file I/O across Node.js, Bun, and browser environments.
+description: Use Effect FileSystem for platform-abstract file I/O with Node.js/Bun layers or custom implementations.
 ---
 
 # FileSystem Platform Abstraction
 
-Use `effect` FileSystem for cross-platform file I/O. This abstraction works across Node.js, Bun, and browser environments.
+Use `effect` FileSystem for platform-abstract file I/O. Stock layers are provided for Node.js and Bun; `@effect/platform-browser` does not provide a FileSystem layer in beta.74, so browser code needs a custom/injected implementation.
 
 ## Basic Pattern
 
@@ -279,7 +279,8 @@ const getFileInfo = Effect.gen(function* () {
 	const fs = yield* FileSystem.FileSystem;
 	const info = yield* fs.stat('file.txt');
 
-	yield* Console.log(`Type: ${info.type}`); // "File" | "Directory" | "SymbolicLink" | "Other"
+	yield* Console.log(`Type: ${info.type}`);
+	// "File" | "Directory" | "SymbolicLink" | "BlockDevice" | "CharacterDevice" | "FIFO" | "Socket" | "Unknown"
 	yield* Console.log(`Size: ${info.size}`); // bigint
 	yield* Console.log(`Modified: ${info.mtime}`); // Option<Date>
 	yield* Console.log(`Accessed: ${info.atime}`); // Option<Date>
@@ -434,13 +435,15 @@ const consumeWatchEvents = Effect.gen(function* () {
 import { FileSystem } from 'effect';
 import { Effect } from 'effect';
 
-const { Size, KiB, MiB, GiB } = FileSystem;
+const { Size, KiB, MiB, GiB, TiB, PiB } = FileSystem;
 
 // Create size values
 const oneKb = Size(1024);
 const tenKb = KiB(10);
 const oneMb = MiB(1);
 const fiveGb = GiB(5);
+const oneTb = TiB(1);
+const onePb = PiB(1);
 
 // Use with file operations
 const checkFileSize = Effect.gen(function* () {
@@ -603,7 +606,7 @@ Effect.runPromise(runnable);
 - Provide platform layer at entry point only
 - Use scoped temp directories with `makeTempDirectoryScoped`
 - Handle `PlatformError` with `catchTag("PlatformError", ...)`
-- Use size helpers: `Size()`, `KiB()`, `MiB()`, `GiB()`
+- Use size helpers: `Size()`, `KiB()`, `MiB()`, `GiB()`, `TiB()`, `PiB()`
 - Stream large files with `stream()` and `sink()`
 
 ## DON'T

@@ -1,11 +1,11 @@
 ---
 name: effect-path
-description: Use effect Path for cross-platform file path operations including joining, resolving, and URL conversion.
+description: Use effect Path for platform-abstract file path operations including joining, resolving, and URL conversion.
 ---
 
 # path
 
-Use effect Path abstraction for cross-platform file path operations. Apply this skill when working with file paths, joining segments, resolving absolute paths, or converting between file URLs and paths to ensure portability across Node.js, Bun, and browser environments.
+Use effect Path abstraction for platform-abstract file path operations. Apply this skill when working with file paths, joining segments, resolving absolute paths, or converting between file URLs and paths. `Path.layer` supplies POSIX semantics from `effect`; Node.js and Bun platform layers provide host-specific path semantics. `@effect/platform-browser` does not provide a `BrowserPath` layer in beta.74, so browser code should provide `Path.layer` or a custom layer explicitly.
 
 ## Import Pattern
 

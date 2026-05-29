@@ -263,7 +263,7 @@ class UserNotFound extends Schema.TaggedErrorClass<UserNotFound>()(
 ) {}
 ```
 
-`HttpApiSchema.StatusLiteral` is the exported keyof type for the literal form. The full set covers the standard codes (`Continue`, `OK`, `Created`, `Accepted`, `NoContent`, `MovedPermanently`, `Found`, `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `MethodNotAllowed`, `NotAcceptable`, `RequestTimeout`, `Conflict`, `Gone`, `UnprocessableEntity`, `TooManyRequests`, `InternalServerError`, `NotImplemented`, `BadGateway`, `ServiceUnavailable`, `GatewayTimeout`, etc.). Default success status is 200, default error status is 500.
+`HttpApiSchema.StatusLiteral` is the exported keyof type for the literal form. The full set covers the standard codes (`Continue`, `OK`, `Created`, `Accepted`, `NoContent`, `MovedPermanently`, `Found`, `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `MethodNotAllowed`, `NotAcceptable`, `RequestTimeout`, `Conflict`, `Gone`, `UnprocessableEntity`, `TooManyRequests`, `InternalServerError`, `NotImplemented`, `BadGateway`, `ServiceUnavailable`, `GatewayTimeout`, etc.). Unannotated success schemas default to 200, and unannotated error schemas default to 500. If you omit `success`, the endpoint defaults to `HttpApiSchema.NoContent` (204). `success: Schema.Void` is an empty 200 response unless you annotate it or use `HttpApiSchema.NoContent`.
 
 ### Empty Schemas
 
@@ -299,29 +299,25 @@ The multipart limits options are typed as `Multipart.withLimits.Options`. Multip
 
 ```ts
 HttpApiEndpoint.post('upload', '/upload', {
-	payload: HttpApiSchema.asMultipart(
-		Schema.Struct({
-			files: Multipart.FilesSchema, // multiple files persisted to disk
-			caption: Schema.String
-		})
-	),
+	payload: Schema.Struct({
+		files: Multipart.FilesSchema, // multiple files persisted to disk
+		caption: Schema.String
+	}).pipe(HttpApiSchema.asMultipart()),
 	success: Schema.String
 });
 
 // For exactly one file
 HttpApiEndpoint.post('avatar', '/avatar', {
-	payload: HttpApiSchema.asMultipart(
-		Schema.Struct({
-			file: Multipart.SingleFileSchema
-		})
-	),
+	payload: Schema.Struct({
+		file: Multipart.SingleFileSchema
+	}).pipe(HttpApiSchema.asMultipart()),
 	success: Schema.String
 });
 
 // Streaming variant — handler receives a Stream<Multipart.Part>
 HttpApiEndpoint.post('uploadStream', '/upload/stream', {
-	payload: HttpApiSchema.asMultipartStream(
-		Schema.Struct({ file: Multipart.SingleFileSchema })
+	payload: Schema.Struct({ file: Multipart.SingleFileSchema }).pipe(
+		HttpApiSchema.asMultipartStream()
 	),
 	success: Schema.String
 });
@@ -494,7 +490,7 @@ const UsersApiHandlers = HttpApiBuilder.group(
 			.handle('create', ({ payload }) =>
 				users.create(payload).pipe(Effect.orDie)
 			)
-			.handle('me', () => CurrentUser.asEffect());
+			.handle('me', () => CurrentUser);
 	})
 ).pipe(Layer.provide([Users.layer, AuthorizationLayer]));
 ```
@@ -613,6 +609,8 @@ export const { handler, dispose } = HttpRouter.toWebHandler(
 // handler: (request: Request, ctx?: Context.Context) => Promise<Response>
 // dispose: () => Promise<void>  — call on shutdown
 ```
+
+`HttpServer.layerServices` is a generic/test helper that includes a no-op `FileSystem`. Use it only when your routes do not need real filesystem access, file responses, persisted multipart files, or static serving. For Node/Bun HTTP servers with real platform behavior, prefer concrete layers such as `NodeHttpServer.layer(...)` / `BunHttpServer.layer(...)` or their `layerHttpServices` variants where applicable.
 
 `HttpRouter.serve` and `HttpRouter.toWebHandler` both also accept `routerConfig` (passed to find-my-way) and `middleware` (a wrap function applied to the entire HTTP server pipeline).
 
@@ -735,7 +733,8 @@ You can detect this error type explicitly with `HttpApiError.HttpApiSchemaError.
 ### Security Schemes
 
 ```ts
-HttpApiSecurity.bearer; // Bearer token (Authorization header)
+HttpApiSecurity.http({ scheme: 'Digest' }); // Authorization: Digest ...
+HttpApiSecurity.bearer; // predefined HTTP Bearer auth
 HttpApiSecurity.basic; // HTTP Basic auth
 HttpApiSecurity.apiKey({
 	in: 'header', // "header" | "query" | "cookie"  (default: "header")
@@ -743,12 +742,19 @@ HttpApiSecurity.apiKey({
 });
 ```
 
+`HttpApiSecurity.bearer` is the predefined HTTP `Bearer` scheme; use `HttpApiSecurity.http({ scheme })` for custom `Authorization: <scheme> ...` schemes such as Digest. Middleware should validate the expected `Authorization` scheme/prefix itself when it matters: `HttpApiBuilder.securityDecode` currently slices by scheme length, and security schemes declare credential shape rather than authenticating.
+
 You can attach metadata to a security scheme:
 
 ```ts
 HttpApiSecurity.bearer.pipe(
 	HttpApiSecurity.annotate(OpenApi.Description, 'Project-scoped token'),
 	HttpApiSecurity.annotate(OpenApi.Format, 'JWT') // becomes bearerFormat in spec
+);
+
+const digestAuth = HttpApiSecurity.http({ scheme: 'Digest' }).pipe(
+	HttpApiSecurity.annotate(OpenApi.Description, 'Digest token'),
+	HttpApiSecurity.annotate(OpenApi.Format, 'DigestToken')
 );
 ```
 
@@ -960,7 +966,7 @@ const program = Effect.gen(function* () {
 program.pipe(Effect.provide(FetchHttpClient.layer), Effect.runFork);
 ```
 
-`make` reads `HttpClient.HttpClient` from context. Provide a platform layer (`FetchHttpClient.layer`, `BunHttpClient.layer`, `NodeHttpClient.layer`).
+`make` reads `HttpClient.HttpClient` from context. Provide a platform layer such as `FetchHttpClient.layer`, `BunHttpClient.layer`, Node's `NodeHttpClient.{layerFetch, layerUndici, layerNodeHttp}`, or Browser's `BrowserHttpClient.{layerFetch, layerXMLHttpRequest}`.
 
 `make` accepts a `transformClient` option to wrap the underlying `HttpClient` (e.g., to set a base URL, attach default headers, enable retries). It also accepts `transformResponse` and `baseUrl`.
 
@@ -1182,7 +1188,7 @@ Available `OpenApi.*` annotation tags (use `.annotate(tag, value)` or `.annotate
 | `License`      | API           | `{ name, url? }`                                                   |
 | `Servers`      | API           | `Array<{ url, description?, variables? }>`                         |
 | `ExternalDocs` | Group, Endpoint | `{ url, description? }`                                          |
-| `Format`       | Security      | For Bearer: sets `bearerFormat` in spec (e.g., `"JWT"`)            |
+| `Format`       | Security      | For HTTP auth schemes (`bearer` and custom `http`): sets `bearerFormat` in spec (e.g., `"JWT"`) |
 | `Identifier`   | Endpoint      | Override `operationId` (default: `${group}.${endpoint}`)           |
 | `Deprecated`   | Endpoint      | `true` to mark deprecated                                          |
 | `Override`     | API, Group, Endpoint | Shallow-merge fields into the generated object              |
@@ -1329,7 +1335,7 @@ For multipart streaming, see `HttpApiSchema.asMultipartStream` above.
 
 ### `HttpApiTest.groups` — In-Memory Typed Client
 
-`HttpApiTest.groups(api, [groupNames])` builds a fully typed `HttpApiClient` that runs against your real handler layers in memory — no HTTP server, no port. List the groups whose handlers you want to exercise; all other groups are auto-stubbed with `Effect.die`.
+`HttpApiTest.groups(api, groupNames, { baseUrl? })` builds a fully typed `HttpApiClient` that runs against your real handler layers in memory — no HTTP server, no port. List the groups whose handlers you want to exercise; all other groups are auto-stubbed with `Effect.die`. The default `baseUrl` is `http://localhost:3000`; pass `{ baseUrl }` when tests rely on URL construction.
 
 ```ts
 import { HttpApiTest } from 'effect/unstable/httpapi';
@@ -1683,7 +1689,7 @@ Client middleware: `HttpApiMiddleware.layerClient(M, fn | effect)`
 
 ### Security
 
-`HttpApiSecurity.{bearer, basic}` · `HttpApiSecurity.apiKey({ in, key })` · `HttpApiSecurity.annotate(key, value)`
+`HttpApiSecurity.http({ scheme })` · `HttpApiSecurity.{bearer, basic}` · `HttpApiSecurity.apiKey({ in, key })` · `HttpApiSecurity.annotate(key, value)`
 
 ### Docs
 
@@ -1691,7 +1697,7 @@ Client middleware: `HttpApiMiddleware.layerClient(M, fn | effect)`
 
 ### Testing
 
-`HttpApiTest.groups(api, [groupNames])` · `NodeHttpServer.layerTest` · `NodeHttpServer.layerHttpServices`
+`HttpApiTest.groups(api, groupNames, { baseUrl? })` · `NodeHttpServer.layerTest` · `NodeHttpServer.layerHttpServices`
 
 ### Server
 

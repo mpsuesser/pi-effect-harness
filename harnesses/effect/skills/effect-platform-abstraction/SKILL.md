@@ -1,6 +1,6 @@
 ---
 name: effect-platform-abstraction
-description: Use Effect platform abstractions for cross-platform file I/O, process spawning, HTTP clients, and terminal operations. Apply this skill when writing code that interacts with the filesystem, spawns processes, makes HTTP requests, or performs console I/O to ensure portability across Node.js and Bun environments.
+description: Use Effect platform abstractions for cross-platform file I/O, process spawning, HTTP clients, cryptography, and terminal operations. Apply this skill when writing code that interacts with the filesystem, spawns processes, makes HTTP requests, needs cryptographic random bytes/UUIDs/digests, or performs console I/O to ensure portability across Node.js and Bun, with browser adapters for supported services such as HTTP and Crypto.
 ---
 
 # Platform Abstraction with Effect
@@ -14,19 +14,22 @@ Reference this for:
 
 - FileSystem source: `packages/effect/src/FileSystem.ts`
 - Path source: `packages/effect/src/Path.ts`
-- Platform layers: `packages/platform-node/` and `packages/platform-bun/`
+- Crypto source: `packages/effect/src/Crypto.ts`
+- Socket source: `packages/effect/src/unstable/socket/`
+- Platform layers: `packages/platform-node/`, `packages/platform-bun/`, and `packages/platform-browser/`
 - Migration guide: `MIGRATION.md`
 - Effect source: `packages/effect/src/`
 
 ## Overview
 
-Effect provides platform-independent abstractions that work seamlessly across Node.js and Bun environments. Instead of using runtime-specific APIs directly, you write code once using Effect Platform services and run it anywhere.
+Effect provides platform-independent abstractions with Node.js and Bun adapters, plus browser adapters for supported services such as HTTP and Crypto. Instead of using runtime-specific APIs directly, you write code once using Effect Platform services and provide the appropriate layer at the edge.
 
 **When to use this skill:**
 
 - Writing file system operations
 - Spawning child processes or executing commands
 - Making HTTP requests
+- Generating cryptographic random bytes, UUIDs, or digests
 - Reading CLI arguments or environment variables
 - Performing console/terminal I/O
 - Working with paths across different operating systems
@@ -437,7 +440,8 @@ const interactiveProgram = Effect.gen(function* () {
 
 	// Get terminal dimensions
 	const cols = yield* terminal.columns;
-	yield* terminal.display(`Terminal width: ${cols}\n`);
+	const rows = yield* terminal.rows;
+	yield* terminal.display(`Terminal size: ${cols}x${rows}\n`);
 });
 ```
 
@@ -467,6 +471,27 @@ const structuredLog = Effect.gen(function* () {
 	);
 });
 ```
+
+### Crypto - Cryptographic Randomness, UUIDs, and Digests
+
+The `Crypto.Crypto` service provides platform-backed cryptographic random bytes, UUIDv4/v7 generation, and message digests. Prefer it over `globalThis.crypto`, `crypto.randomUUID()`, or ad-hoc randomness when code should stay platform-abstract and testable.
+
+```typescript
+import { Crypto, Effect } from 'effect';
+
+const cryptoProgram = Effect.gen(function* () {
+	const crypto = yield* Crypto.Crypto;
+
+	const bytes = yield* crypto.randomBytes(32);
+	const uuidV4 = yield* crypto.randomUUIDv4;
+	const uuidV7 = yield* crypto.randomUUIDv7;
+	const digest = yield* crypto.digest('SHA-256', bytes);
+
+	return { bytes, uuidV4, uuidV7, digest };
+});
+```
+
+`NodeServices.layer` and `BunServices.layer` include `Crypto.Crypto`. Browser applications can provide `BrowserCrypto.layer` from `@effect/platform-browser`.
 
 ### HttpClient - HTTP Requests
 
@@ -534,17 +559,21 @@ const httpExamples = Effect.gen(function* () {
 	});
 
 	// POST with JSON body
-	const createUser = client.post('https://api.example.com/users', {
-		body: HttpClientRequest.jsonBody({
+	const createUser = HttpClientRequest.post(
+		'https://api.example.com/users'
+	).pipe(
+		HttpClientRequest.bodyJsonUnsafe({
 			name: 'John Doe',
 			email: 'john@example.com'
-		})
-	});
+		}),
+		client.execute
+	);
 
-	// Custom headers
-	const withAuth = client
-		.get('https://api.example.com/protected')
-		.pipe(HttpClientRequest.setHeader('Authorization', 'Bearer token'));
+	// Custom headers — construct the request, set headers, then execute
+	const withAuthRequest = HttpClientRequest.get(
+		'https://api.example.com/protected'
+	).pipe(HttpClientRequest.setHeader('Authorization', 'Bearer token'));
+	const withAuth = client.execute(withAuthRequest);
 
 	// Parse response with Schema
 	const users = yield* client
@@ -626,8 +655,11 @@ const cacheData = Effect.gen(function* () {
 	// Set value
 	yield* store.set('user:123', 'John Doe');
 
-	// Get value
+	// Get value — raw string stores return string | undefined
 	const name = yield* store.get('user:123');
+
+	// Binary stores return Uint8Array | undefined
+	const bytes = yield* store.getUint8Array('avatar:123');
 
 	// Check existence
 	const hasUser = yield* store.has('user:123');
@@ -658,7 +690,7 @@ const typedStore = Effect.gen(function* () {
 	const store = yield* KeyValueStore.KeyValueStore;
 
 	// Create schema-based store
-	const userStore = store.forSchema(User);
+	const userStore = KeyValueStore.toSchemaStore(store, User);
 
 	// Type-safe operations
 	yield* userStore.set('user:123', {
@@ -668,7 +700,7 @@ const typedStore = Effect.gen(function* () {
 	});
 
 	const user = yield* userStore.get('user:123');
-	// user: Option<{ id: number, name: string, email: string }>
+	// user: Option.Option<{ id: number, name: string, email: string }>
 });
 ```
 
@@ -743,16 +775,22 @@ Complete reference table of platform abstractions:
 | **Process Spawning**      | `ChildProcess` + `ChildProcessSpawner` | `child_process`, `Bun.spawn` | `effect/unstable/process`     |
 | **Terminal I/O**          | `Terminal.Terminal`                    | `process.stdin/stdout`       | `effect`                      |
 | **Console Logging**       | `Console.log` or `Effect.log`          | `console.log`                | `effect`                      |
+| **Crypto**                | `Crypto.Crypto`                        | `globalThis.crypto`, `crypto.randomUUID()` | `effect`          |
 | **HTTP Client**           | `HttpClient.HttpClient`                | `fetch`, `axios`             | `effect/unstable/http`        |
 | **HTTP Server**           | `HttpServer.HttpServer`                | `http.createServer`          | `effect/unstable/http`        |
+| **Sockets**               | `Socket.Socket` / `SocketServer.SocketServer` | raw TCP/WebSocket APIs | `effect/unstable/socket`      |
 | **Key-Value Store**       | `KeyValueStore.KeyValueStore`          | `localStorage`, manual files | `effect/unstable/persistence` |
 | **CLI Arguments**         | `Argument` + `Flag` + `Command`        | `process.argv`, `yargs`      | `effect/unstable/cli`         |
 | **Environment Variables** | `Config` from effect                   | `process.env`                | `effect`                      |
 | **Streams**               | `Stream`                               | Node streams, ReadableStream | `effect`                      |
 
+Socket services live in `effect/unstable/socket`. Use `Socket.Socket` for scoped bidirectional string/binary frame transports and `SocketServer.SocketServer` for accepting connections. Provide service-specific layers such as `BrowserSocket.layerWebSocket(url)`, `NodeSocket.layerWebSocket(url)`, `NodeSocket.layerNet(options)`, `BunSocket.layerWebSocket(url)`, or Node/Bun socket-server layers; `NodeServices.layer` and `BunServices.layer` do not provide sockets.
+
 ## Setting Up Platform-Specific Layers
 
-To use platform services, provide the appropriate platform layer:
+To use platform services, provide the appropriate platform layer.
+
+`NodeServices.layer` and `BunServices.layer` provide core process services such as `FileSystem`, `Path`, `ChildProcessSpawner`, `Stdio`/`Terminal`, and `Crypto.Crypto`. They do **not** provide specialized integrations such as HTTP clients/servers, sockets, workers, or Redis; provide those with service-specific platform layers. For HTTP clients, provide an HTTP-specific layer such as `FetchHttpClient.layer`, Node's `NodeHttpClient.{layerFetch, layerUndici, layerNodeHttp}`, `BunHttpClient.layer`, or Browser's `BrowserHttpClient.{layerFetch, layerXMLHttpRequest}`. For HTTP servers, use server layers such as `NodeHttpServer.layer(...)`, `BunHttpServer.layer(...)`, or their `layerHttpServices` variants where appropriate.
 
 **Node.js:**
 
@@ -890,8 +928,9 @@ Before completing code that uses platform operations:
 - [ ] Console output uses `Console.log` or `Effect.log` (not `console.log`)
 - [ ] CLI arguments parsed with `effect/unstable/cli` (not `process.argv`)
 - [ ] HTTP requests use `HttpClient.HttpClient` (not `fetch`/`axios`)
+- [ ] Cryptographic operations use `Crypto.Crypto` (not direct platform crypto APIs)
 - [ ] Platform services accessed through Effect type system
-- [ ] Appropriate platform layer provided (`NodeServices.layer`, `BunServices.layer`)
+- [ ] Appropriate platform/service layer provided (HTTP, sockets, workers, Redis, and other specialized integrations need service-specific layers, not just `NodeServices.layer` / `BunServices.layer`)
 - [ ] No direct imports from `fs`, `path`, `child_process`, `http`, etc.
 - [ ] No Bun-specific APIs (`Bun.file`, `Bun.spawn`, etc.)
 - [ ] No browser-specific APIs without platform abstraction
@@ -1018,9 +1057,12 @@ const data = await response.json();
 const program = Effect.gen(function* () {
 	const client = yield* HttpClient.HttpClient;
 
-	const response = yield* client.post('https://api.example.com/data', {
-		body: HttpClientRequest.jsonBody({ key: 'value' })
-	});
+	const response = yield* HttpClientRequest.post(
+		'https://api.example.com/data'
+	).pipe(
+		HttpClientRequest.bodyJsonUnsafe({ key: 'value' }),
+		client.execute
+	);
 	const data = yield* response.json;
 
 	return data;

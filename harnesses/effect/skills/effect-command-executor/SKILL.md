@@ -149,7 +149,7 @@ const cmd3 = ChildProcess.make`echo foo`.pipe(ChildProcess.prefix`time`);
 
 ## Executing Commands
 
-Commands are `Effect.Yieldable` — `yield*` on a command calls `ChildProcessSpawner.spawn` and returns a `ChildProcessHandle`. For convenience, use the spawner's helper methods.
+Commands are `Effect` values: `yield*` on a command evaluates through its `Effectable` implementation, calls `ChildProcessSpawner.spawn`, and returns a `ChildProcessHandle`. `spawner.spawn` still requires `Scope`; helpers such as `string`, `lines`, and `exitCode` manage scope internally.
 
 ### Get the Spawner Service
 
@@ -355,7 +355,7 @@ const program = Effect.gen(function* () {
 import { NodeServices } from '@effect/platform-node';
 import { Effect } from 'effect';
 
-// NodeServices.layer provides: ChildProcessSpawner, FileSystem, Path, Stdio, Terminal
+// NodeServices.layer provides: ChildProcessSpawner, Crypto, FileSystem, Path, Stdio, Terminal
 const program = Effect.gen(function* () {
 	// ...
 }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));

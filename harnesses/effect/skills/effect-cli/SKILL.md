@@ -10,7 +10,7 @@ Build type-safe command-line applications with typed arguments, flags, subcomman
 ## Import Pattern
 
 ```typescript
-import { Argument, Command, Flag } from 'effect/unstable/cli';
+import { Argument, Command, Flag, Prompt } from 'effect/unstable/cli';
 ```
 
 Platform services and runtime for the entry point:
@@ -46,6 +46,7 @@ Argument.choiceWithValue('level', [
 ]);
 Argument.redacted('secret'); // Redacted<string>
 Argument.fileText('config'); // reads file content as string
+Argument.fileParse('config'); // reads and parses file (auto-detects format)
 Argument.fileSchema('config', MySchema); // reads and validates file via Schema
 ```
 
@@ -67,6 +68,10 @@ Argument.string('config').pipe(Argument.optional);
 Argument.string('files').pipe(Argument.variadic);
 Argument.string('files').pipe(Argument.variadic({ min: 1 }));
 Argument.string('files').pipe(Argument.variadic({ min: 1, max: 5 }));
+
+// Direct variadic form is also supported
+Argument.variadic(Argument.string('files'));
+Argument.variadic(Argument.string('files'), { min: 1 });
 
 // Cardinality shortcuts
 Argument.string('files').pipe(Argument.atLeast(1));
@@ -141,6 +146,9 @@ import { Flag } from 'effect/unstable/cli';
 // Alias
 Flag.boolean('verbose').pipe(Flag.withAlias('v')); // --verbose or -v
 
+// Hidden from help, completions, and typo suggestions, but still parsed
+Flag.boolean('experimental-foo').pipe(Flag.withHidden);
+
 // Description
 Flag.string('config').pipe(Flag.withDescription('Path to config file'));
 
@@ -182,6 +190,19 @@ Flag.string('name').pipe(
 	Flag.withFallbackPrompt(Prompt.text({ message: 'Name' }))
 );
 ```
+
+Hidden flags parse normally, but generated help, shell completions, and typo suggestions omit them.
+
+### Prompt Defaults
+
+```typescript
+import { Prompt } from 'effect/unstable/cli';
+
+Prompt.integer({ message: 'Count', default: 42 });
+Prompt.file({ message: 'Pick file', default: '/workspace/config.json' });
+```
+
+Integer prompt defaults are editable and Enter submits the default if unchanged. `Prompt.file` resolves/selects the default as the initial path.
 
 ## Commands
 
@@ -256,6 +277,7 @@ Command.make('deploy', config, handler).pipe(
 	Command.withDescription('Deploy the application'),
 	Command.withShortDescription('Deploy app'), // used in subcommand listings
 	Command.withAlias('d'), // alternate name
+	Command.withHidden, // hide internal/experimental subcommands from parent help
 	Command.withExamples([
 		{
 			command: 'myapp deploy --env prod',
@@ -265,6 +287,8 @@ Command.make('deploy', config, handler).pipe(
 	])
 );
 ```
+
+`Command.withHidden` keeps a subcommand invocable by exact name while omitting it from parent help output, shell completions, and "did you mean?" suggestions.
 
 ### Nested Config
 
@@ -436,7 +460,7 @@ Command.provideSync(MyService, (config) => makeMyService(config.env));
 
 ## Running Commands
 
-`Command.run` is a **pipeable combinator** that reads args from Stdio. Provide platform services and execute with the runtime:
+`Command.run` is a **pipeable combinator** that reads args from `Stdio`. The resulting effect requires `FileSystem`, `Path`, `Terminal`, `Stdio`, and `ChildProcessSpawner`; provide platform services and execute with the runtime:
 
 ```typescript
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
@@ -463,6 +487,8 @@ myCommand.pipe(
 
 Auto-generates `--help` and `--version` flags.
 
+Built-in/global flags (`--help`, `--version`, `--completions`, `--log-level`, plus custom globals from `Command.withGlobalFlags`) are parsed for the active command path. A local flag on the selected command can intentionally reuse/override a global flag name or alias. Shared parent flags from `Command.withSharedFlags` remain command context and may be accepted before or after a subcommand.
+
 ### Testing with Explicit Args
 
 Use `Command.runWith` to pass args directly (useful in tests):
@@ -479,5 +505,5 @@ const run = Command.runWith(myCommand, { version: '1.0.0' });
 3. **Parent access via yield** — `const root = yield* parentCommand` inside subcommand handlers
 4. **Shared flags** — `Command.withSharedFlags` on parent; only flags allowed (no arguments)
 5. **Pipeable `Command.run`** — `command.pipe(Command.run({version}), Effect.provide(NodeServices.layer), NodeRuntime.runMain)`
-6. **Platform services required** — `Command.run` requires `FileSystem`, `Path`, `Terminal`, `Stdio`; provide via `NodeServices.layer`
+6. **Platform services required** — `Command.run` requires `FileSystem`, `Path`, `Terminal`, `Stdio`, and `ChildProcessSpawner`; provide via `NodeServices.layer` / `BunServices.layer`
 7. **All combinators are dual** — Work both as `pipe(Flag.withAlias("v"))` and `Flag.withAlias(flag, "v")`
