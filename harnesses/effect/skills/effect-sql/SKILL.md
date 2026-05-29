@@ -22,10 +22,17 @@ All SQL modules live under the `effect/unstable/sql` path:
 
 ```ts
 import { SqlClient } from 'effect/unstable/sql/SqlClient';
-import { SqlSchema } from 'effect/unstable/sql/SqlSchema';
-import { SqlModel } from 'effect/unstable/sql/SqlModel';
-import { SqlResolver } from 'effect/unstable/sql/SqlResolver';
-import { Migrator } from 'effect/unstable/sql/Migrator';
+import * as SqlSchema from 'effect/unstable/sql/SqlSchema';
+import * as SqlModel from 'effect/unstable/sql/SqlModel';
+import * as SqlResolver from 'effect/unstable/sql/SqlResolver';
+import * as Migrator from 'effect/unstable/sql/Migrator';
+```
+
+Alternatively, the barrel exports namespace modules:
+
+```ts
+import { SqlClient, SqlSchema, SqlModel, SqlResolver, Migrator } from 'effect/unstable/sql';
+// With the barrel, the service is SqlClient.SqlClient.
 ```
 
 For Model schemas (used with SqlModel):
@@ -145,6 +152,8 @@ yield*
 // Nested calls to withTransaction create SAVEPOINTs automatically
 ```
 
+Transaction context is attached to the active `SqlClient` service instance. Queries join a transaction only when they run with that same client; avoid mixing clients or manually reserved connections for one atomic unit of work.
+
 ### Dialect Branching
 
 ```ts
@@ -229,8 +238,12 @@ import { Model } from 'effect/unstable/schema';
 const UserId = Schema.Number.pipe(Schema.brand('UserId'));
 
 class User extends Model.Class<User>('User')({
-	// Generated: present in select/update, absent from insert (DB generates it)
-	id: Model.Generated(UserId),
+	// DB-generated primary key usable by repositories: omitted from insert,
+	// but present in select/update/json so update/delete can address rows.
+	id: UserId.pipe(Model.FieldExcept(["insert"])),
+
+	// DB-generated read-only field: present in select/json only.
+	searchText: Model.GeneratedByDb(Schema.String),
 
 	// Regular field: present in all variants
 	name: Schema.String,
@@ -249,8 +262,8 @@ class User extends Model.Class<User>('User')({
 
 // Variant schemas are auto-generated:
 User; // select schema — all fields
-User.insert; // insert schema — without Generated fields
-User.update; // update schema — with Generated fields for WHERE clause
+User.insert; // insert schema — without FieldExcept(["insert"]) and GeneratedByDb fields
+User.update; // update schema — includes FieldExcept(["insert"]) IDs, excludes GeneratedByDb fields
 User.json; // JSON API schema — without Sensitive fields
 User.jsonCreate;
 User.jsonUpdate;
@@ -258,22 +271,25 @@ User.jsonUpdate;
 
 ### Model Field Helpers
 
-| Helper                         | select   | insert | update | json     | Description                                  |
-| ------------------------------ | -------- | ------ | ------ | -------- | -------------------------------------------- |
-| `Model.Generated(S)`           | S        | —      | S      | S        | DB-generated column (e.g. auto-increment ID) |
-| `Model.GeneratedByApp(S)`      | S        | S      | S      | S        | App-generated, required everywhere           |
-| `Model.Sensitive(S)`           | S        | S      | S      | —        | Excluded from JSON variants                  |
-| `Model.FieldOption(S)`         | Option   | Option | Option | Option   | Nullable/optional across all variants        |
-| `Model.DateTimeInsertFromDate` | DateTime | auto   | —      | DateTime | Timestamp set on insert                      |
-| `Model.DateTimeUpdateFromDate` | DateTime | auto   | auto   | DateTime | Timestamp set on insert+update               |
-| `Model.Field({...})`           | custom   | custom | custom | custom   | Per-variant field configuration              |
+| Helper                              | select   | insert | update | json     | Description                                           |
+| ----------------------------------- | -------- | ------ | ------ | -------- | ----------------------------------------------------- |
+| `Model.GeneratedByDb(S)`            | S        | —      | —      | S        | DB-generated read-only field                          |
+| `S.pipe(Model.FieldExcept(["insert"]))` | S        | —      | S      | S        | DB-generated repository ID that updates must include  |
+| `Model.GeneratedByApp(S)`           | S        | S      | S      | S        | App-generated, required everywhere                    |
+| `Model.Sensitive(S)`                | S        | S      | S      | —        | Excluded from JSON variants                           |
+| `Model.FieldOption(S)`              | Option   | Option | Option | Option   | Nullable/optional across all variants                 |
+| `Model.DateTimeInsertFromDate`      | DateTime | auto   | —      | DateTime | Timestamp set on insert                               |
+| `Model.DateTimeUpdateFromDate`      | DateTime | auto   | auto   | DateTime | Timestamp set on insert+update                        |
+| `Model.Field({...})`                | custom   | custom | custom | custom   | Per-variant field configuration                       |
+
+Use `GeneratedByDb` only for fields that are truly read-only after selection, such as computed columns. For a database-generated primary key used by `SqlModel.makeRepository` or update calls, keep the key in the update variant with `FieldExcept(["insert"])` or an explicit `Model.Field({ select, update, json })` shape; upstream prose may lag, but the constructor and `SqlModel` tests require this distinction.
 
 ## SqlModel — CRUD Repository
 
 `SqlModel.makeRepository` generates a complete CRUD interface from a Model class.
 
 ```ts
-import { SqlModel } from 'effect/unstable/sql/SqlModel';
+import * as SqlModel from 'effect/unstable/sql/SqlModel';
 
 const UserRepo =
 	yield*
@@ -303,30 +319,69 @@ const found = yield* UserRepo.findById(userId);
 yield* UserRepo.delete(userId);
 ```
 
-### Data Loaders (Batched CRUD)
+### Batched Resolvers (CRUD)
 
-`SqlModel.makeDataLoaders` creates the same interface but with automatic request batching via `RequestResolver` — ideal for solving N+1 problems.
+`SqlModel.makeResolvers` creates `RequestResolver` values for the same insert, insert-void, find-by-id, and delete operations — ideal for solving N+1 problems while keeping single-request call sites.
 
 ```ts
-const UserLoaders =
+import { RequestResolver } from 'effect';
+import * as SqlModel from 'effect/unstable/sql/SqlModel';
+import * as SqlResolver from 'effect/unstable/sql/SqlResolver';
+
+const UserResolvers =
 	yield*
-	SqlModel.makeDataLoaders(User, {
+	SqlModel.makeResolvers(User, {
 		tableName: 'users',
-		spanPrefix: 'UserLoader',
-		idColumn: 'id',
-		window: '50 millis', // batch window duration
-		maxBatchSize: 100 // optional max batch size
+		spanPrefix: 'UserResolver',
+		idColumn: 'id'
 	});
 
-// Same API as makeRepository, but requests within the window are batched:
-const user = yield* UserLoaders.findById(userId);
-yield* UserLoaders.insert({ name: 'Alice', email: 'alice@example.com' });
-yield* UserLoaders.delete(userId);
+const findById = SqlResolver.request(UserResolvers.findById);
+const user = yield* findById(userId);
+
+const inserted = yield* SqlResolver.request(
+	User.insert.make({ name: 'Alice', email: 'alice@example.com' }),
+	UserResolvers.insert
+);
+
+yield* SqlResolver.request(userId, UserResolvers.delete);
+
+// Tune individual returned resolvers when you need a wider collection window or cap.
+const cappedFindById = UserResolvers.findById.pipe(
+	RequestResolver.setDelay('50 millis'),
+	RequestResolver.batchN(100)
+);
 ```
+
+### Soft Deletes
+
+`makeRepository` and `makeResolvers` accept `softDeleteColumn`. When supplied, reads and updates add an `is null` filter for that column, and delete updates the column to `CURRENT_TIMESTAMP` instead of removing the row.
+
+```ts
+class SoftDeleteUser extends Model.Class<SoftDeleteUser>('SoftDeleteUser')({
+	id: UserId.pipe(Model.FieldExcept(["insert"])),
+	name: Schema.String,
+	deletedAt: Schema.NullOr(Schema.String).pipe(
+		Model.FieldOnly(["select", "update"])
+	)
+}) {}
+
+const repo = yield* SqlModel.makeRepository(SoftDeleteUser, {
+	tableName: 'users',
+	spanPrefix: 'UserRepo',
+	idColumn: 'id',
+	softDeleteColumn: 'deletedAt'
+});
+
+// findById/update ignore rows where deletedAt is not null.
+yield* repo.delete(userId); // UPDATE users SET deletedAt = CURRENT_TIMESTAMP ...
+```
+
+Resolver versions created by `SqlModel.makeResolvers` honor the same soft-delete filter and delete behavior.
 
 ## SqlResolver — Request Batching
 
-`SqlResolver` creates `RequestResolver` instances for batching SQL queries. Use these when you need fine-grained control over batching beyond what `SqlModel.makeDataLoaders` provides.
+`SqlResolver` creates `RequestResolver` instances for batching SQL queries. Use these when you need fine-grained control or custom query shapes beyond the resolvers returned by `SqlModel.makeResolvers`.
 
 ### Ordered Resolver
 
@@ -391,14 +446,16 @@ const deleteResolver = SqlResolver.void({
 
 ### Configuring Resolvers
 
+Resolvers already batch same-turn/concurrently queued requests by default (`Effect.yieldNow`). Use `RequestResolver.setDelay` only to widen the collection window, and `RequestResolver.batchN` to cap batch size.
+
 ```ts
-import { RequestResolver } from "effect"
+import { RequestResolver } from 'effect';
 
 const resolver = SqlResolver.ordered({ ... }).pipe(
-  RequestResolver.setDelay("50 millis"),  // batch window
-  RequestResolver.batchN(100),             // max batch size
-  RequestResolver.withSpan("UserRepo.insert")
-)
+	RequestResolver.setDelay('50 millis'), // wider collection window
+	RequestResolver.batchN(100), // max batch size
+	RequestResolver.withSpan('UserRepo.insert')
+);
 ```
 
 ## Migrator — Schema Migrations
@@ -407,7 +464,7 @@ The `Migrator` module runs sequential, transactional migrations tracked in a `ef
 
 ### Migration File Convention
 
-Files must be named `{id}_{name}.ts` where `id` is a numeric identifier (e.g. `0001_create_users.ts`).
+Files must be named `<id>_<name>.js`, `<id>_<name>.ts`, `<id>_<name>.mjs`, or `<id>_<name>.mts`, where `id` is a numeric identifier (e.g. `0001_create_users.ts`). Unsupported extensions are ignored by the file and glob loaders.
 
 Each migration file exports a default Effect:
 
@@ -456,8 +513,8 @@ const completed =
 // From filesystem (requires FileSystem service)
 Migrator.fromFileSystem('./migrations');
 
-// From Vite/bundler glob import
-Migrator.fromGlob(import.meta.glob('./migrations/*.ts'));
+// From Vite/bundler glob import; only .js/.ts/.mjs/.mts keys are loaded
+Migrator.fromGlob(import.meta.glob('./migrations/*.{js,ts,mjs,mts}'));
 
 // From a record of effects (inline)
 Migrator.fromRecord({
@@ -471,14 +528,14 @@ Migrator.fromRecord({
 	})
 });
 
-// From Babel-style glob (for bundlers that don't support dynamic import)
+// From Babel-style glob (keys like _0001_createUsersTs or _0001_createUsersMts)
 Migrator.fromBabelGlob(migrations);
 ```
 
 ### Migration Errors
 
 ```ts
-import { Migrator } from 'effect/unstable/sql/Migrator';
+import * as Migrator from 'effect/unstable/sql/Migrator';
 
 // MigrationError has a `kind` discriminator:
 // - "BadState"    — migrations table in unexpected state
@@ -492,16 +549,17 @@ import { Migrator } from 'effect/unstable/sql/Migrator';
 
 Effect SQL uses driver-specific packages that provide `SqlClient` layers.
 
-### Available Drivers
+### Common Drivers
 
-| Package                   | Database                      |
-| ------------------------- | ----------------------------- |
-| `@effect/sql-pg`          | PostgreSQL (via `pg`)         |
-| `@effect/sql-mysql2`      | MySQL (via `mysql2`)          |
-| `@effect/sql-sqlite-node` | SQLite (via `better-sqlite3`) |
-| `@effect/sql-libsql`      | libSQL / Turso                |
-| `@effect/sql-mssql`       | Microsoft SQL Server          |
-| `@effect/sql-clickhouse`  | ClickHouse                    |
+| Package                   | Database                             |
+| ------------------------- | ------------------------------------ |
+| `@effect/sql-pg`          | PostgreSQL (via `pg`)                |
+| `@effect/sql-pglite`      | Embedded PostgreSQL/PGlite           |
+| `@effect/sql-mysql2`      | MySQL (via `mysql2`)                 |
+| `@effect/sql-sqlite-node` | SQLite (via `better-sqlite3`)        |
+| `@effect/sql-libsql`      | libSQL / Turso                       |
+| `@effect/sql-mssql`       | Microsoft SQL Server                 |
+| `@effect/sql-clickhouse`  | ClickHouse                           |
 
 ### PostgreSQL Setup
 
@@ -552,6 +610,42 @@ const notifications = pg.listen('my_channel'); // Stream<string, SqlError>
 yield* pg.notify('my_channel', 'hello');
 ```
 
+### PGlite Setup
+
+Use `@effect/sql-pglite` for embedded PostgreSQL-compatible databases backed by `@electric-sql/pglite`. Its layer provides both the PGlite-specific service and the generic `SqlClient` service.
+
+```ts
+import { Config, Effect } from 'effect';
+import { PgliteClient, PgliteMigrator } from '@effect/sql-pglite';
+import * as Migrator from 'effect/unstable/sql/Migrator';
+import { SqlClient } from 'effect/unstable/sql/SqlClient';
+
+const PgliteLayer = PgliteClient.layer({
+	dataDir: 'idb://myapp'
+});
+
+const PgliteLayerConfig = PgliteClient.layerConfig({
+	dataDir: Config.string('PGLITE_DATA_DIR')
+});
+
+const program = Effect.gen(function* () {
+	const sql = yield* SqlClient; // generic interface
+	const pglite = yield* PgliteClient.PgliteClient;
+
+	yield* sql`INSERT INTO data ${sql.insert({ metadata: pglite.json({ key: 'value' }) })}`;
+	const notifications = pglite.listen('my_channel');
+	yield* pglite.notify('my_channel', 'hello');
+	yield* pglite.refreshArrayTypes;
+	const snapshot = yield* pglite.dumpDataDir('gzip');
+});
+
+const runPgliteMigrations = PgliteMigrator.run({
+	loader: Migrator.fromFileSystem('./migrations')
+});
+```
+
+`PgliteClient.layerFrom` wraps an existing acquired client. `PgliteMigrator` reuses the shared migrator loaders, but it does not currently write schema dumps for `schemaDirectory`; use PGlite data-dir persistence or `PgliteClient.dumpDataDir` for embedded snapshots.
+
 ### Connection Reservation
 
 ```ts
@@ -601,6 +695,17 @@ yield*
 	);
 ```
 
+Unique constraint failures classify as `err.reason._tag === 'UniqueViolation'` when the driver exposes enough detail. The `constraint` field names the violated constraint; classifiers fall back to `'unknown'` when the name is missing.
+
+```ts
+const constraintName = (err: SqlError) =>
+	err.reason._tag === 'UniqueViolation'
+		? err.reason.constraint || 'unknown'
+		: undefined;
+```
+
+Keep non-unique integrity failures on their own paths; they remain `ConstraintError` rather than `UniqueViolation`.
+
 `SqlResolver` also exposes `ResultLengthMismatch` for ordered resolvers when result count doesn't match request count.
 
 ## Complete Example
@@ -617,7 +722,7 @@ import { PgClient } from '@effect/sql-pg';
 const UserId = Schema.Number.pipe(Schema.brand('UserId'));
 
 class User extends Model.Class<User>('User')({
-	id: Model.Generated(UserId),
+	id: UserId.pipe(Model.FieldExcept(["insert"])),
 	name: Schema.String,
 	email: Schema.String,
 	createdAt: Model.DateTimeInsertFromDate,
@@ -666,4 +771,4 @@ Effect.runPromise(program.pipe(Effect.provide(DatabaseLayer)));
 - **Forgetting `sql.insert()` / `sql.update()`** — Use the helpers for INSERT/UPDATE instead of manually listing columns and values.
 - **Not using transactions** — Wrap multi-statement mutations in `sql.withTransaction()` for atomicity.
 - **Ignoring `SqlSchema`** — Raw queries return untyped rows. Use `SqlSchema.findOne/findAll/void` for validated I/O.
-- **Creating resolvers without delay** — `SqlResolver` resolvers need `RequestResolver.setDelay()` to enable batching. Without it, each request fires immediately.
+- **Assuming custom delay is required for batching** — `SqlResolver` resolvers batch concurrently queued requests by default via `Effect.yieldNow`. Add `RequestResolver.setDelay` only to widen the collection window when the latency tradeoff is acceptable.

@@ -85,7 +85,7 @@ const resolver = RequestResolver.make<GetUserById>(
 		// `entries` is NonEmptyArray<Request.Entry<GetUserById>>
 		// Each entry has:
 		//   - entry.request: the original request (e.g. { id: 1 })
-		//   - entry.services: Context with request-scoped services
+		//   - entry.context: captured Context with request-scoped services
 		//   - entry.completeUnsafe(exit): complete with Exit value
 
 		const ids = entries.map((e) => e.request.id);
@@ -326,7 +326,7 @@ const getUserById = (id: number) =>
 
 ### Accessing request services
 
-Inside a resolver, each entry carries its own `Context` with request-scoped services:
+Inside a resolver, each `Request.Entry` carries its captured `Context` with request-scoped services:
 
 ```typescript
 import { Context, Tracer } from 'effect';
@@ -335,7 +335,7 @@ const resolver = RequestResolver.make<GetUserById>(
 	Effect.fn(function* (entries) {
 		for (const entry of entries) {
 			const requestSpan = Context.getOption(
-				entry.services,
+				entry.context,
 				Tracer.ParentSpan
 			);
 			// ... use span for correlation
@@ -508,7 +508,7 @@ const deleteUser = SqlResolver.request(DeleteUser);
 
 ### Transaction awareness
 
-`SqlResolver` automatically groups requests by transaction connection, so requests within a transaction are batched separately from those outside one.
+`SqlResolver` automatically groups requests by the transaction connection captured in each `Request.Entry.context`, so requests within a transaction are batched separately from those outside one. This depends on using the same `SqlClient` service instance that opened the transaction; requests executed with another client or a manually reserved connection do not join that transaction.
 
 ## Resolver Combinators
 
