@@ -103,14 +103,14 @@ The `generateText` method requires `LanguageModel.LanguageModel` in its context.
 
 ```ts
 // Per-call — allows switching models between turns
-const modelLayer = yield* OpenAiLanguageModel.model('gpt-5.2');
+const modelLayer = OpenAiLanguageModel.model('gpt-5.2');
 yield*
 	session.generateText({ prompt: '...' }).pipe(Effect.provide(modelLayer));
 ```
 
 ### Passing prompt as string vs Prompt
 
-The `prompt` option accepts `Prompt.RawInput` — a string, a message array, or a `Prompt.Prompt`. Internally, `Prompt.make(options.prompt)` is called.
+The `prompt` option accepts `Prompt.RawInput` — a string, an iterable of encoded messages, or a `Prompt.Prompt`. Internally, `Prompt.make(options.prompt)` is called; strings become user text messages and encoded message iterables are decoded.
 
 ```ts
 // String shorthand
@@ -122,7 +122,7 @@ yield* session.generateText({ prompt: [] });
 
 ## Streaming Text
 
-`streamText` returns a `Stream` of `Response.StreamPart` values. History is updated after the stream completes (via `acquireUseRelease`).
+`streamText` returns a `Stream` of `Response.StreamPart` values. History is updated when the stream finalizes. Consume the stream to completion if the full assistant response should become history; if the stream is interrupted early, only the parts emitted before finalization are recorded.
 
 ```ts
 yield*
@@ -178,6 +178,8 @@ for (const msg of history.content) {
 }
 ```
 
+Use `Prompt.fromResponseParts(response.content)` when manually folding model output back into history. It preserves text and reasoning, tool calls/results, approval requests, uses encoded tool results for tool messages, and skips preliminary tool results.
+
 ## Persistence: Export and Restore
 
 ### Export to JSON
@@ -213,10 +215,12 @@ const restored = yield* Chat.fromExport(data);
 For automatic persistence (save after every generation), use `Chat.Persistence`:
 
 ```ts
-import { BackingPersistence } from 'effect/unstable/Persistence';
+import { Persistence } from 'effect/unstable/persistence';
 
-// Create a persistence layer
-const PersistenceLayer = Chat.layerPersisted({ storeId: 'my-chats' });
+// Create a persistence layer and provide a BackingPersistence implementation
+const PersistenceLayer = Chat.layerPersisted({ storeId: 'my-chats' }).pipe(
+	Layer.provide(Persistence.layerBackingMemory)
+);
 
 // Usage
 const program = Effect.gen(function* () {
@@ -246,7 +250,7 @@ The `Persisted` interface extends `Chat.Service` with:
 - `id: string` — the chat identifier in the store
 - `save: Effect<void, AiError | PersistenceError>` — manual save trigger
 
-Provide a `BackingPersistence` implementation (e.g., key-value store, database adapter) to the persistence layer.
+Provide a `Persistence.BackingPersistence` implementation (e.g., key-value store, database adapter) to the persistence layer.
 
 ## Tool Integration (Agentic Loops)
 
@@ -287,20 +291,42 @@ const agent = Effect.fn('agent')(function* (question: string) {
 		{ role: 'user', content: question }
 	]);
 
+	let nextPrompt: Prompt.RawInput = [];
+
 	while (true) {
 		const response = yield* session
 			.generateText({
-				prompt: [], // No new prompt — model has full history
+				prompt: nextPrompt, // Empty after the first turn unless approving tools
 				toolkit: tools // Provide tools for this turn
 			})
 			.pipe(Effect.provide(modelLayer));
+
+		nextPrompt = [];
+
+		const approvalRequests = response.content.filter(
+			(part) => part.type === 'tool-approval-request'
+		);
+		if (approvalRequests.length > 0) {
+			// Append approval responses as a tool message, then call the model again.
+			nextPrompt = [
+				Prompt.toolMessage({
+					content: approvalRequests.map((request) =>
+						Prompt.toolApprovalResponsePart({
+							approvalId: request.approvalId,
+							approved: true // Or false with a reason from policy/user review
+						})
+					)
+				})
+			];
+			continue;
+		}
 
 		if (response.toolCalls.length > 0) {
 			// Tools were called — results are already in history.
 			// Loop back so the model can see the results and decide next step.
 			continue;
 		}
-		// No tool calls — model returned a final answer.
+		// No tool calls or approval requests — model returned a final answer.
 		return response.text;
 	}
 });
@@ -310,8 +336,9 @@ Key points:
 
 - Pass `prompt: []` (empty) after the first turn — the model already has the full conversation in history
 - The `toolkit` option makes tools available to the model
-- Tool calls and results are automatically appended to history by `generateText`
-- The loop continues until the model stops calling tools
+- Tool calls and final tool results are automatically appended to history by `generateText`
+- If a tool has `needsApproval`, the response may contain `tool-approval-request`; append `Prompt.toolApprovalResponsePart` in a tool message and call the model again
+- The loop continues until the model stops calling tools and has no pending approvals
 
 ### Registry-Backed Tool Loops
 
@@ -354,7 +381,8 @@ class AiAssistant extends Context.Service<
 	static readonly layer = Layer.effect(
 		AiAssistant,
 		Effect.gen(function* () {
-			const modelLayer = yield* OpenAiLanguageModel.model('gpt-5.2');
+			const model = OpenAiLanguageModel.model('gpt-5.2');
+			const modelLayer = yield* model.captureRequirements;
 
 			// Session lives for the lifetime of the service
 			const session = yield* Chat.fromPrompt(

@@ -23,7 +23,7 @@ Model Context Protocol (MCP) is a standard protocol for LLM tool integration. It
 ## Core Imports
 
 ```typescript
-import { Effect, Layer, Logger } from 'effect';
+import { Context, Effect, Layer, Logger } from 'effect';
 import { Schema } from 'effect';
 import { McpServer, McpSchema, Tool, Toolkit } from 'effect/unstable/ai';
 ```
@@ -129,6 +129,17 @@ const ToolkitLayer = McpServer.toolkit(MyToolkit).pipe(
 ```
 
 The pattern is always: `McpServer.toolkit(tk).pipe(Layer.provideMerge(tk.toLayer({...})))`.
+
+### MCP Tool Annotations
+
+Effect tool annotations are emitted as MCP tool hints:
+
+- `Tool.Readonly` → `readOnlyHint`, default `false`
+- `Tool.Destructive` → `destructiveHint`, default `true`
+- `Tool.Idempotent` → `idempotentHint`, default `false`
+- `Tool.OpenWorld` → `openWorldHint`, default `true`
+
+These hints help clients decide how to present tools, but they are not authorization decisions. Always enforce access control in your server handlers.
 
 ## Resources
 
@@ -260,6 +271,7 @@ McpServer.layerHttp({
 - Requires `HttpRouter.HttpRouter` in the context
 - Uses JSON-RPC serialization (not NDJSON like stdio)
 - The `path` parameter sets the HTTP endpoint path
+- Non-`initialize` HTTP requests without a valid `Mcp-Session-Id` intentionally return `404`; clients must keep and resend the session id from initialization.
 
 ### Type signatures
 
@@ -289,15 +301,45 @@ const caps = yield* McpServer.clientCapabilities;
 // caps: ClientCapabilities
 ```
 
-## Conditional Tool Enabling
+## Conditional Tool/Resource/Prompt Enabling
 
-Use `EnabledWhen` annotation to conditionally enable tools based on client info:
+Use `McpSchema.EnabledWhen` to conditionally list prompts, resources, resource templates, or tools based on initialized client data. The filter runs against the client initialization payload.
 
 ```typescript
-import { McpSchema } from 'effect/unstable/ai';
+import { Context, Effect, Layer } from 'effect';
+import { Schema } from 'effect';
+import { McpSchema, McpServer, Tool } from 'effect/unstable/ai';
 
-// EnabledWhen is a Context annotation on Tool
+const requiresRoots = Context.make(
+	McpSchema.EnabledWhen,
+	(client) => client.capabilities.roots !== undefined
+);
+
+const ReadWorkspace = Tool.make('ReadWorkspace', {
+	description: 'Read workspace roots when the client supports roots',
+	success: Schema.String
+}).annotateMerge(requiresRoots);
+
+const WorkspacePrompt = McpServer.prompt({
+	name: 'Workspace Summary',
+	description: 'Summarize workspace roots',
+	annotations: requiresRoots,
+	content: () => Effect.succeed('Summarize the available workspace roots.')
+});
+
+const WorkspaceResource = Layer.effectDiscard(
+	McpServer.registerResource({
+		uri: 'workspace://roots',
+		name: 'Workspace Roots',
+		annotations: requiresRoots,
+		content: Effect.succeed('[]')
+	})
+);
 ```
+
+## Relationship to OpenAI MCP Tools
+
+`McpServer` exposes a server that MCP clients connect to over stdio or HTTP. `OpenAiTool.Mcp` is different: it is an OpenAI provider-defined tool that lets an OpenAI model call a remote MCP server. When using OpenAI's hosted MCP integration, use the canonical `OpenAiMcp` custom name from `OpenAiTool.Mcp` and handle provider approval flow through normal tool approval request/response parts.
 
 ## Complete Example — stdio Server
 

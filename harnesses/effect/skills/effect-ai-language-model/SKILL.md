@@ -102,11 +102,15 @@ const response = yield* LanguageModel.generateText({ prompt: '...' });
 response.text; // string - concatenated text content
 response.toolCalls; // Array<ToolCallParts> - tool invocations
 response.toolResults; // Array<ToolResultParts> - tool outputs
-response.finishReason; // "stop" | "length" | "tool-calls" | "content-filter" | "unknown"
+response.finishReason; // "stop" | "length" | "content-filter" | "tool-calls" | "error" | "pause" | "unknown" | "other"
 response.usage; // Usage object with nested structure, e.g. response.usage.outputTokens.total
 response.reasoning; // Array<ReasoningPart> - reasoning steps (when model provides extended thinking)
 response.reasoningText; // string | undefined - concatenated reasoning content
 ```
+
+`response.text` concatenates text parts only. Inspect `response.content` when you need reasoning, files/sources, metadata, finish/usage, provider errors, tool calls/results, or `tool-approval-request` parts.
+
+With toolkit auto-resolution enabled, normal framework tool calls run and return `tool-result` parts. Tools with `needsApproval` return `tool-approval-request` until the next prompt supplies a matching `Prompt.toolApprovalResponsePart`; approved calls execute, and denied calls become `execution-denied` tool results.
 
 ## generateObject Pattern (Structured Output)
 
@@ -187,18 +191,27 @@ const program = streamStory.pipe(
 );
 ```
 
-### StreamPart Types
+### Common StreamPart Types
 
 ```haskell
-StreamPart =
-  | { type: "text-delta", delta: string }
+Common StreamPart shapes include (non-exhaustive):
+  | { type: "text-start", id }
+  | { type: "text-delta", id, delta }
+  | { type: "text-end", id }
+  | { type: "reasoning-start", id }
+  | { type: "reasoning-delta", id, delta }
+  | { type: "reasoning-end", id }
   | { type: "tool-params-start", id, name }
   | { type: "tool-params-delta", id, paramsDelta }
+  | { type: "tool-params-end", id }
   | { type: "tool-call", id, name, params }
-  | { type: "tool-result", id, name, result, isFailure }
+  | { type: "tool-result", id, name, result, isFailure, preliminary? }
+  | { type: "tool-approval-request", approvalId, toolCallId }
   | { type: "finish", reason: FinishReason, usage: Usage }
   | { type: "error", error: AiError }
 ```
+
+Streaming text, reasoning, and tool parameters use matching `id` values across start/delta/end. Providers must not emit standalone `text-delta` parts without a preceding `text-start` and following `text-end`. The full upstream union also includes `file`, document and URL `source`, and `response-metadata` parts.
 
 ### Stream Processing Patterns
 
@@ -309,12 +322,11 @@ Create custom LanguageModel providers using `LanguageModel.make`:
 make :: ConstructorParams → Effect Service
 ```
 
-When implementing a custom LanguageModel provider:
+When implementing a custom LanguageModel provider, return encoded parts: `Array<Response.PartEncoded>` for `generateText` and `Stream<Response.StreamPartEncoded>` for `streamText`. If you emit `response-metadata`, encode timestamps as ISO strings. Providers that support provider-side conversations should honor `ProviderOptions.previousResponseId` and `ProviderOptions.incrementalPrompt`; providers that cannot should intentionally ignore them.
 
 ```typescript
 import * as LanguageModel from 'effect/unstable/ai/LanguageModel';
 import * as Response from 'effect/unstable/ai/Response';
-import * as AiError from 'effect/unstable/ai/AiError';
 
 const makeCustomProvider = Effect.gen(function* () {
 	const service = yield* LanguageModel.make({
@@ -325,6 +337,8 @@ const makeCustomProvider = Effect.gen(function* () {
 				// options.toolChoice: ToolChoice<any>
 				// options.responseFormat: { type: "text" } | { type: "json", schema, objectName }
 				// options.span: Span (for telemetry)
+				// options.previousResponseId: string | undefined
+				// options.incrementalPrompt: Prompt.Prompt | undefined
 
 				const result = yield* callProviderAPI(options);
 
@@ -345,25 +359,38 @@ const makeCustomProvider = Effect.gen(function* () {
 								text: undefined,
 								reasoning: undefined
 							}
-						})
+						}),
+						response: undefined
 					})
 				];
 			}),
 
-		streamText: (options: LanguageModel.ProviderOptions) =>
-			Stream.fromAsyncIterable(providerStreamAPI(options), (error) =>
-				AiError.make({
-					module: 'Custom',
-					method: 'streamText',
-					reason: new AiError.UnknownError({
-						description: String(error)
-					})
+		streamText: (_options: LanguageModel.ProviderOptions) => {
+			const textId = 'custom-text-1';
+			return Stream.fromIterable<Response.StreamPartEncoded>([
+				{ type: 'text-start', id: textId },
+				{ type: 'text-delta', id: textId, delta: 'Hello' },
+				{ type: 'text-delta', id: textId, delta: ' world' },
+				{ type: 'text-end', id: textId },
+				Response.makePart('finish', {
+					reason: 'stop',
+					usage: new Response.Usage({
+						inputTokens: {
+							total: undefined,
+							uncached: undefined,
+							cacheRead: undefined,
+							cacheWrite: undefined
+						},
+						outputTokens: {
+							total: undefined,
+							text: undefined,
+							reasoning: undefined
+						}
+					}),
+					response: undefined
 				})
-			).pipe(
-				Stream.map((chunk) =>
-					Response.makePart('text-delta', { delta: chunk.text })
-				)
-			)
+			]);
+		}
 	});
 
 	return service;

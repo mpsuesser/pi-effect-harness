@@ -13,10 +13,11 @@ For comprehensive Effect AI documentation, view the Effect v4 repository at `pac
 
 Reference this for:
 
-- Tool.make API and configuration
+- Tool.make, Tool.dynamic, and Tool.providerDefined APIs
 - Toolkit.make for composing multiple tools
-- Schema.Struct.Fields for parameters
+- Schema.Struct(...) for Tool.make parameters
 - Handler implementation patterns
+- OpenAI provider-defined tools via `@effect/ai-openai/OpenAiTool`
 
 ## Core Concepts
 
@@ -49,7 +50,7 @@ Effect with tool execution capability
 
 ## Production Harness Pattern: Effectful Local Tool Wrappers
 
-`Tool.make` is the core Effect AI API. In larger coding-agent harnesses, it is common to wrap that API in a local tool-definition layer that is itself effectful so it can capture services once and keep a single `Effect.runPromise` bridge at the outer async framework boundary.
+`Tool.make` is the core user-defined Effect AI tool API. Effect AI also has `Tool.dynamic` for runtime-discovered tools and `Tool.providerDefined` for native provider capabilities. In larger coding-agent harnesses, it is common to wrap local tool definitions in an effectful layer so it can capture services once and keep a single `Effect.runPromise` bridge at the outer async framework boundary.
 
 This wrapper is local to your harness, not part of Effect AI itself.
 
@@ -116,9 +117,9 @@ const UserResult = Schema.Struct({
 
 const GetUserTool = Tool.make('GetUser', {
 	description: 'Retrieve user information by ID',
-	parameters: {
+	parameters: Schema.Struct({
 		userId: Schema.String
-	},
+	}),
 	success: UserResult
 });
 
@@ -128,9 +129,10 @@ type Success = Tool.Success<typeof GetUserTool>;
 
 **Key Pattern: Tool.make with domain schemas**
 
-- `Tool.make` is the only tool constructor in v4
+- Use `Tool.make` for user-defined tools
 - Reference existing domain schemas in `parameters`, `success`, and `failure` fields
 - Tool name is the first argument (string literal)
+- Use `Tool.dynamic` for runtime-discovered tools and `Tool.providerDefined` / `OpenAiTool` for provider-native tools
 - There is no `Tool.fromTaggedRequest` in v4
 
 ### Tool with Parameters
@@ -141,10 +143,10 @@ import { Schema } from 'effect';
 
 const GetWeather = Tool.make('GetWeather', {
 	description: 'Get weather information for a location',
-	parameters: {
+	parameters: Schema.Struct({
 		location: Schema.String,
 		units: Schema.optional(Schema.Literals(['celsius', 'fahrenheit']))
-	},
+	}),
 	success: Schema.Struct({
 		temperature: Schema.Number,
 		condition: Schema.String,
@@ -158,9 +160,9 @@ type Success = Tool.Success<typeof GetWeather>;
 
 **Key Pattern: parameters**
 
-- Parameters accept any `Schema.Top`, including both field objects and `Schema.Struct(...)`
-- When field objects are passed, Tool.make wraps them in `Schema.Struct` automatically
-- `Schema.Struct({...})` can also be passed directly as the parameters value
+- `Tool.make` parameters must be an Effect `Schema.Top`
+- Wrap field records with `Schema.Struct({...})`; `Tool.make` does not wrap raw field objects automatically
+- `Tool.dynamic` can use either typed Effect schemas or raw JSON Schema discovered at runtime
 - Use `Schema.optional()` for optional parameters
 
 ### Tool with Failure Handling
@@ -185,9 +187,9 @@ class DatabaseError extends Schema.TaggedErrorClass<DatabaseError>()(
 
 const FindUser = Tool.make('FindUser', {
 	description: 'Find user by ID',
-	parameters: {
+	parameters: Schema.Struct({
 		userId: Schema.String
-	},
+	}),
 	success: Schema.Struct({
 		id: Schema.String,
 		name: Schema.String,
@@ -224,9 +226,9 @@ class Database extends Context.Service<
 
 const QueryDatabase = Tool.make('QueryDatabase', {
 	description: 'Execute a database query',
-	parameters: {
+	parameters: Schema.Struct({
 		sql: Schema.String
-	},
+	}),
 	success: Schema.Unknown,
 	dependencies: [Database]
 });
@@ -256,9 +258,9 @@ const GetCurrentTime = Tool.make('GetCurrentTime', {
 
 const GetWeather = Tool.make('GetWeather', {
 	description: 'Get weather for a location',
-	parameters: {
+	parameters: Schema.Struct({
 		location: Schema.String
-	},
+	}),
 	success: Schema.Struct({
 		temperature: Schema.Number,
 		condition: Schema.String
@@ -303,7 +305,7 @@ declare const fetchWeatherData: (location: string) => Effect.Effect<{
 **Key Pattern: toLayer**
 
 - Object mapping tool names to handler functions
-- Handler signature: `(params) => Effect<Success, Failure, Requirements>`
+- Handler signature: `(params, context) => Effect<Success, Failure, Requirements>`; use `context.preliminary(...)` for progress updates
 - Returns `Layer<Handlers>`
 
 ### Alternative: Handlers as Context
@@ -363,9 +365,9 @@ class WeatherService extends Context.Service<
 >()('WeatherService') {}
 
 const GetWeatherWithDeps = Tool.make('GetWeather', {
-	parameters: {
+	parameters: Schema.Struct({
 		location: Schema.String
-	},
+	}),
 	success: Schema.Struct({
 		temperature: Schema.Number,
 		condition: Schema.String
@@ -389,8 +391,8 @@ const toolkitLayer = toolkit.toLayer({
 
 const program = Effect.gen(function* () {
 	const handlers = yield* toolkitLayer;
-	const result = yield* handlers.handle('GetWeather', { location: 'NYC' });
-	return result;
+	const resultStream = yield* handlers.handle('GetWeather', { location: 'NYC' });
+	return resultStream;
 }).pipe(Effect.provide(WeatherServiceLive));
 
 declare const WeatherServiceLive: Layer<WeatherService>;
@@ -401,6 +403,31 @@ declare const WeatherServiceLive: Layer<WeatherService>;
 - Handlers run with injected dependencies
 - Access via `yield* Tag` in Effect.gen
 - Dependencies must be provided to final effect
+
+## Dynamic Tools
+
+Use `Tool.dynamic` when tool schemas are discovered at runtime, such as from MCP or external configuration. If `parameters` is an Effect `Schema`, handlers receive typed decoded params; if `parameters` is raw JSON Schema, handler params are `unknown`.
+
+```typescript
+const TypedDynamic = Tool.dynamic('runtimeSearch', {
+	description: 'Search with a runtime-provided typed schema',
+	parameters: Schema.Struct({ query: Schema.String }),
+	success: Schema.Array(Schema.String)
+});
+
+type TypedParams = Tool.Parameters<typeof TypedDynamic>; // { query: string }
+
+const UntypedDynamic = Tool.dynamic('mcpTool', {
+	description: 'Runtime MCP tool with raw JSON Schema',
+	parameters: {
+		type: 'object',
+		properties: { query: { type: 'string' } },
+		required: ['query']
+	}
+});
+
+type UntypedParams = Tool.Parameters<typeof UntypedDynamic>; // unknown
+```
 
 ## Registry-Owned Tool Resolution
 
@@ -435,11 +462,11 @@ import * as Toolkit from 'effect/unstable/ai/Toolkit';
 
 const mathToolkit = Toolkit.make(
 	Tool.make('add', {
-		parameters: { a: Schema.Number, b: Schema.Number },
+		parameters: Schema.Struct({ a: Schema.Number, b: Schema.Number }),
 		success: Schema.Number
 	}),
 	Tool.make('subtract', {
-		parameters: { a: Schema.Number, b: Schema.Number },
+		parameters: Schema.Struct({ a: Schema.Number, b: Schema.Number }),
 		success: Schema.Number
 	})
 );
@@ -463,6 +490,8 @@ type AllTools = Toolkit.Tools<typeof combined>;
 
 ## Provider-Defined Tools
 
+`Tool.providerDefined` models provider-native capabilities. For OpenAI, prefer the curated `OpenAiTool` constructors from `@effect/ai-openai` (`WebSearch`, `CodeInterpreter`, `FileSearch`, `ImageGeneration`, `Mcp`, plus handler-required local tools such as `Shell`, `LocalShell`, and `ApplyPatch`).
+
 ### Basic Provider Tool
 
 ```typescript
@@ -471,11 +500,11 @@ import { Schema } from 'effect';
 
 const AnthropicBash = Tool.providerDefined({
 	id: 'anthropic.bash',
-	toolkitName: 'Bash',
+	customName: 'Bash',
 	providerName: 'bash_20241022',
-	args: {
+	args: Schema.Struct({
 		command: Schema.String
-	}
+	})
 });
 
 const bashTool = AnthropicBash({ command: 'ls -la' });
@@ -487,9 +516,28 @@ type ToolType = typeof bashTool;
 
 - Returns a function that accepts args
 - `id`: Unique identifier `<provider>.<tool-name>`
-- `toolkitName`: Name in your Toolkit
-- `providerName`: Name recognized by AI provider
-- `args`: Configuration passed to provider
+- `customName`: Name used by Effect AI / Toolkit to identify this tool
+- `providerName`: Name recognized by the AI provider
+- `args`: Schema for provider-specific configuration arguments
+- `requiresHandler`: Set to `true` only when your application must execute/process provider tool calls locally
+
+### OpenAI Provider Tools
+
+```typescript
+import { OpenAiTool } from '@effect/ai-openai';
+
+const nativeTools = Toolkit.make(
+	OpenAiTool.WebSearch({}),
+	OpenAiTool.FileSearch({ vector_store_ids: ['vs_123'] }),
+	OpenAiTool.ImageGeneration({}),
+	OpenAiTool.Mcp({
+		server_label: 'docs',
+		server_url: 'https://mcp.example.com/mcp'
+	})
+);
+```
+
+`OpenAiTool.Mcp` uses the canonical custom name `OpenAiMcp`. Treat handler-required local OpenAI tools (`Shell`, `LocalShell`, `ApplyPatch`) as privileged operations: provide handlers only behind sandboxing, authorization, and audit policy.
 
 ### Provider Tool with Handler
 
@@ -498,16 +546,16 @@ import * as Tool from 'effect/unstable/ai/Tool';
 import { Schema } from 'effect';
 
 const WebSearch = Tool.providerDefined({
-	id: 'openai.web_search',
-	toolkitName: 'WebSearch',
+	id: 'custom.web_search',
+	customName: 'WebSearch',
 	providerName: 'web_search',
-	args: {
+	args: Schema.Struct({
 		maxResults: Schema.Number
-	},
+	}),
 	requiresHandler: true,
-	parameters: {
+	parameters: Schema.Struct({
 		query: Schema.String
-	},
+	}),
 	success: Schema.Struct({
 		results: Schema.Array(
 			Schema.Struct({
@@ -573,41 +621,84 @@ const toolResultPart = Prompt.makePart('tool-result', {
 
 **Key Pattern: Tool Call Flow**
 
-1. LLM generates ToolCallPart in response
-2. Your code extracts tool call via Toolkit.handle
-3. Handler executes and returns HandlerResult
-4. Create ToolResultPart with handler result
-5. Send ToolResultPart back to LLM
+1. LLM generates `ToolCallPart` in response
+2. Your code runs `yield* toolkit.handle(...)` to get a `Stream` of handler results
+3. Preliminary results can be emitted for progress; the final result is authoritative
+4. Create a `ToolResultPart` from the final handler result for manual loops (LanguageModel does this automatically when tool resolution is enabled)
+5. Send the tool result back to the LLM
+
+### Approval Flow
+
+`Tool.make` and `Tool.dynamic` support `needsApproval`. When approval is needed, automatic tool resolution emits a `tool-approval-request` instead of executing the handler. The caller appends a `Prompt.toolApprovalResponsePart` in a tool message and calls the model again.
+
+```typescript
+const DeleteFile = Tool.make('DeleteFile', {
+	parameters: Schema.Struct({ path: Schema.String }),
+	success: Schema.Void,
+	needsApproval: true
+});
+
+const approvalResponse = Prompt.toolApprovalResponsePart({
+	approvalId: 'approval_123',
+	approved: false,
+	reason: 'User denied deletion'
+});
+```
+
+Approved calls execute on the next model call; denied calls are converted to failed tool results with `{ type: 'execution-denied', reason }`.
 
 ### Executing Tool Handlers
 
 ```typescript
-import { Effect } from 'effect';
+import { Effect, Stream } from 'effect';
 
 const program = Effect.gen(function* () {
 	const toolkit = yield* MyToolkitLayer;
 
-	const result = yield* toolkit.handle('GetWeather', {
+	const resultStream = yield* toolkit.handle('GetWeather', {
 		location: 'San Francisco'
 	});
 
-	yield* Effect.log(result.isFailure);
-	yield* Effect.log(result.result);
-	yield* Effect.log(result.encodedResult);
+	yield* resultStream.pipe(
+		Stream.runForEach((result) =>
+			Effect.gen(function* () {
+				yield* Effect.log(result.preliminary ? 'progress' : 'final');
+				yield* Effect.log(result.isFailure);
+				yield* Effect.log(result.result);
+				yield* Effect.log(result.encodedResult);
+			})
+		)
+	);
 });
 
 interface HandlerResult<T> {
 	readonly isFailure: boolean;
 	readonly result: Result<T>;
 	readonly encodedResult: unknown;
+	readonly preliminary: boolean;
 }
 
 type Result<T> = Tool.Success<T> | Tool.Failure<T>;
 ```
 
+Handlers can emit progress before the final result with `context.preliminary(...)`:
+
+```typescript
+const toolkitLayer = LongRunningToolkit.toLayer({
+	LongTask: (params, context) =>
+		Effect.gen(function* () {
+			yield* context.preliminary({ status: 'started' });
+			const result = yield* runLongTask(params);
+			return { status: 'done', result };
+		})
+});
+```
+
 **Key Pattern: toolkit.handle**
 
-- Returns `HandlerResult<Tool>` with three fields
+- Returns `Effect<Stream<HandlerResult<Tool>>>`
+- `preliminary: true`: progress update; do not persist as final history
+- `preliminary: false`: final result to send/persist
 - `isFailure`: Whether handler failed
 - `result`: Typed success or failure value
 - `encodedResult`: JSON-serializable for LLM
@@ -621,7 +712,7 @@ import * as Tool from 'effect/unstable/ai/Tool';
 import { Schema } from 'effect';
 
 const ReadOnlyQuery = Tool.make('query', {
-	parameters: { sql: Schema.String },
+	parameters: Schema.Struct({ sql: Schema.String }),
 	success: Schema.Unknown
 })
 	.annotate(Tool.Readonly, true)
@@ -629,13 +720,16 @@ const ReadOnlyQuery = Tool.make('query', {
 	.annotate(Tool.Idempotent, true);
 ```
 
-**Available Annotations:**
+**Available Annotations and Defaults:**
 
-- `Tool.Readonly`: Tool only reads data
-- `Tool.Destructive`: Tool performs destructive operations
-- `Tool.Idempotent`: Safe to call multiple times
-- `Tool.OpenWorld`: Can handle arbitrary external data
+- `Tool.Readonly`: Tool only reads data; default `false`
+- `Tool.Destructive`: Tool performs destructive operations; default `true`
+- `Tool.Idempotent`: Safe to call multiple times; default `false`
+- `Tool.OpenWorld`: Can handle arbitrary external data; default `true`
+- `Tool.Strict`: OpenAI strict JSON Schema override; default `undefined` so provider/config decides
 - `Tool.Title`: Human-readable title
+
+MCP emits the first four annotations as tool hints. They are hints, not authorization decisions. OpenAI function tools use `Tool.Strict` or `OpenAiLanguageModel.Config.strictJsonSchema` for strict mode.
 
 ### JSON Schema Generation
 
@@ -643,10 +737,10 @@ const ReadOnlyQuery = Tool.make('query', {
 import * as Tool from 'effect/unstable/ai/Tool';
 
 const tool = Tool.make('example', {
-	parameters: {
+	parameters: Schema.Struct({
 		name: Schema.String,
 		age: Schema.optional(Schema.Number)
-	}
+	})
 });
 
 const jsonSchema = Tool.getJsonSchema(tool);
@@ -674,9 +768,9 @@ import * as Tool from 'effect/unstable/ai/Tool';
 const userTool = Tool.make('example');
 const providerTool = Tool.providerDefined({
 	id: 'provider.tool',
-	toolkitName: 'Example',
+	customName: 'Example',
 	providerName: 'example',
-	args: {}
+	args: Schema.Struct({})
 })({});
 
 Tool.isUserDefined(userTool);
@@ -713,7 +807,7 @@ const executeTool = (toolName: string, params: unknown) =>
 ```typescript
 import * as Tool from 'effect/unstable/ai/Tool';
 import * as Toolkit from 'effect/unstable/ai/Toolkit';
-import { Effect, Schema, Layer } from 'effect';
+import { Effect, Schema, Layer, Stream } from 'effect';
 
 class UserNotFound extends Schema.TaggedErrorClass<UserNotFound>()(
 	'UserNotFound',
@@ -731,9 +825,9 @@ class Database extends Context.Service<
 
 const GetUser = Tool.make('GetUser', {
 	description: 'Retrieve user information by ID',
-	parameters: {
+	parameters: Schema.Struct({
 		userId: Schema.String
-	},
+	}),
 	success: Schema.Struct({
 		id: Schema.String,
 		name: Schema.String,
@@ -746,10 +840,10 @@ const GetUser = Tool.make('GetUser', {
 
 const CreateUser = Tool.make('CreateUser', {
 	description: 'Create a new user',
-	parameters: {
+	parameters: Schema.Struct({
 		name: Schema.String,
 		email: Schema.String
-	},
+	}),
 	success: Schema.Struct({
 		id: Schema.String,
 		name: Schema.String,
@@ -807,22 +901,28 @@ const DatabaseLive = Layer.succeed(Database, {
 const program = Effect.gen(function* () {
 	const toolkit = yield* UserToolkitLive;
 
-	const createResult = yield* toolkit.handle('CreateUser', {
+	const createStream = yield* toolkit.handle('CreateUser', {
 		name: 'Alice',
 		email: 'alice@example.com'
 	});
 
-	yield* Effect.log('Created user:', createResult.result);
+	yield* createStream.pipe(
+		Stream.runForEach((result) => Effect.log('Created user:', result.result))
+	);
 
-	const getResult = yield* toolkit.handle('GetUser', {
-		userId: (createResult.result as any).id
+	const getStream = yield* toolkit.handle('GetUser', {
+		userId: 'user-123'
 	});
 
-	yield* Effect.log('Retrieved user:', getResult.result);
+	yield* getStream.pipe(
+		Stream.runForEach((result) => Effect.log('Retrieved user:', result.result))
+	);
 
-	const timeResult = yield* toolkit.handle('GetCurrentTime', {});
+	const timeStream = yield* toolkit.handle('GetCurrentTime', {});
 
-	yield* Effect.log('Current time:', timeResult.result);
+	yield* timeStream.pipe(
+		Stream.runForEach((result) => Effect.log('Current time:', result.result))
+	);
 }).pipe(Effect.provide(DatabaseLive));
 ```
 
@@ -853,7 +953,7 @@ import { make as makeToolkit } from 'effect/unstable/ai/Toolkit';
 
 - [ ] Tool name is descriptive and unique
 - [ ] Description explains what the tool does
-- [ ] Parameters use field objects or Schema.Struct (both accepted)
+- [ ] Parameters use `Schema.Struct(...)` or another `Schema.Top` schema (not raw field objects)
 - [ ] Success schema matches handler return type
 - [ ] Failure schema includes all tagged errors
 - [ ] failureMode matches recovery strategy
@@ -877,9 +977,9 @@ import { make as makeToolkit } from 'effect/unstable/ai/Toolkit';
 
 ```typescript
 const ValidatedTool = Tool.make('validate', {
-	parameters: {
+	parameters: Schema.Struct({
 		input: Schema.String
-	},
+	}),
 	success: Schema.Struct({
 		valid: Schema.Boolean,
 		errors: Schema.Array(Schema.String)
@@ -913,9 +1013,9 @@ const toolkitLayer = toolkit.toLayer({
 
 ```typescript
 const FetchTool = Tool.make('fetch', {
-	parameters: {
+	parameters: Schema.Struct({
 		url: Schema.String
-	},
+	}),
 	success: Schema.String
 });
 
@@ -934,9 +1034,9 @@ const toolkitLayer = toolkit.toLayer({
 
 ```typescript
 const ConditionalTool = Tool.make('process', {
-	parameters: {
+	parameters: Schema.Struct({
 		mode: Schema.Literals(['fast', 'thorough'])
-	},
+	}),
 	success: Schema.String
 });
 
@@ -965,18 +1065,20 @@ const toolkitLayer = toolkit.toLayer({
 
 ## Key Principles Summary
 
-1. **Tool.make** - Define tools with parameters, success, failure schemas (only constructor in v4)
-2. **Parameters** - Accept field objects or Schema.Struct (both work)
-3. **Toolkit.make** - Compose multiple tools together
-4. **toLayer** - Implement handlers returning Layer
-5. **toHandlers** - Implement handlers returning Context
-6. **toolkit.handle** - Execute tools with type-safe parameters
-7. **HandlerResult** - Access typed result and encoded JSON
-8. **failureMode** - Control error vs return failure strategy
-9. **dependencies** - Declare service requirements
-10. **Tool.providerDefined** - Use provider-native tools
-11. **Namespace imports** - Always `import * as Tool`
-12. **Prompt.makePart** - Create tool-call and tool-result parts with params
+1. **Tool.make** - Define user tools with parameters, success, and failure schemas
+2. **Tool.dynamic** - Define runtime-discovered tools; raw JSON Schema params are `unknown`
+3. **Tool.providerDefined / OpenAiTool** - Use provider-native tools with `customName`
+4. **Parameters** - `Tool.make` takes `Schema.Top` schemas such as `Schema.Struct(...)`; raw JSON Schema belongs with `Tool.dynamic`
+5. **Toolkit.make** - Compose multiple tools together
+6. **toLayer** - Implement handlers returning Layer
+7. **toHandlers** - Implement handlers returning Context
+8. **toolkit.handle** - Execute tools and consume a Stream of preliminary/final results
+9. **HandlerResult** - Access typed result, encoded JSON, failure flag, and preliminary flag
+10. **needsApproval** - Produces approval requests until caller supplies approval responses
+11. **failureMode** - Control error vs return failure strategy
+12. **dependencies** - Declare service requirements
+13. **Namespace imports** - Always `import * as Tool`
+14. **Prompt.makePart** - Create tool-call, tool-result, and approval parts with params
 
 Your tool implementations should be type-safe, validated, and provide excellent developer experience with full schema support.
 

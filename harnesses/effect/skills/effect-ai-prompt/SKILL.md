@@ -32,7 +32,14 @@ import { pipe } from 'effect';
 ```haskell
 -- Message hierarchy
 type Message = SystemMessage | UserMessage | AssistantMessage | ToolMessage
-type Part = TextPart | ReasoningPart | FilePart | ToolCallPart | ToolResultPart
+type Part =
+  | TextPart
+  | ReasoningPart
+  | FilePart
+  | ToolCallPart
+  | ToolResultPart
+  | ToolApprovalRequestPart
+  | ToolApprovalResponsePart
 
 -- Composition
 Prompt.make       :: RawInput → Prompt
@@ -115,6 +122,10 @@ const assistant = Prompt.makeMessage('assistant', {
 			name: 'get_weather',
 			params: { city: 'Paris' },
 			providerExecuted: false
+		}),
+		Prompt.makePart('tool-approval-request', {
+			approvalId: 'approval_123',
+			toolCallId: 'call_123'
 		}),
 		Prompt.makePart('text', {
 			text: 'The weather in Paris is sunny, 22°C.'
@@ -202,6 +213,8 @@ const fileFromBase64 = Prompt.makePart('file', {
 });
 ```
 
+For OpenAI file parts, strings are provider file IDs only when `OpenAiLanguageModel.Config.fileIdPrefixes` matches the string prefix (for example `file-`). Use `URL` or `Uint8Array` for inline content; the OpenAI adapter encodes bytes as base64 data.
+
 ### Tool Call Part
 
 ```typescript
@@ -224,6 +237,28 @@ const toolResult = Prompt.makePart('tool-result', {
 });
 ```
 
+### Tool Approval Parts
+
+```typescript
+const approvalRequest = Prompt.makePart('tool-approval-request', {
+	approvalId: 'approval_abc123',
+	toolCallId: 'call_abc123'
+});
+
+const approvalResponse = Prompt.toolApprovalResponsePart({
+	approvalId: 'approval_abc123',
+	approved: true
+});
+
+const denialResponse = Prompt.toolApprovalResponsePart({
+	approvalId: 'approval_def456',
+	approved: false,
+	reason: 'Operation not allowed'
+});
+```
+
+Tool approval requests live in assistant messages. Approval responses live in tool messages and are collected on the next model call.
+
 ## Prompt Construction
 
 ### From String
@@ -233,7 +268,7 @@ const toolResult = Prompt.makePart('tool-result', {
 const prompt = Prompt.make('Hello, how are you?');
 ```
 
-### From Messages
+### From Encoded Messages
 
 ```typescript
 const prompt = Prompt.make([
@@ -241,6 +276,8 @@ const prompt = Prompt.make([
 	{ role: 'user', content: [{ type: 'text', text: 'Hi!' }] }
 ]);
 ```
+
+`Prompt.RawInput` is exactly `string | Iterable<Prompt.MessageEncoded> | Prompt.Prompt`: strings become one user text message, iterables are decoded encoded messages, and existing prompts pass through unchanged.
 
 ### From Existing Prompt
 
@@ -332,12 +369,19 @@ const appended = pipe(prompt, Prompt.appendSystem(' Be concise.'));
 import * as Response from 'effect/unstable/ai/Response';
 
 const responseParts: ReadonlyArray<Response.AnyPart> = [
-	Response.makePart('text', { text: 'Hello!' }),
+	Response.makePart('text-start', { id: 'text_1' }),
+	Response.makePart('text-delta', { id: 'text_1', delta: 'Hello' }),
+	Response.makePart('text-delta', { id: 'text_1', delta: '!' }),
+	Response.makePart('text-end', { id: 'text_1' }),
 	Response.makePart('tool-call', {
 		id: 'call_1',
 		name: 'get_time',
 		params: {},
 		providerExecuted: false
+	}),
+	Response.makePart('tool-approval-request', {
+		approvalId: 'approval_1',
+		toolCallId: 'call_1'
 	}),
 	Response.makePart('tool-result', {
 		id: 'call_1',
@@ -345,13 +389,16 @@ const responseParts: ReadonlyArray<Response.AnyPart> = [
 		isFailure: false,
 		result: '10:30 AM',
 		encodedResult: '10:30 AM',
-		providerExecuted: false
+		providerExecuted: false,
+		preliminary: false
 	})
 ];
 
-// Converts to assistant + tool messages
+// Folds complete streaming text/reasoning and splits assistant/tool messages.
 const historyPrompt = Prompt.fromResponseParts(responseParts);
 ```
+
+`Prompt.fromResponseParts` folds streaming text/reasoning only when the matching start/delta/end parts are present in the same input, places tool calls and approval requests in assistant messages, places non-preliminary tool results in tool messages using `encodedResult`, and skips preliminary tool results.
 
 ### Effect-Returning Prompt/Message Helpers
 

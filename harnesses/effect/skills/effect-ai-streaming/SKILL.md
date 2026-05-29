@@ -93,8 +93,8 @@ stream.pipe(
 			// Append to mutable accumulator
 			accumulated.push(...parts);
 
-			// Build prompt from accumulated parts
-			combined = Prompt.concat(combined, Prompt.fromResponseParts(parts));
+			// Fold the accumulated response so start/delta/end IDs are visible together
+			combined = Prompt.fromResponseParts(accumulated);
 
 			// Update history incrementally
 			yield* SubscriptionRef.set(
@@ -186,14 +186,16 @@ Incremental merge strategy for conversation history:
 Prompt.concat :: Prompt → Prompt → Prompt
 Prompt.fromResponseParts :: Array<StreamPart> → Prompt
 
-// Pattern: checkpoint + incremental merge
+// Pattern: checkpoint + accumulated response fold
+const accumulated: Array<StreamPart> = []
 let combined = Prompt.empty
 
 Stream.mapChunksEffect(function* (chunk) {
   const parts = Array.from(chunk)
+  accumulated.push(...parts)
 
-  // Merge new parts into combined prompt
-  combined = Prompt.concat(combined, Prompt.fromResponseParts(parts))
+  // Fold accumulated parts, not only this chunk, so start/delta/end IDs align
+  combined = Prompt.fromResponseParts(accumulated)
 
   // Update history: base checkpoint + accumulated response
   yield* SubscriptionRef.set(
@@ -210,6 +212,14 @@ Why checkpoint-based merging:
 - Prevents re-merging entire history on each chunk
 - Separates base state (checkpoint) from streaming accumulation (combined)
 - Enables atomic history updates via SubscriptionRef
+- Ensures `Prompt.fromResponseParts` sees matching start/delta/end parts for each `id`
+
+## Tool Streaming, Finish, and Approvals
+
+- With automatic framework tool resolution enabled, `finish` is deferred until tool handler streams complete so emitted tool results appear before finish.
+- `tool-result` parts can be preliminary or final. Use preliminary results for progress updates only; `Prompt.fromResponseParts` skips preliminary results and persists final results.
+- Tools requiring approval emit `tool-approval-request`. Append a matching `Prompt.toolApprovalResponsePart` in a tool message and call the model again; approved/denied responses are pre-resolved into final tool results before the next provider call.
+- In OpenAI-specific SSE code, unknown future events decode through `OpenAiSchema.ResponseStreamEvent` and are ignored by `OpenAiLanguageModel`; malformed known events still fail decoding.
 
 ## Complete Example
 
@@ -255,10 +265,7 @@ const Chat = Effect.gen(function* () {
 								const parts = Array.from(chunk);
 								accumulated.push(...parts);
 
-								combined = Prompt.concat(
-									combined,
-									Prompt.fromResponseParts(parts)
-								);
+								combined = Prompt.fromResponseParts(accumulated);
 
 								yield* SubscriptionRef.set(
 									history,

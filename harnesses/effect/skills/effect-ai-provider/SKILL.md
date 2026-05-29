@@ -55,7 +55,13 @@ import * as AiError from 'effect/unstable/ai/AiError';
 import { AnthropicClient, AnthropicLanguageModel } from '@effect/ai-anthropic';
 
 // OpenAI
-import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai';
+import {
+	OpenAiClient,
+	OpenAiClientGenerated,
+	OpenAiLanguageModel,
+	OpenAiSchema,
+	OpenAiTool
+} from '@effect/ai-openai';
 
 // OpenRouter
 import {
@@ -127,27 +133,58 @@ const OpenAiLive = OpenAiLanguageModel.layer({
 }).pipe(Layer.provide(OpenAiClientLayer));
 ```
 
-## OpenAI-Compatible Providers
+Public OpenAI modules:
 
-Use `@effect/ai-openai` with a custom `transformClient` to point at any OpenAI-compatible API (Azure OpenAI, local models, etc.):
+- `OpenAiSchema` — typed Responses API request/response and SSE event schemas
+- `OpenAiClient` — handwritten service with `createResponse`, `createResponseStream`, and `createEmbedding`
+- `OpenAiClientGenerated` — generated direct endpoint access when you need raw OpenAI API coverage
+- `OpenAiTool` — OpenAI provider-defined tools for native capabilities
 
 ```typescript
-import {
-	OpenAiClient,
-	OpenAiConfig,
-	OpenAiLanguageModel
-} from '@effect/ai-openai';
-import { Config, Effect, Layer } from 'effect';
-import { HttpClient } from 'effect/unstable/http';
+const client = yield* OpenAiClient.OpenAiClient;
+const [body] = yield* client.createResponse({
+	model: 'gpt-4.1',
+	input: 'Say hello'
+});
+```
 
-// Override base URL for OpenAI-compat providers
-const withCustomBaseUrl = OpenAiConfig.withClientTransform(
-	HttpClient.mapRequest(
-		HttpClientRequest.prependUrl('https://my-provider.example.com/v1')
-	)
+### OpenAI Provider-Defined Tools
+
+Use `OpenAiTool` for OpenAI-native tools instead of hand-rolling provider-defined descriptors:
+
+```typescript
+const NativeTools = Toolkit.make(
+	OpenAiTool.WebSearch({}),
+	OpenAiTool.FileSearch({ vector_store_ids: ['vs_123'] }),
+	OpenAiTool.Mcp({
+		server_label: 'docs',
+		server_url: 'https://mcp.example.com/mcp'
+	})
+);
+```
+
+Available hosted/provider tools include `WebSearch`, `CodeInterpreter`, `FileSearch`, `ImageGeneration`, and `Mcp` (`customName: "OpenAiMcp"`). MCP tool approval requests/results use this canonical `OpenAiMcp` name and the normal Effect AI approval request/response parts. Handler-required local tools such as `Shell`, `LocalShell`, and `ApplyPatch` run in your environment; provide handlers only behind explicit sandboxing, authorization, and audit policy.
+
+## OpenAI-Compatible Providers
+
+Use `apiUrl` with `@effect/ai-openai` for OpenAI-compatible APIs (Azure OpenAI, local models, etc.):
+
+```typescript
+import { OpenAiClient, OpenAiConfig } from '@effect/ai-openai';
+import { Config, Layer } from 'effect';
+import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/unstable/http';
+
+const CompatibleClientLayer = OpenAiClient.layerConfig({
+	apiKey: Config.redacted('OPENAI_COMPAT_API_KEY'),
+	apiUrl: Config.succeed('https://my-provider.example.com/v1')
+}).pipe(Layer.provide(FetchHttpClient.layer));
+
+// Keep withClientTransform for middleware/proxy/tracing/header transforms.
+const withAuditHeader = OpenAiConfig.withClientTransform(
+	HttpClient.mapRequest(HttpClientRequest.setHeader('x-audit-source', 'writer'))
 );
 
-const program = myEffect.pipe(withCustomBaseUrl);
+const program = myEffect.pipe(withAuditHeader);
 ```
 
 ## OpenRouter Provider
@@ -192,9 +229,9 @@ const DraftPlan = ExecutionPlan.make(
 	}
 );
 
-// Inside a Layer.effect, call withRequirements to resolve the plan
-const draftsModel = yield* DraftPlan.withRequirements;
-// This moves client requirements into the Layer's requirements
+// Inside a Layer.effect, call captureRequirements to capture current services
+const draftsModel = yield* DraftPlan.captureRequirements;
+// This satisfies the plan's client requirements from the current context
 
 // Apply the plan to an effect
 const result = yield* myEffect.pipe(Effect.withExecutionPlan(draftsModel));
@@ -269,10 +306,16 @@ const result2 =
 	yield*
 	model.generateText({ prompt: '...' }).pipe(
 		OpenAiLanguageModel.withConfigOverride({
-			temperature: 0.9
+			temperature: 0.9,
+			reasoning: { effort: 'medium', summary: 'auto' },
+			text: { verbosity: 'low' },
+			strictJsonSchema: true,
+			fileIdPrefixes: ['file-']
 		})
 	);
 ```
+
+`OpenAiLanguageModel.Config` accepts Responses API request fields plus `fileIdPrefixes`, `text.verbosity`, restored `reasoning` config, and `strictJsonSchema`. Do not manually send library-only fields (`fileIdPrefixes`, `strictJsonSchema`) to OpenAI APIs; the language model strips them before request construction.
 
 ## Model.make — Model Abstraction
 
@@ -315,8 +358,8 @@ export class AiWriter extends Context.Service<
 	static readonly layer = Layer.effect(
 		AiWriter,
 		Effect.gen(function* () {
-			const model =
-				yield* AnthropicLanguageModel.model('claude-opus-4-6');
+			const model = AnthropicLanguageModel.model('claude-opus-4-6');
+			const modelLayer = yield* model.captureRequirements;
 
 			const draftAnnouncement = Effect.fn('AiWriter.draftAnnouncement')(
 				function* (product: string) {
@@ -326,7 +369,7 @@ export class AiWriter extends Context.Service<
 					});
 					return response.text;
 				},
-				Effect.provide(model),
+				Effect.provide(modelLayer),
 				Effect.mapError((e) => AiWriterError.fromAiError(e))
 			);
 
@@ -364,7 +407,7 @@ export class MyAiError extends Schema.TaggedErrorClass<MyAiError>()(
 | ----------------------- | ------------- | ----------------------------------------------- |
 | `@effect/ai-anthropic`  | Anthropic     | Claude Opus 4, Claude Sonnet 4, etc.            |
 | `@effect/ai-openai`     | OpenAI        | GPT-5, GPT-4.1, o-series, etc.                  |
-| `@effect/ai-openai`     | OpenAI-Compat | Any OpenAI-compatible API via `transformClient` |
+| `@effect/ai-openai`     | OpenAI-Compat | Any OpenAI-compatible API via `apiUrl`          |
 | `@effect/ai-openrouter` | OpenRouter    | Multi-provider proxy (any model ID)             |
 
 **Note**: There are no `@effect/ai-google` or `@effect/ai-amazon-bedrock` packages. Use OpenRouter to access Google/Bedrock models.
@@ -449,8 +492,9 @@ export class AiWriter extends Context.Service<
 	static readonly layer = Layer.effect(
 		AiWriter,
 		Effect.gen(function* () {
-			const draftsModel = yield* DraftPlan.withRequirements;
-			const chatModel = yield* OpenAiLanguageModel.model('gpt-4.1');
+			const draftsModel = yield* DraftPlan.captureRequirements;
+			const chatModel = OpenAiLanguageModel.model('gpt-4.1');
+			const chatModelLayer = yield* chatModel.captureRequirements;
 
 			// --- Chat session with history ---
 			const session = yield* Chat.fromPrompt(
@@ -476,7 +520,7 @@ export class AiWriter extends Context.Service<
 				function* (message: string) {
 					const response = yield* session
 						.generateText({ prompt: message })
-						.pipe(Effect.provide(chatModel));
+						.pipe(Effect.provide(chatModelLayer));
 					const history = yield* Ref.get(session.history);
 					yield* Effect.logInfo(
 						`History: ${history.content.length} messages`
@@ -495,7 +539,7 @@ export class AiWriter extends Context.Service<
 							part.type === 'text-delta'
 					),
 					Stream.map((part) => part.delta),
-					Stream.provide(chatModel),
+					Stream.provide(chatModelLayer),
 					Stream.mapError((e) => WriterError.fromAiError(e))
 				);
 
@@ -562,6 +606,8 @@ import { BedrockClient } from '@effect/ai-amazon-bedrock'; // Does NOT exist
 - [ ] Use `.model()` constructor for `ExecutionPlan` and `Effect.provide`
 - [ ] Use `ExecutionPlan` for multi-provider fallback with retry
 - [ ] Use `withConfigOverride` for per-effect config adjustments
+- [ ] Use `apiUrl` for OpenAI-compatible base URLs; reserve client transforms for middleware/proxy/tracing/headers
+- [ ] Use `OpenAiTool` for OpenAI provider-defined tools
 - [ ] Use `Chat.fromPrompt` / `Chat.empty` / `Chat.fromJson` (not `Chat.make`)
 - [ ] Wrap `AiError` into domain-specific `TaggedErrorClass`
 - [ ] Use `Context.Service` with shape type parameter for service definitions
