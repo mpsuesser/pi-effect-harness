@@ -1,6 +1,6 @@
 ---
 name: effect-workflow
-description: Build durable workflows with Effect using Workflow, Activity, DurableClock, and DurableDeferred for execution that survives restarts, supports compensation (saga pattern), and integrates with Effect Cluster for distribution.
+description: Build durable workflows with Effect using Workflow, Activity, DurableClock, DurableDeferred, and DurableQueue for execution that survives restarts, supports compensation (saga pattern), and integrates with Effect Cluster for distribution.
 ---
 
 You are an Effect TypeScript expert specializing in durable workflow execution using the `effect/unstable/workflow` module.
@@ -17,6 +17,7 @@ Key source files:
 - `packages/effect/src/unstable/workflow/WorkflowEngine.ts` — Engine service, in-memory layer, encoded interface
 - `packages/effect/src/unstable/workflow/DurableClock.ts` — Durable sleep/timers
 - `packages/effect/src/unstable/workflow/DurableDeferred.ts` — Durable signal/wait, tokens, done/succeed/fail
+- `packages/effect/src/unstable/workflow/DurableQueue.ts` — Durable queue handing work to persisted background workers
 
 ## IMPORTANT: Unstable API
 
@@ -28,7 +29,8 @@ import {
 	Activity,
 	WorkflowEngine,
 	DurableClock,
-	DurableDeferred
+	DurableDeferred,
+	DurableQueue
 } from 'effect/unstable/workflow';
 ```
 
@@ -44,6 +46,7 @@ Activity  →  a discrete unit of work inside a workflow (results are persisted)
 WorkflowEngine  →  orchestrates execution, replay, suspension, resumption
 DurableClock  →  sleep/timer that persists across restarts
 DurableDeferred  →  wait-for-external-signal that persists across restarts
+DurableQueue  →  hand work to a persisted background worker and await its result
 ```
 
 ## Workflow Definition
@@ -154,9 +157,9 @@ const validateRecipient = Activity.make({
 });
 ```
 
-### Activity is Yieldable
+### Activity is an Effect
 
-An `Activity` implements `Effect.Yieldable`, so you can yield it directly inside a workflow handler:
+An `Activity` extends `Effect.Effect` (it is implemented via `Effectable.Prototype`), so you can yield it directly inside a workflow handler:
 
 ```ts
 const handler = SendEmail.toLayer((payload, executionId) =>
@@ -183,10 +186,10 @@ const sendWithRetry = Activity.make({
 
 `Activity.retry` accepts the same options as `Effect.retry` *minus* `schedule` — the activity owns the attempt counter, so retries are attempt-based (`times`, `until`, `while`, `catch`, etc.) rather than schedule-based.
 
-Note: when piping an activity through combinators like `retry` or `withCompensation`, you may need `.asEffect()` first because activities are `Effect.Yieldable`, not bare `Effect`s:
+Because an `Activity` *is* an `Effect`, pipe it directly through compensation/retry combinators — there is no `.asEffect()` method (`Effect.Yieldable` was removed in beta.66):
 
 ```ts
-yield* SomeActivity.asEffect().pipe(
+yield* SomeActivity.pipe(
 	workflow.withCompensation((value, cause) => rollback(value)),
 	Activity.retry({ times: 5 })
 );
@@ -379,6 +382,76 @@ const result =
 	});
 ```
 
+## DurableQueue — Hand Work to Background Workers
+
+`DurableQueue` lets a workflow delegate a unit of work to a **persisted background worker** and suspend until the worker records a result. The workflow calls `process` to enqueue an item and wait; a separate worker created with `worker` / `makeWorker` takes the item, runs the handler, and completes the waiting workflow through a `DurableDeferred` token.
+
+```ts
+import { DurableQueue, Workflow, WorkflowEngine } from 'effect/unstable/workflow';
+import { PersistedQueue } from 'effect/unstable/persistence';
+import { Effect, Layer, Schema } from 'effect';
+```
+
+### Defining a queue — `DurableQueue.make`
+
+```ts
+const ApiQueue = DurableQueue.make({
+	name: 'ApiQueue',
+	payload: { id: Schema.String },
+	success: Schema.Void, // default Schema.Void
+	error: Schema.Never, // default Schema.Never
+	idempotencyKey: (payload) => payload.id
+});
+```
+
+The `name`, the payload/success/error schemas, and the `idempotencyKey` are **persisted coordination state**. Keep them deterministic and stable across deployments — changing them is a persistence migration. The `idempotencyKey` becomes the persisted queue item id.
+
+### Producing — `DurableQueue.process`
+
+Call `process` from inside a workflow handler. It encodes the payload, offers it to the persisted queue with a deferred token, suspends the workflow, and resumes with the worker's typed success or error:
+
+```ts
+const MyWorkflowLayer = MyWorkflow.toLayer((payload) =>
+	Effect.gen(function* () {
+		yield* DurableQueue.process(ApiQueue, { id: 'api-call-1' });
+		// resumes here once a worker records the result
+	})
+);
+```
+
+`process(queue, payload, { retrySchedule? })` requires **`WorkflowEngine | WorkflowInstance | PersistedQueue.PersistedQueueFactory`** in context — it runs as activity-style work *inside* a running workflow. `retrySchedule` only governs retries of transient `PersistedQueueError`s while offering the item, not the handler.
+
+### Consuming — `DurableQueue.worker` / `makeWorker`
+
+`worker` returns a `Layer` that forks background workers; `makeWorker` returns the underlying `Effect<never>` if you want to fork it yourself:
+
+```ts
+const ApiWorker = DurableQueue.worker(
+	ApiQueue,
+	(payload) => Effect.log(`processing ${payload.id}`),
+	{ concurrency: 5 } // process up to 5 items concurrently; default 1
+);
+```
+
+`worker` / `makeWorker` require **`WorkflowEngine | PersistedQueue.PersistedQueueFactory`** (plus the handler's own `R`). Note they do **not** require `WorkflowInstance`, unlike `process` — workers run outside any single workflow instance.
+
+### Service requirements & idempotency
+
+Provide a `PersistedQueueFactory`. Tests wire the in-memory store:
+
+```ts
+const PersistedQueueLayer = PersistedQueue.layer.pipe(
+	Layer.provideMerge(PersistedQueue.layerStoreMemory)
+);
+
+const AppLayer = Layer.mergeAll(MyWorkflowLayer, ApiWorker).pipe(
+	Layer.provideMerge(WorkflowEngine.layerMemory),
+	Layer.provideMerge(PersistedQueueLayer)
+);
+```
+
+Delivery is **at least once** per the backing `PersistedQueue`, so worker handlers must be **idempotent** and tolerate retries, duplicate observations, and worker restarts.
+
 ## Compensation (Saga Pattern)
 
 `Workflow.withCompensation` registers rollback logic that runs if the **entire workflow** fails. This enables the saga pattern for distributed transactions.
@@ -491,6 +564,19 @@ const WorkflowsLayer = Layer.mergeAll(
 
 The `ClusterWorkflowEngine` requires `Sharding | MessageStorage` in context; both come from any of the cluster runtime bundles. See the `effect-rpc-cluster` skill for cluster setup.
 
+#### Workflow shard-group routing
+
+A workflow can be annotated with `ClusterSchema.ShardGroup` (from `effect/unstable/cluster`), exactly like an entity:
+
+```ts
+import { ClusterSchema } from 'effect/unstable/cluster';
+
+const OrderWorkflow = Workflow.make({ /* ... */ })
+	.annotate(ClusterSchema.ShardGroup, () => 'workflow');
+```
+
+`ClusterWorkflowEngine` reads that annotation when computing the workflow entity's address, so the workflow's entity messages, durable clock wake-ups, and registered durable-deferred completions all route through the owning workflow's shard group. If you use any group other than `'default'`, you must include it on the appropriate runners via `ShardingConfig.availableShardGroups` / `assignedShardGroups` (e.g. `['default', 'workflow']`) — otherwise those messages have nowhere to land. See the `effect-rpc-cluster` skill for `ShardingConfig` details.
+
 ### Custom Engine Implementation
 
 For production, implement the `WorkflowEngine.Encoded` interface and use `WorkflowEngine.makeUnsafe`:
@@ -498,9 +584,17 @@ For production, implement the `WorkflowEngine.Encoded` interface and use `Workfl
 ```ts
 const engine = WorkflowEngine.makeUnsafe({
   register: (workflow, execute) => ...,
-  execute: (workflow, options) => ...,
+  // execute receives { executionId, payload, discard, parent? }. The engine
+  // passes `parent` even for discard executions, so child interruption links
+  // back to the parent workflow before the deterministic execution id returns.
+  execute: (workflow, { executionId, payload, discard, parent }) => ...,
   poll: (workflow, executionId) => ...,
   interrupt: (workflow, executionId) => ...,
+  // Required by beta.74 WorkflowEngine.Encoded. interruptUnsafe is a more
+  // direct stop that CAN bypass compensation and parent/child cleanup
+  // guarantees that `interrupt` upholds — prefer `interrupt` unless you
+  // explicitly need the harder stop.
+  interruptUnsafe: (workflow, executionId) => ...,
   resume: (workflow, executionId) => ...,
   activityExecute: (activity, attempt) => ...,
   deferredResult: (deferred) => ...,

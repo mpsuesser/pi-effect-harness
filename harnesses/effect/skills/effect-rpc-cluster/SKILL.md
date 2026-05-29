@@ -367,6 +367,23 @@ Note: the option is `client: ServerClient`, not `clientId: number`. `ServerClien
 
 Entity handlers have a *different* signature — see the Entity section.
 
+### Deferred responses
+
+A non-stream handler may return an `Effect` that succeeds with a `Deferred<Success, Error>` instead of the success value directly. The server acknowledges the request but **does not send the final `Exit`** until that `Deferred` completes — useful when the result depends on a later external event and you don't want to hold a streaming connection open:
+
+```ts
+import { Deferred, Effect } from 'effect';
+
+GetUserDeferred: () => {
+	const deferred = Deferred.makeUnsafe<User>();
+	// complete it later — e.g. from a webhook, another fiber, or a queue worker
+	Deferred.doneUnsafe(deferred, Effect.succeed(new User({ id: '1', name: 'John' })));
+	return Effect.succeed(deferred);
+};
+```
+
+The client still sees a plain `Effect<Success, Error>`; the deferred round-trip is invisible on the wire.
+
 ### `group.toLayer(handlers | Effect<handlers>)`
 
 The 80% case. Build all handlers and turn the result into a Layer that the server picks up:
@@ -1234,11 +1251,26 @@ When the bundles aren't quite right, assemble from the primitives:
 `ShardingConfig` defaults are sane:
 
 - `shardsPerGroup: 300` — keep consistent across all runners
+- `availableShardGroups: ['default']` — every shard group that exists across the whole cluster
+- `assignedShardGroups: ['default']` — the subset of those groups this runner is allowed to own
 - `entityMaxIdleTime: 1 minute`
 - `entityMailboxCapacity: 4096`
 - `entityTerminationTimeout: 15 seconds` — k8s-friendly
 - `preemptiveShutdown: true` — drain on entity shutdown
 - `runnerShardWeight: 1` — relative shard allocation
+
+`availableShardGroups` is **cluster-wide** and must be identical on every runner that shares the same storage backend — shard and advisory-lock numbering is derived from it. `assignedShardGroups` is per-runner and is filtered against `availableShardGroups`, so a runner only ever owns groups that appear in *both*. If your code routes entities or workflows to a non-`default` `ClusterSchema.ShardGroup`, that group must be in `availableShardGroups` everywhere and in `assignedShardGroups` on the runners meant to host it:
+
+```ts
+import { ShardingConfig } from 'effect/unstable/cluster';
+
+const Config = ShardingConfig.layer({
+	availableShardGroups: ['default', 'workflow'], // cluster-wide; same on all runners
+	assignedShardGroups: ['default', 'workflow'] // this runner may own both groups
+});
+```
+
+Under `layerFromEnv` (which constant-cases env keys) these read from `AVAILABLE_SHARD_GROUPS` and `SHARD_GROUPS` — note the assigned-groups env key is `SHARD_GROUPS`, not `ASSIGNED_SHARD_GROUPS`.
 
 `ShardingConfig.config` is the `Config<ShardingConfig['Service']>` you can compose with other configs in `layerFromEnv`.
 
@@ -1279,7 +1311,7 @@ const ApiLayer = HttpApiBuilder.layer(Api).pipe(
 );
 ```
 
-The generated rpc/endpoint payload is `{ entityId: string, payload: <original payload> }`. Errors include the original error type plus `MailboxFull | AlreadyProcessingMessage | PersistenceError`.
+The generated **RPC** payload wraps the original payload as `{ entityId: string, payload: <original payload> }`. The generated **HTTP** endpoints are shaped differently: `entityId` is a route param (`POST /counter/increment/:entityId`) read server-side via `params.entityId`, and the request **body** is the original payload directly — there is no `{ entityId, payload }` wrapper over HTTP. Either way, errors include the original error type plus `MailboxFull | AlreadyProcessingMessage | PersistenceError`.
 
 ### `WorkflowProxy` — workflow → RPC / HTTP
 
@@ -1302,7 +1334,7 @@ class Api extends HttpApi.make('api')
 {}
 ```
 
-Use `prefix` on `toRpcGroup({ prefix: 'wf.' })` to namespace the generated rpcs.
+To namespace the generated rpcs, pass `prefix` as the **second** argument: `WorkflowProxy.toRpcGroup(myWorkflows, { prefix: 'wf.' })`. The server handlers must use the same prefix: `WorkflowProxyServer.layerRpcHandlers(myWorkflows, { prefix: 'wf.' })`.
 
 These proxies are how you give a frontend or an external system a typed RPC/HTTP surface that drives durable workflows, without leaking workflow-engine internals.
 
@@ -1322,7 +1354,20 @@ const WorkflowsLayer = Layer.mergeAll(
 // then provide ClusterLayer (NodeClusterSocket.layer / SingleRunner.layer / etc.)
 ```
 
-See the `effect-workflow` skill for the full `Workflow` / `Activity` / `DurableClock` / `DurableDeferred` API surface.
+### Workflow shard-group routing
+
+A workflow can be annotated with `ClusterSchema.ShardGroup`, exactly like an entity:
+
+```ts
+import { ClusterSchema } from 'effect/unstable/cluster';
+
+const OrderWorkflow = Workflow.make({ /* ... */ })
+	.annotate(ClusterSchema.ShardGroup, () => 'workflow');
+```
+
+`ClusterWorkflowEngine` reads that annotation when computing the workflow entity's address, so the workflow's entity messages, durable clock wake-ups, and registered durable-deferred completions all route through the owning workflow's shard group. Any non-`default` group must appear in `ShardingConfig.availableShardGroups` cluster-wide and in `assignedShardGroups` on the runners meant to host it (e.g. `['default', 'workflow']`), or those messages have nowhere to land.
+
+See the `effect-workflow` skill for the full `Workflow` / `Activity` / `DurableClock` / `DurableDeferred` / `DurableQueue` API surface.
 
 ## Reactive frontend — `AtomRpc`
 
