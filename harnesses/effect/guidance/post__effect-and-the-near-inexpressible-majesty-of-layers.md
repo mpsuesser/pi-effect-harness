@@ -170,9 +170,12 @@ Think of a `Layer` as an effectful constructor for our service. Here we define a
 const featureFlagsTestLayer = (
 	...enabled: string[]
 ): Layer.Layer<FeatureFlags> =>
-	Layer.succeed(FeatureFlags, {
-		isEnabled: (flag) => Effect.succeed(enabled.includes(flag))
-	});
+	Layer.succeed(
+		FeatureFlags,
+		FeatureFlags.of({
+			isEnabled: (flag) => Effect.succeed(enabled.includes(flag))
+		})
+	);
 ```
 
 Our layer is defined as a function so that we can provide different sets of flags on a per-test basis. `Layer.succeed` is used because we're directly providing a concrete implementation (this mirrors `Effect.succeed`). We must pass our `FeatureFlags` tag as the first argument for reasons we'll get into later; for now, please accept this as part of the ritual.
@@ -207,7 +210,7 @@ const pricingLayer = Layer.effect(
 		});
 
 		// 4. Return the implementation
-		return { getPrice };
+		return Pricing.of({ getPrice });
 	})
 );
 ```
@@ -236,7 +239,7 @@ const useConfigFunction: (config: Config) => string = ...
 //                      ^^^^^^    ^^^^^^
 //                      requires  returns
 
-const useConfigEffect: Effect<string, never, Config> = ...
+const useConfigEffect: Effect.Effect<string, never, Config> = ...
 //                    ^^^^^^         ^^^^^^
 //                    returns        requires
 ```
@@ -250,7 +253,7 @@ const result: string = useConfigFunction(config)
 //            fully satisfied
 
 const configLayer: Layer.Layer<Config> = ...
-const effect: Effect<string, never, never> = useConfigEffect.pipe(Effect.provide(configLayer))
+const effect: Effect.Effect<string, never, never> = useConfigEffect.pipe(Effect.provide(configLayer))
 //                                  ^^^^^
 //                                  fully satisfied
 ```
@@ -260,7 +263,7 @@ One difference worth noting is that calling a function executes it immediately, 
 ```typescript
 const thunk: () => string = () => useConfigFunction(config);
 
-const effect: Effect<string> = useConfigEffect.pipe(
+const effect: Effect.Effect<string> = useConfigEffect.pipe(
 	Effect.provide(configLayer)
 );
 ```
@@ -279,14 +282,20 @@ class Random extends Context.Service<
 Next, we give it an implementation. Actually, let's give it two: a real one that delegates to `Math.random`, and a fixed one for testing that always returns whatever number you give it.
 
 ```typescript
-const randomLayer = Layer.succeed(Random, {
-	nextNumber: Effect.sync(() => Math.random())
-});
+const randomLayer = Layer.succeed(
+	Random,
+	Random.of({
+		nextNumber: Effect.sync(() => Math.random())
+	})
+);
 
 const fixedRandomLayer = (n: number) =>
-	Layer.succeed(Random, {
-		nextNumber: Effect.succeed(n)
-	});
+	Layer.succeed(
+		Random,
+		Random.of({
+			nextNumber: Effect.succeed(n)
+		})
+	);
 ```
 
 Finally, we define a program that uses the `Random` service:
@@ -310,7 +319,7 @@ To satisfy the requirement, we use `Effect.provide` and pass in our `Math.random
 
 ```typescript
 const effect = coinFlip.pipe(Effect.provide(randomLayer));
-// effect: Effect<string, never, never>
+// effect: Effect.Effect<string, never, never>
 //                               ^^^^^ ready to run!
 ```
 
@@ -335,7 +344,7 @@ And to complete our tangent, we should cover what happens when a layer for a ser
 We could, just for fun, define an implementation of `Random` that asks the user to input a number via a terminal prompt. Let's implement this with Effect's `Terminal` service:
 
 ```typescript
-import { Terminal } from '@effect/platform';
+import { Terminal } from 'effect';
 
 const terminalRandomLayer = Layer.effect(
 	Random,
@@ -352,7 +361,7 @@ const terminalRandomLayer = Layer.effect(
 			return n;
 		}).pipe(Effect.eventually); // keep asking until valid
 
-		return { nextNumber };
+		return Random.of({ nextNumber });
 	})
 );
 // terminalRandomLayer: Layer.Layer<Random, never, Terminal.Terminal>

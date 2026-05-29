@@ -146,8 +146,9 @@ Every turn while mode is enabled, `InjectEffectPolicyHeader` emits a `Decision.I
 | File | Contents |
 |---|---|
 | `effect-first-development.md` | The full Effect-first specification: 40+ numbered laws (EF-1 … EF-40) covering tagged errors, `Option`, schema, canonical imports, `Match`, services & layers, `Clock`, observability, `Duration`, JSON via `Schema`, scoped resources, retries, timeouts, structured concurrency, parallel concurrency, `Config`, `Redacted`, defects vs. failures, layer memoization isolation, schema-first domain modeling, schema defaults, branded guards, equivalence, transformations, native sort, dual APIs. Followed by copy-paste templates and a 45-item LLM review checklist. |
-| `progressive-disclosure-guidance.md` | Short, imperative agent rules: "load AT LEAST 5 effect-\* skills before any Effect work; if anything is unclear, read from `~/.cache/effect-v4/`." |
 | `post__effect-and-the-near-inexpressible-majesty-of-layers.md` | A long-form essay defending Effect's `Layer` type. Included for the same reason a system prompt cites a style guide: priors matter. |
+| `post__parse-dont-validate.md` | A long-form essay on type-driven design: push parsing to boundaries, refine data into more precise types, and make illegal states unrepresentable instead of re-checking validated-but-unrefined inputs. |
+| `progressive-disclosure-guidance.md` | Short, imperative agent rules: "load AT LEAST 5 effect-\* skills before any Effect work; if anything is unclear, read from `~/.cache/effect-v4/`." It includes the reference clone's generated AI docs, major user-facing guides, cookbook material, and source directory. |
 
 Followed by a runtime line:
 
@@ -156,9 +157,17 @@ pi-effect-harness policy:
 - Before planning or writing Effect code, read at least 5 relevant effect-* skills.
   Loaded on this branch: 3/5 (effect-error-handling, effect-layer-design, effect-schema-v4).
 - If any Effect v4 API is unclear, read from the local Effect reference clone instead of guessing.
-- Key reference paths: ~/.cache/effect-v4/LLMS.md, ~/.cache/effect-v4/MIGRATION.md,
-  ~/.cache/effect-v4/packages/effect/SCHEMA.md, ~/.cache/effect-v4/packages/effect/HTTPAPI.md,
-  ~/.cache/effect-v4/packages/effect/src/.
+- Key reference paths:
+  - ~/.cache/effect-v4/LLMS.md — generated task-oriented guide and example index
+  - ~/.cache/effect-v4/ai-docs/src/ — source examples behind LLMS.md, organized by topic
+  - ~/.cache/effect-v4/packages/effect/SCHEMA.md — Schema reference
+  - ~/.cache/effect-v4/packages/effect/HTTPAPI.md — HttpApi, HttpApiClient, and HttpApiBuilder reference
+  - ~/.cache/effect-v4/packages/effect/CONFIG.md — Config and ConfigProvider reference
+  - ~/.cache/effect-v4/packages/effect/MCP.md — MCP server reference
+  - ~/.cache/effect-v4/packages/effect/OPTIC.md — Optic reference
+  - ~/.cache/effect-v4/packages/vitest/README.md — @effect/vitest testing reference
+  - ~/.cache/effect-v4/cookbooks/schedule.md — Schedule recipes and traps
+  - ~/.cache/effect-v4/packages/effect/src/ — source of truth for every exported module
 ```
 
 The skill preview is sorted, capped at 5 names, with `(+N more)` for overflow. The full guidance is loaded once at layer construction and re-emitted from memory each turn.
@@ -223,7 +232,7 @@ Properties:
 - **Single-flight**: a module-level `clonePromise` deduplicates concurrent invocations across hooks, and a lightweight cache lock avoids cross-process clone/update races.
 - **Fail-silent**: a clone or refresh failure (no network, git not on PATH) never blocks the agent. The harness continues without the reference; the policy header still tells the agent the paths to look for.
 
-The agent doesn't have to know any of this. It sees `~/.cache/effect-v4/LLMS.md` and `~/.cache/effect-v4/packages/effect/SCHEMA.md` mentioned in the policy header, and reads them like any other file.
+The agent doesn't have to know any of this. It sees the generated docs, major user-facing guides, cookbook material, and source directory from `~/.cache/effect-v4/` mentioned in the policy header, and reads them like any other file.
 
 ---
 
@@ -457,4 +466,5 @@ The harness is built on a small internal kernel (`packages/harness-kit`) that wr
 - [Effect](https://effect.website) — what this extension is opinionated about.
 - [`Effect-TS/effect-smol`](https://github.com/Effect-TS/effect-smol) — the source the reference clone tracks.
 - [Kit Langton (@kitlangton)](https://x.com/kitlangton/status/2016945444312498340) — primary source for the "near-inexpressible majesty of layers" guidance essay.
+- [Alexis King, "Parse, don’t validate"](https://lexi-lambda.github.io/blog/2019/11/05/parse-don-t-validate/) — source for the `post__parse-dont-validate.md` guidance essay.
 - [`kriegcloud/beep-effect`](https://github.com/kriegcloud/beep-effect/blob/main/standards/effect-first-development.md) — the earliest version of the `effect-first-development` guidance doc was sourced from here.

@@ -14,11 +14,46 @@ import { Pattern } from 'pi-harness-kit/Pattern.ts';
 import { MIN_EFFECT_SKILLS } from '../constants.ts';
 
 const EFFECT_REFERENCE_HINTS = [
-	'~/.cache/effect-v4/LLMS.md',
-	'~/.cache/effect-v4/MIGRATION.md',
-	'~/.cache/effect-v4/packages/effect/SCHEMA.md',
-	'~/.cache/effect-v4/packages/effect/HTTPAPI.md',
-	'~/.cache/effect-v4/packages/effect/src/'
+	{
+		path: '~/.cache/effect-v4/LLMS.md',
+		description: 'generated task-oriented guide and example index'
+	},
+	{
+		path: '~/.cache/effect-v4/ai-docs/src/',
+		description: 'source examples behind LLMS.md, organized by topic'
+	},
+	{
+		path: '~/.cache/effect-v4/packages/effect/SCHEMA.md',
+		description: 'Schema reference'
+	},
+	{
+		path: '~/.cache/effect-v4/packages/effect/HTTPAPI.md',
+		description: 'HttpApi, HttpApiClient, and HttpApiBuilder reference'
+	},
+	{
+		path: '~/.cache/effect-v4/packages/effect/CONFIG.md',
+		description: 'Config and ConfigProvider reference'
+	},
+	{
+		path: '~/.cache/effect-v4/packages/effect/MCP.md',
+		description: 'MCP server reference'
+	},
+	{
+		path: '~/.cache/effect-v4/packages/effect/OPTIC.md',
+		description: 'Optic reference'
+	},
+	{
+		path: '~/.cache/effect-v4/packages/vitest/README.md',
+		description: '@effect/vitest testing reference'
+	},
+	{
+		path: '~/.cache/effect-v4/cookbooks/schedule.md',
+		description: 'Schedule recipes and traps'
+	},
+	{
+		path: '~/.cache/effect-v4/packages/effect/src/',
+		description: 'source of truth for every exported module'
+	}
 ] as const;
 
 const patternOrder = Order.mapInput(
@@ -73,7 +108,10 @@ export const buildPolicyHeader = (
 			String(loadedCount)
 		}/${String(MIN_EFFECT_SKILLS)} (${loadedPreview}).`,
 		'- If any Effect v4 API is unclear, read from the local Effect reference clone instead of guessing.',
-		`- Key reference paths: ${EFFECT_REFERENCE_HINTS.join(', ')}.`
+		'- Key reference paths:',
+		...EFFECT_REFERENCE_HINTS.map(
+			(reference) => `  - ${reference.path} — ${reference.description}`
+		)
 	].join('\n');
 };
 

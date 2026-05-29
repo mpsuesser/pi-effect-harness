@@ -10,7 +10,10 @@ import * as NodePath from '@effect/platform-node/NodePath';
 import { describe, expect, it } from '@effect/vitest';
 import { Effect, FileSystem, Layer, Path } from 'effect';
 
-import { GuidanceCatalog } from '../src/services/GuidanceCatalog.ts';
+import {
+	buildPolicyHeader,
+	GuidanceCatalog
+} from '../src/services/GuidanceCatalog.ts';
 
 const nodePlatformLayer = Layer.mergeAll(
 	NodeFileSystem.layer,
@@ -57,10 +60,38 @@ describe('guidance docs injection', () => {
 			docHeadlines.forEach((headline) => {
 				expect(header).toContain(headline);
 			});
+			expect(header).toContain('# Parse, don’t validate');
 			expect(header).toContain('pi-effect-harness policy:');
 			expect(header.indexOf('pi-effect-harness policy:'))
 				.toBeGreaterThan(0);
 		}).pipe(
 			Effect.provide(Layer.merge(guidanceCatalogLayer, nodePlatformLayer))
 		));
+
+	it('points agents at the current Effect reference docs', () => {
+		const header = buildPolicyHeader(new Set());
+
+		expect(header).toContain('~/.cache/effect-v4/LLMS.md');
+		expect(header).toContain('~/.cache/effect-v4/ai-docs/src/');
+		expect(header).toContain(
+			'~/.cache/effect-v4/packages/effect/SCHEMA.md'
+		);
+		expect(header).toContain(
+			'~/.cache/effect-v4/packages/effect/HTTPAPI.md'
+		);
+		expect(header).toContain(
+			'~/.cache/effect-v4/packages/effect/CONFIG.md'
+		);
+		expect(header).toContain('~/.cache/effect-v4/packages/effect/MCP.md');
+		expect(header).toContain('~/.cache/effect-v4/packages/effect/OPTIC.md');
+		expect(header).toContain(
+			'~/.cache/effect-v4/packages/vitest/README.md'
+		);
+		expect(header).toContain('~/.cache/effect-v4/cookbooks/schedule.md');
+		expect(header).toContain('~/.cache/effect-v4/packages/effect/src/');
+		expect(header).not.toContain('~/.cache/effect-v4/MIGRATION.md');
+		expect(header).not.toContain('~/.cache/effect-v4/migration/');
+		expect(header).not.toContain('~/.cache/effect-v4/.specs/');
+		expect(header).not.toContain('~/.cache/effect-v4/.patterns/');
+	});
 });
