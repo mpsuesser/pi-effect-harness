@@ -241,10 +241,10 @@ it.effect('should receive published events', () =>
 		// 1. Fork the consumer
 		yield* bus.subscribe(FileChanged).pipe(
 			Stream.runForEach((evt) =>
-				Effect.sync(() => {
+				Effect.gen(function* () {
 					received.push(evt.path);
 					if (received.length === 2) {
-						Deferred.unsafeDone(done, Effect.void);
+						yield* Deferred.succeed(done, undefined);
 					}
 				})
 			),
@@ -268,15 +268,16 @@ it.effect('should receive published events', () =>
 
 **Notes:**
 
-- `Deferred.unsafeDone` (not `Deferred.succeed`) is used inside `Effect.sync` blocks because the caller is in a synchronous context.
+- The `runForEach` handler is effectful, so complete the gate with `yield* Deferred.succeed(done, undefined)`. There is no `Deferred.unsafeDone` in v4; reach for the low-level `Deferred.doneUnsafe(done, Effect.void)` only inside a truly synchronous callback that has no surrounding effect.
 - The tiny sleep above is an acceptable fallback for `Stream.fromPubSub` registration when no explicit readiness hook exists. If you control the consumer stream, prefer a readiness `Deferred` or latch instead.
+- To drain a `PubSub` subscription for assertions, prefer `PubSub.takeUpTo(sub, n)`: it returns immediately with whatever is buffered (possibly an empty array). `PubSub.takeAll(sub)` **suspends when the subscription is empty** and returns a `NonEmptyArray`, so it cannot be used to assert “no more events” — it would hang waiting for one.
 
 ## PubSub Configuration
 
 ### Bounded vs Unbounded
 
 ```typescript
-// Unbounded — no backpressure, events never dropped
+// Unbounded — no capacity limit / backpressure for active subscribers
 const ps = yield* PubSub.unbounded<Event>();
 
 // Bounded — applies backpressure when full
@@ -287,14 +288,20 @@ const ps = yield* PubSub.sliding<Event>(1024);
 
 // Dropping — drops newest events when full
 const ps = yield* PubSub.dropping<Event>(1024);
+
+// Optional replay buffer: late subscribers first receive the most recent N values
+const withReplay = yield* PubSub.unbounded<Event>({ replay: 10 });
+const boundedReplay = yield* PubSub.bounded<Event>({ capacity: 1024, replay: 10 });
 ```
 
 Choose based on your use case:
 
-- **`unbounded`** — default for event buses where no event should be lost
+- **`unbounded`** — no capacity limit or backpressure; nothing is dropped for subscribers that are already attached
 - **`bounded`** — when backpressure is acceptable and memory must be bounded
 - **`sliding`** — when the latest events matter most (metrics, status updates)
 - **`dropping`** — when burst absorption is needed but current events take priority
+
+**PubSub is not an event log.** Messages are delivered to *active* subscribers only. A subscriber that attaches after a value was published does not see that value unless a `replay` buffer is configured, and `replay` only retains the most recent N values — it is bounded, recent-only, and not durable storage. If you need every consumer to observe the full history, subscribe before publishing (see the testing choreography above) or persist events separately.
 
 ## DO / DON'T
 

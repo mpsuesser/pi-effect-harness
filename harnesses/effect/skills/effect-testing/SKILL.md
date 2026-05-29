@@ -303,6 +303,8 @@ layer(DatabaseLayer)((it) => {
 });
 ```
 
+A nested `it.layer` suite **reuses** the parent suite's memoized layer allocations rather than rebuilding them. As of beta.67, each nested suite also **forks its own memo map**, so layers allocated locally inside one nested suite are isolated from sibling nested suites and are released independently when that suite finishes. The practical effect: shared parent layers (e.g. `DatabaseLayer`) are built once and reused, while sibling-local allocations do not leak across siblings even in concurrent suites.
+
 ### Excluding Test Services
 
 Use live services instead of test services:
@@ -1074,6 +1076,8 @@ Key differences from `@effect/vitest`:
 - Use `Effect.runPromise` manually — bun:test expects `Promise<void>` from async tests
 - Layer composition uses `Layer.provideMerge` so services remain visible through the stack
 - `it.live` is the default for integration tests; `it.effect` only for time-simulation tests
+
+**`TestClock` without an ambient `Scope` (beta.70):** earlier betas required a surrounding `Scope` for `TestClock.adjust` to advance time. As of beta.70, `TestClock.layer()` works when provided directly to a program run with `Effect.runPromise` (no ambient `Scope`) — which is exactly what the harness above relies on. `testEffect(...).effect(...)` merges `TestClock.layer()` into the layer stack and runs with `Effect.runPromise`, and `TestClock.adjust` still drives time correctly.
 
 ## Testing Checklist
 

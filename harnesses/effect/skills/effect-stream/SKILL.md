@@ -335,6 +335,14 @@ Use `Stream.pipeThroughChannel` with codec channels from `effect/unstable/encodi
 import { Ndjson, Msgpack } from 'effect/unstable/encoding';
 ```
 
+### Text decoding (split multi-byte characters)
+
+To turn a byte stream into text, use `Stream.decodeText` (or `Channel.decodeText`) rather than hand-rolling `new TextDecoder().decode(chunk)` per chunk. These helpers decode with streaming enabled, so multi-byte UTF-8 characters split across `Uint8Array` chunk boundaries are reassembled correctly; per-chunk `TextDecoder` calls would corrupt characters that straddle a boundary.
+
+```ts
+byteStream.pipe(Stream.decodeText, Stream.runForEach(handleText));
+```
+
 ### NDJSON — string variants
 
 ```ts
@@ -381,7 +389,7 @@ Stream.pipeThroughChannel(Ndjson.decodeString({ ignoreEmptyLines: true }));
 
 ### Msgpack
 
-Same API shape — replace `Ndjson` with `Msgpack`:
+Same API shape — replace `Ndjson` with `Msgpack`. Note that `Msgpack.decodeSchema(schema)` is curried: it returns a factory you must invoke (`()`) to get the `Channel` value passed to `Stream.pipeThroughChannel`, exactly like the NDJSON schema helpers.
 
 ```ts
 const decoder = Msgpack.decodeSchema(
@@ -389,7 +397,9 @@ const decoder = Msgpack.decodeSchema(
 		id: Schema.Number,
 		name: Schema.String
 	})
-);
+)();
+
+binaryStream.pipe(Stream.pipeThroughChannel(decoder), Stream.runCollect);
 ```
 
 ### Realistic pipeline: decode → transform → re-encode
@@ -468,10 +478,10 @@ Stream.merge(streamA, streamB, { haltStrategy: 'left' }); // stop when left ends
 
 ### mergeAll
 
-Merge many streams concurrently.
+Merge many streams concurrently. The streams are passed as a single **iterable**, followed by the options.
 
 ```ts
-Stream.mergeAll(streamA, streamB, streamC, {
+Stream.mergeAll([streamA, streamB, streamC], {
 	concurrency: 4
 });
 ```
@@ -513,13 +523,16 @@ Stream.zipWith(numbersStream, labelsStream, (n, label) => `${label}: ${n}`);
 
 ### broadcast
 
-Multicast a stream to multiple consumers. Returns a scoped effect.
+PubSub-backed multicast: the source is consumed once and fanned out to every subscriber. Returns a scoped effect, and the **producer starts immediately** — it does not wait for subscribers to attach.
 
 ```ts
 Effect.scoped(
 	Effect.gen(function* () {
-		const shared = yield* stream.pipe(Stream.broadcast({ capacity: 16 }));
-		// shared is a Stream that multiple fibers can consume independently
+		const shared = yield* stream.pipe(
+			Stream.broadcast({ capacity: 16, replay: 3 })
+		);
+		// Each consumer subscribes independently. Because the producer starts
+		// immediately, a late subscriber only sees values still held in `replay`.
 		const fiberA = yield* Stream.runCollect(shared).pipe(Effect.forkChild);
 		const fiberB = yield* Stream.runCollect(shared).pipe(Effect.forkChild);
 		// ...
@@ -528,6 +541,30 @@ Effect.scoped(
 ```
 
 Options: `{ capacity: number | "unbounded", strategy?: "sliding" | "dropping" | "suspend", replay?: number }`
+
+Because the producer starts immediately, subscribers that attach after the source has already emitted will miss earlier values unless `replay` is configured (and `replay` only retains the most recent N values — it is not a full log). For a **fixed, known set of consumers**, prefer `broadcastN`: it subscribes all downstream streams before starting the source, so none of them miss values.
+
+### broadcastN
+
+Fixed-fanout multicast (added in beta.68). Produces a tuple of `n` streams; the source starts only **after all `n` downstream streams have been subscribed**, so every consumer sees the full sequence without needing `replay`. If a downstream stream is interrupted, it unsubscribes and no longer contributes backpressure.
+
+```ts
+Effect.scoped(
+	Effect.gen(function* () {
+		const [left, right] = yield* Stream.make(1, 2, 3).pipe(
+			Stream.broadcastN({ n: 2, capacity: 8 })
+		);
+
+		const [leftValues, rightValues] = yield* Effect.all(
+			[Stream.runCollect(left), Stream.runCollect(right)],
+			{ concurrency: 'unbounded' }
+		);
+		// leftValues and rightValues each === [1, 2, 3]
+	})
+);
+```
+
+Options: `{ n: number, capacity: number | "unbounded", strategy?: "sliding" | "dropping" | "suspend", replay?: number }`
 
 ### share
 
@@ -556,6 +593,8 @@ const safeStream = Stream.scoped(
 );
 // Stream<string, never, never> — Scope is eliminated
 ```
+
+As of beta.69, `Stream.scoped` provides its managed scope to the **pull effects** as well — including effects created by `Stream.fromEffect` and by sequential `Stream.mapEffect`. So `Effect.acquireRelease` finalizers used inside those pulls run when the stream completes, not leaked until the outer program ends.
 
 ### unwrap
 
@@ -641,12 +680,21 @@ const filterErrors = fileStream.pipe(
 
 ```ts
 const resilient = unreliableStream.pipe(
-	Stream.retry(
-		Schedule.exponential('100 millis').pipe(
-			Schedule.compose(Schedule.recurs(5))
-		)
-	),
+	Stream.retry(Schedule.exponential('100 millis').pipe(Schedule.take(5))),
 	Stream.runCollect
+);
+```
+
+`Schedule.take(n)` bounds an unbounded schedule to `n` recurrences (`Schedule.compose` is not exported in beta.74). To log full retry metadata without changing the schedule's behavior, add `Schedule.tap`, whose callback receives `{ attempt, input, output, duration, elapsed }`:
+
+```ts
+const monitored = Schedule.exponential('100 millis').pipe(
+	Schedule.take(5),
+	Schedule.tap((meta) =>
+		Effect.log(
+			`attempt ${meta.attempt}, next delay ${meta.duration}, elapsed ${meta.elapsed}`
+		)
+	)
 );
 ```
 
