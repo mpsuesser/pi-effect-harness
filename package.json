@@ -26,6 +26,7 @@
     "typecheck": "tsgo",
     "check": "dprint fmt && oxlint -c oxlintrc.json && tsgo",
     "build:publishable": "bun run scripts/build-publishable.ts",
+    "backfill:effect-skills": "bun run scripts/backfill-effect-skill-reads.ts",
     "publish:dry": "bun run scripts/build-publishable.ts && cd harnesses/effect/dist && bun publish --dry-run",
     "prepare": "effect-tsgo patch"
   },

@@ -37,6 +37,8 @@ export namespace HarnessHook {
 		readonly cwd: string;
 		readonly input: unknown;
 		readonly isError: boolean;
+		readonly sessionFile: string | undefined;
+		readonly sessionId: string;
 		readonly toolCallId: string;
 		readonly toolName: string;
 		readonly writeIntent: WriteIntentValue | undefined;

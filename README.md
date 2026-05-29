@@ -53,10 +53,11 @@ The first time you enable `/toggle-effect-harness`, the harness creates a shared
 | Toggle | `/toggle-effect-harness` (interactive), or `Tab` then `E` via Pi's mode toggle UI |
 | Status | Gold `effect` badge in the footer |
 | Persistence | Project-scoped Pi session state; survives session restart |
+| Skill metrics | `/effect-skill-stats [--since 30d] [--json]` |
 | Activation cost | First time per user cache: shallow clone of `effect-smol`; later enabled turns do a shallow refresh |
 | Per-turn cost | ~3 KB of system-prompt headers + the merged guidance docs |
 
-When mode is off, no policy header is injected and no write gate or pattern feedback fires. The harness may still rebuild its command/skill catalog and record successful `effect-*` skill reads as invisible branch metadata, so the loaded-skill count is ready if you re-enable the mode later.
+When mode is off, no policy header is injected and no write gate or pattern feedback fires. The harness may still rebuild its command/skill catalog and record successful `effect-*` skill reads as invisible branch metadata and as append-only usage metrics, so the loaded-skill count and `/effect-skill-stats` report are ready if you re-enable the mode later.
 
 ---
 
@@ -102,13 +103,13 @@ tool_result
 session_shutdown ─► unregister mode badge
 ```
 
-Three rules plus session/tool hooks. Session hooks keep the skill catalog and shared reference clone current; tool events record skill reads and run write checks. Everything that touches Pi runs through `Decision` — there is no direct mutation of session state from rule code, which keeps the rules trivially testable in isolation.
+Three rules plus session/tool hooks. Session hooks keep the skill catalog and shared reference clone current; tool events record skill reads and run write checks. Successful skill reads are written both to invisible session entries (`pi-effect-harness:skill-read`) and to `~/.pi/agent/pi-effect-harness/skill-reads.jsonl` for aggregate reporting. Everything that touches Pi from rule/hook code runs through `Decision`; global metrics are handled by the telemetry service.
 
 ### The skill gate
 
 Effect v4 is wide. A model writing Effect cold — without any in-context skill — will reliably produce v3 patterns: `Effect.catchAll`, `Schema.parseJson`, `Data.TaggedError`, `OptionFromSelf`, `compose(...)` instead of `decodeTo(...)`, untraced `Effect.gen` everywhere. The skill gate exists to make the agent stop and read before writing.
 
-**What counts as a skill.** Each subdirectory under `skills/` has a `SKILL.md` with frontmatter. Pi exposes these as `/skill:effect-error-handling` commands. The harness watches every Read tool call: when the read path resolves to a known `effect-*` skill (matched against the live skill catalog), it remembers the pending read keyed by `toolCallId`. On `tool_result`, if the read succeeded, it appends an invisible branch-metadata entry shaped like:
+**What counts as a skill.** Each subdirectory under `skills/` has a `SKILL.md` with frontmatter. Pi exposes these as `/skill:effect-error-handling` commands. The harness watches every successful Read tool call: when the read path resolves to a known `effect-*` skill (matched against the live skill catalog), it remembers the pending read keyed by `toolCallId`. On `tool_result`, if the read succeeded, it appends an invisible branch-metadata entry shaped like:
 
 ```ts
 {
@@ -131,6 +132,12 @@ Effect v4 is wide. A model writing Effect cold — without any in-context skill 
 **Why prospective projection matters.** The gate runs on `WriteProjection.prospective(cwd, writeIntent)`, which reconstructs *what the file will look like after the write/edit applies*. A change whose resulting file no longer matches `\bEffect\b|from\s+['"]effect.*['"]` is allowed through. A change whose resulting file contains Effect code is gated. This means deletion-only Effect cleanup can proceed without artificially incrementing the skill counter.
 
 **The block message** quotes the loaded count, the missing count, and a hint to read from `~/.cache/effect-v4/` if any API is unclear. The agent retries after loading more skills.
+
+**Skill read metrics.** Every successful `read` of a known `effect-*` skill is also recorded as a `pi-effect-harness:skill-read` session entry and appended to the global metrics log at `~/.pi/agent/pi-effect-harness/skill-reads.jsonl`. Explicit `/skill:effect-*` commands are recorded as `source: "skill-command"`. Run `/effect-skill-stats`, optionally with `--since 30d` or `--json`, to see most-read skills, least-read skills, skills read at least once, rare skills, and neglected skills from the current live skill catalog.
+
+Use this when reviewing skill coverage. For example, if a future session asks "what are the least used Effect skills?", run `/effect-skill-stats` and inspect the **Least-read skills**, **Rare skills**, and **Neglected skills** sections. `--since 30d` limits the window; `--json` returns the same summary data for ad-hoc sorting or deeper analysis.
+
+From a source checkout, you can seed the global log from historical Pi sessions with `bun run backfill:effect-skills --write`. The backfill scans `~/.pi/agent/sessions/**/*.jsonl`, pairs assistant `read` tool calls with successful `toolResult` entries by `toolCallId`, matches only paths under `skills/effect-*`, skips tool-call records already present in the global log, and does not mutate old session files. Run without `--write` for a dry run.
 
 ### The policy header
 

@@ -2,6 +2,26 @@
 
 Workspace-level build tooling. Not shipped to npm.
 
+## `backfill-effect-skill-reads.ts`
+
+Scans historical Pi session JSONL files and appends deterministic
+`source: "backfill"` records to the skill-read metrics log at
+`~/.pi/agent/pi-effect-harness/skill-reads.jsonl`.
+
+Use this from a source checkout after installing a version that supports skill
+metrics, or whenever you want `/effect-skill-stats` to include older sessions:
+
+```sh
+bun run backfill:effect-skills        # dry run
+bun run backfill:effect-skills --write
+```
+
+The backfill pairs assistant `read` tool calls with successful `toolResult`
+entries by `toolCallId`, imports only paths under `skills/effect-*`, skips
+records already present in the metrics log, and never mutates old session
+files. It intentionally leaves legacy `skill-loaded` custom entries out by
+default to avoid double-counting reads recovered from tool results.
+
 ## `build-publishable.ts`
 
 Materializes a self-contained, publish-ready copy of `pi-effect-harness` at

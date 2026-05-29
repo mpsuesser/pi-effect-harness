@@ -18,7 +18,9 @@ const nonPatternTests = new Set([
 	'mode-persistence.test.ts',
 	'pattern-enforcement.test.ts',
 	'prospective-tool-input.test.ts',
-	'skill-gate-projection.test.ts'
+	'skill-gate-projection.test.ts',
+	'skill-read-backfill.test.ts',
+	'skill-read-telemetry.test.ts'
 ]);
 
 const testNamesEffect = Effect.gen(function*() {

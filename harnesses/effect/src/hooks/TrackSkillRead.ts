@@ -22,6 +22,9 @@ export const trackSkillReadHook = (deps: {
 	phase: 'toolCall',
 	run: (input) =>
 		Effect.gen(function*() {
+			if (input.toolName !== 'read') {
+				return noDecisions;
+			}
 			const readPath = readPathFromInput(input.input);
 			if (readPath === undefined) {
 				return noDecisions;
