@@ -12,6 +12,7 @@ const testDir = import.meta.dirname ?? '.';
 
 /** Test files that are not pattern-specific (infra/meta tests). */
 const nonPatternTests = new Set([
+	'active-branch-loaded-effect-skills.test.ts',
 	'all-patterns-covered.test.ts',
 	'comment-string-false-positives.test.ts',
 	'guidance-docs-injection.test.ts',
