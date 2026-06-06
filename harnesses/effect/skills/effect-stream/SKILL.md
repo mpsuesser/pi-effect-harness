@@ -1,6 +1,6 @@
 ---
 name: effect-stream
-description: Build effectful pull-based streaming pipelines with Effect Stream, including creation, transformation, consumption, encoding (NDJSON/Msgpack), concurrency, and resource safety. Use this skill when working with sequences of values produced over time, paginated APIs, event listeners, or streaming I/O.
+description: Build effectful pull-based streaming pipelines with Effect Stream — creation, transformation, consumption, NDJSON/Msgpack encoding, concurrency, resource safety. Use when working with values produced over time, paginated APIs, event listeners, or streaming I/O.
 ---
 
 You are an Effect TypeScript expert specializing in pull-based streaming with `Stream`, `Sink`, and `Channel`.

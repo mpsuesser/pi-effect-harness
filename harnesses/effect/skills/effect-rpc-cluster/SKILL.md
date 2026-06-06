@@ -1,6 +1,6 @@
 ---
 name: effect-rpc-cluster
-description: Build typed RPC endpoints, cluster-distributed entities, singletons, cron jobs, and durable workflows with the Effect RPC and Cluster modules. Covers Rpc/RpcGroup/RpcServer/RpcClient/RpcMiddleware, all transports and serializations, Entity/Sharding/Singleton/ClusterCron, the Node and Bun cluster bundles, and the EntityProxy/WorkflowProxy bridges.
+description: Build typed RPC endpoints and cluster-distributed entities, singletons, cron jobs, and durable workflows with Effect's RPC and Cluster modules (Rpc/RpcGroup/RpcServer/RpcClient, Entity/Sharding/Singleton, Node/Bun bundles). Use when building RPC services or distributed/clustered Effect systems.
 ---
 
 You are an Effect TypeScript expert specializing in `effect/unstable/rpc` and `effect/unstable/cluster`.

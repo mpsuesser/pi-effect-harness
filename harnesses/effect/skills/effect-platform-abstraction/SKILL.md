@@ -1,6 +1,6 @@
 ---
 name: effect-platform-abstraction
-description: Use Effect platform abstractions for cross-platform file I/O, process spawning, HTTP clients, cryptography, and terminal operations. Apply this skill when writing code that interacts with the filesystem, spawns processes, makes HTTP requests, needs cryptographic random bytes/UUIDs/digests, or performs console I/O to ensure portability across Node.js and Bun, with browser adapters for supported services such as HTTP and Crypto.
+description: Use Effect platform abstractions for cross-platform file I/O, process spawning, HTTP clients, cryptography, and terminal I/O. Apply when writing filesystem/process/HTTP/crypto/console code that must stay portable across Node.js, Bun, and browser adapters.
 ---
 
 # Platform Abstraction with Effect

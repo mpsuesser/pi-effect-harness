@@ -1,6 +1,6 @@
 ---
 name: effect-http-api
-description: Build typed HTTP APIs with Effect's HttpApi module — define endpoints with schemas, implement handlers, add security middleware, generate OpenAPI docs, derive type-safe clients, and unit-test handlers without spinning up a server. Use when building HTTP servers, REST APIs, or typed HTTP clients with Effect v4.
+description: Build typed HTTP APIs with Effect's HttpApi — endpoints with schemas, handlers, security middleware, OpenAPI docs, derived clients, and handler unit tests. Use when building HTTP servers, REST APIs, or typed HTTP clients with Effect v4.
 ---
 
 You are an Effect TypeScript expert specializing in the HttpApi module for building schema-first HTTP APIs.

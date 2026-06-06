@@ -1,6 +1,6 @@
 ---
 name: effect-sql
-description: Build type-safe SQL database access with Effect using SqlClient tagged template queries, SqlSchema for validated results, SqlModel for CRUD repositories, SqlResolver for batched request resolution, and Migrator for schema migrations. Use this skill when working with databases, writing queries, defining models, or setting up migrations.
+description: Type-safe SQL with Effect — SqlClient tagged-template queries, SqlSchema, SqlModel CRUD repositories, SqlResolver batching, and Migrator. Use when working with databases, writing queries, defining models, or setting up migrations.
 ---
 
 You are an Effect TypeScript expert specializing in type-safe SQL database access using the Effect SQL modules.
