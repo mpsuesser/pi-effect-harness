@@ -336,9 +336,15 @@ export default function effectEnforcer(pi: ExtensionAPI): void {
 			sessionId: ctx.sessionManager.getSessionId()
 		}).catch(() => {
 			ctx.ui.notify('Failed to restore effect mode state', 'warning');
-			return undefined;
+			return Option.none<boolean>();
 		});
-		mode.onSessionStart(ctx, restoredEnabled);
+		mode.onSessionStart(
+			ctx,
+			Option.match(restoredEnabled, {
+				onNone: () => undefined,
+				onSome: (enabled) => enabled
+			})
+		);
 		await syncModeState(mode.isEnabled());
 		await runWithController((controller) =>
 			controller.onSessionStart({

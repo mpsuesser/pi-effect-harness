@@ -71,7 +71,7 @@ export namespace ModePersistence {
 	export interface Interface {
 		readonly load: (
 			location: Location
-		) => Effect.Effect<boolean | undefined, ModePersistenceFailed>;
+		) => Effect.Effect<Option.Option<boolean>, ModePersistenceFailed>;
 		readonly save: (
 			location: Location,
 			enabled: boolean
@@ -89,189 +89,344 @@ export namespace ModePersistence {
 			const gitBranch = yield* GitBranch.Service;
 			const path = yield* Path.Path;
 
-			const resolveHomeDirectory = (): Effect.Effect<
-				string | undefined
-			> => Effect.gen(function*() {
-				const home = yield* Config.option(Config.string('HOME'));
-				if (Option.isSome(home)) {
-					return home.value;
+			const inspectStateFile = Effect.fn(
+				'ModePersistence.inspectStateFile'
+			)(function*(filePath: string) {
+				return yield* fs.exists(filePath).pipe(
+					Effect.mapError(
+						() =>
+							new ModePersistenceFailed({
+								message: 'Failed to inspect mode state',
+								path: filePath
+							})
+					)
+				);
+			});
+
+			type AncestorStateFileInput = {
+				readonly relativeStatePath: string;
+				readonly sessionDir: string;
+			};
+
+			const findAncestorStateFile: (
+				input: AncestorStateFileInput
+			) => Effect.Effect<
+				Option.Option<string>,
+				ModePersistenceFailed
+			> = Effect.fn('ModePersistence.findAncestorStateFile')(function*({
+				relativeStatePath,
+				sessionDir
+			}: AncestorStateFileInput) {
+				const parent = path.dirname(sessionDir);
+				if (parent === sessionDir) {
+					return Option.none<string>();
 				}
 
-				const userProfile = yield* Config.option(
-					Config.string('USERPROFILE')
+				const candidate = path.join(
+					parent,
+					PROJECT_STATE_ROOT,
+					relativeStatePath
 				);
-				return Option.isSome(userProfile)
-					? userProfile.value
-					: undefined;
-			}).pipe(
-				Effect.catchTag(
-					'ConfigError',
-					() => Effect.void.pipe(Effect.as(undefined))
-				)
-			);
+				const exists = yield* inspectStateFile(candidate);
+				return exists
+					? Option.some(candidate)
+					: yield* findAncestorStateFile({
+						relativeStatePath,
+						sessionDir: parent
+					});
+			});
 
-			const resolveStateFile = (
-				location: Location
-			): Effect.Effect<string | undefined> => {
+			const ownProjectStateFile = (
+				location: Location,
+				segments: ReadonlyArray<string>
+			): string =>
+				path.join(
+					location.sessionDir,
+					PROJECT_STATE_ROOT,
+					path.join(...segments)
+				);
+
+			const resolveProjectStateFile = Effect.fn(
+				'ModePersistence.resolveProjectStateFile'
+			)(function*({
+				location,
+				segments
+			}: {
+				readonly location: Location;
+				readonly segments: ReadonlyArray<string>;
+			}) {
+				const relativeStatePath = path.join(...segments);
+				const ownStateFile = ownProjectStateFile(location, segments);
+				const exists = yield* inspectStateFile(ownStateFile);
+				if (exists) {
+					return ownStateFile;
+				}
+
+				const ancestorStateFile = yield* findAncestorStateFile({
+					relativeStatePath,
+					sessionDir: location.sessionDir
+				});
+				return Option.getOrElse(
+					ancestorStateFile,
+					() => ownStateFile
+				);
+			});
+
+			const configOption = (name: string) =>
+				Config.option(Config.string(name)).pipe(
+					Effect.catchTag(
+						'ConfigError',
+						() => Effect.succeed(Option.none<string>())
+					)
+				);
+
+			const resolveHomeDirectory = Effect.fn(
+				'ModePersistence.resolveHomeDirectory'
+			)(function*() {
+				const home = yield* configOption('HOME');
+				if (Option.isSome(home)) {
+					return home;
+				}
+
+				return yield* configOption('USERPROFILE');
+			});
+
+			const resolveOwnStateFile = Effect.fn(
+				'ModePersistence.resolveOwnStateFile'
+			)(function*(location: Location) {
 				const encodedModeId = `${
 					encodePathSegment(location.modeId)
 				}.json`;
-				const projectStateRoot = path.join(
-					location.sessionDir,
-					PROJECT_STATE_ROOT
-				);
 
-				return Match.value(location.scope).pipe(
+				return yield* Match.value(location.scope).pipe(
 					Match.when(
 						'none',
-						() => Effect.void.pipe(Effect.as(undefined))
+						() => Effect.succeed(Option.none<string>())
 					),
 					Match.when('session', () =>
 						Effect.succeed(
-							path.join(
-								projectStateRoot,
-								'session',
-								encodePathSegment(location.sessionId),
-								encodedModeId
+							Option.some(
+								ownProjectStateFile(location, [
+									'session',
+									encodePathSegment(location.sessionId),
+									encodedModeId
+								])
 							)
 						)),
 					Match.when('project', () =>
 						Effect.succeed(
-							path.join(
-								projectStateRoot,
-								'project',
-								encodedModeId
+							Option.some(
+								ownProjectStateFile(location, [
+									'project',
+									encodedModeId
+								])
 							)
 						)),
 					Match.when('branch', () =>
 						gitBranch.get(location.cwd).pipe(
 							Effect.map((branch) =>
-								branch !== undefined
-									? path.join(
-										projectStateRoot,
-										'branch',
-										encodePathSegment(branch),
-										encodedModeId
-									)
-									: path.join(
-										projectStateRoot,
-										'project',
-										encodedModeId
-									)
+								Option.some(
+									Option.match(Option.fromNullishOr(branch), {
+										onNone: () =>
+											ownProjectStateFile(location, [
+												'project',
+												encodedModeId
+											]),
+										onSome: (branchName) =>
+											ownProjectStateFile(location, [
+												'branch',
+												encodePathSegment(branchName),
+												encodedModeId
+											])
+									})
+								)
 							)
 						)),
 					Match.when('global', () =>
 						resolveHomeDirectory().pipe(
 							Effect.map((homeDirectory) =>
-								homeDirectory === undefined
-									? undefined
-									: path.join(
-										homeDirectory,
-										...GLOBAL_STATE_ROOT_SEGMENTS,
-										encodedModeId
-									)
+								Option.match(homeDirectory, {
+									onNone: () => Option.none<string>(),
+									onSome: (home) =>
+										Option.some(
+											path.join(
+												home,
+												...GLOBAL_STATE_ROOT_SEGMENTS,
+												encodedModeId
+											)
+										)
+								})
 							)
 						)),
 					Match.exhaustive
 				);
-			};
+			});
 
-			const load: Interface['load'] = (location) =>
-				Effect.gen(function*() {
-					const filePath = yield* resolveStateFile(location);
-					if (filePath === undefined) {
-						return undefined;
-					}
+			const resolveStateFile = Effect.fn(
+				'ModePersistence.resolveStateFile'
+			)(function*(location: Location) {
+				const encodedModeId = `${
+					encodePathSegment(location.modeId)
+				}.json`;
 
-					const exists = yield* fs.exists(filePath).pipe(
-						Effect.mapError(
-							() =>
-								new ModePersistenceFailed({
-									message: 'Failed to inspect mode state',
-									path: filePath
-								})
-						)
-					);
-					if (!exists) {
-						return undefined;
-					}
-
-					const content = yield* fs.readFileString(filePath).pipe(
-						Effect.mapError(
-							() =>
-								new ModePersistenceFailed({
-									message: 'Failed to read mode state',
-									path: filePath
-								})
-						)
-					);
-					const persisted = yield* Effect.try({
-						try: () => decodePersistedModeState(content),
-						catch: () =>
-							new ModePersistenceFailed({
-								message: 'Mode state file is invalid JSON',
-								path: filePath
-							})
-					});
-					return persisted.enabled;
-				});
-
-			const save: Interface['save'] = (location, enabled) =>
-				Effect.gen(function*() {
-					const filePath = yield* resolveStateFile(location);
-					if (filePath === undefined) {
-						return;
-					}
-
-					const branch = location.scope === 'branch'
-						? yield* gitBranch.get(location.cwd)
-						: undefined;
-					const payload = new PersistedModeState({
-						enabled,
-						modeId: location.modeId,
-						scope: location.scope === 'none'
-							? 'project'
-							: location.scope,
-						updatedAt: DateTime.formatIso(yield* DateTime.now),
-						cwd: location.cwd,
-						sessionId: location.sessionId,
-						...(branch !== undefined
-							? { gitBranch: branch }
-							: undefined)
-					});
-					const content = yield* Effect.try({
-						try: () => `${encodePersistedModeState(payload)}\n`,
-						catch: () =>
-							new ModePersistenceFailed({
-								message: 'Failed to encode mode state',
-								path: filePath
-							})
-					});
-
-					yield* fs
-						.makeDirectory(path.dirname(filePath), {
-							recursive: true
-						})
-						.pipe(
-							Effect.mapError(
-								() =>
-									new ModePersistenceFailed({
-										message:
-											'Failed to create mode state directory',
-										path: filePath
-									})
+				return yield* Match.value(location.scope).pipe(
+					Match.when(
+						'none',
+						() => Effect.succeed(Option.none<string>())
+					),
+					Match.when('session', () =>
+						Effect.succeed(
+							Option.some(
+								path.join(
+									location.sessionDir,
+									PROJECT_STATE_ROOT,
+									'session',
+									encodePathSegment(location.sessionId),
+									encodedModeId
+								)
 							)
-						);
-					yield* fs.writeFileString(filePath, content).pipe(
+						)),
+					Match.when('project', () =>
+						resolveProjectStateFile({
+							location,
+							segments: ['project', encodedModeId]
+						}).pipe(Effect.map(Option.some))),
+					Match.when('branch', () =>
+						gitBranch.get(location.cwd).pipe(
+							Effect.flatMap((branch) =>
+								Option.match(Option.fromNullishOr(branch), {
+									onNone: () =>
+										resolveProjectStateFile({
+											location,
+											segments: ['project', encodedModeId]
+										}),
+									onSome: (branchName) =>
+										resolveProjectStateFile({
+											location,
+											segments: [
+												'branch',
+												encodePathSegment(branchName),
+												encodedModeId
+											]
+										})
+								})
+							),
+							Effect.map(Option.some)
+						)),
+					Match.when('global', () =>
+						resolveHomeDirectory().pipe(
+							Effect.map((homeDirectory) =>
+								Option.match(homeDirectory, {
+									onNone: () => Option.none<string>(),
+									onSome: (home) =>
+										Option.some(
+											path.join(
+												home,
+												...GLOBAL_STATE_ROOT_SEGMENTS,
+												encodedModeId
+											)
+										)
+								})
+							)
+						)),
+					Match.exhaustive
+				);
+			});
+
+			const load: Interface['load'] = Effect.fn(
+				'ModePersistence.load'
+			)(function*(location: Location) {
+				const stateFile = yield* resolveStateFile(location);
+				if (Option.isNone(stateFile)) {
+					return Option.none<boolean>();
+				}
+				const filePath = stateFile.value;
+
+				const exists = yield* inspectStateFile(filePath);
+				if (!exists) {
+					return Option.none<boolean>();
+				}
+
+				const content = yield* fs.readFileString(filePath).pipe(
+					Effect.mapError(
+						() =>
+							new ModePersistenceFailed({
+								message: 'Failed to read mode state',
+								path: filePath
+							})
+					)
+				);
+				const persisted = yield* Effect.try({
+					try: () => decodePersistedModeState(content),
+					catch: () =>
+						new ModePersistenceFailed({
+							message: 'Mode state file is invalid JSON',
+							path: filePath
+						})
+				});
+				return Option.some(persisted.enabled);
+			});
+
+			const save: Interface['save'] = Effect.fn(
+				'ModePersistence.save'
+			)(function*(location: Location, enabled: boolean) {
+				const stateFile = yield* resolveOwnStateFile(location);
+				if (Option.isNone(stateFile)) {
+					return;
+				}
+				const filePath = stateFile.value;
+
+				const branch = location.scope === 'branch'
+					? yield* gitBranch.get(location.cwd).pipe(
+						Effect.map(Option.fromNullishOr)
+					)
+					: Option.none<string>();
+				const payload = new PersistedModeState({
+					enabled,
+					modeId: location.modeId,
+					scope: location.scope === 'none'
+						? 'project'
+						: location.scope,
+					updatedAt: DateTime.formatIso(yield* DateTime.now),
+					cwd: location.cwd,
+					sessionId: location.sessionId,
+					...(Option.isSome(branch)
+						? { gitBranch: branch.value }
+						: {})
+				});
+				const content = yield* Effect.try({
+					try: () => `${encodePersistedModeState(payload)}\n`,
+					catch: () =>
+						new ModePersistenceFailed({
+							message: 'Failed to encode mode state',
+							path: filePath
+						})
+				});
+
+				yield* fs
+					.makeDirectory(path.dirname(filePath), {
+						recursive: true
+					})
+					.pipe(
 						Effect.mapError(
 							() =>
 								new ModePersistenceFailed({
-									message: 'Failed to write mode state',
+									message:
+										'Failed to create mode state directory',
 									path: filePath
 								})
 						)
 					);
-				});
+				yield* fs.writeFileString(filePath, content).pipe(
+					Effect.mapError(
+						() =>
+							new ModePersistenceFailed({
+								message: 'Failed to write mode state',
+								path: filePath
+							})
+					)
+				);
+			});
 
 			return Service.of({ load, save });
 		})

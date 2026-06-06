@@ -1,4 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
+import { assertNone, assertSome } from '@effect/vitest/utils';
 import { Effect, FileSystem, Layer, Path } from 'effect';
 
 import { GitBranch } from '../src/mode/GitBranch.ts';
@@ -64,14 +65,14 @@ const dirs = {
 };
 
 describe('ModePersistence', () => {
-	it.effect('returns undefined when no persisted mode state exists', () =>
+	it.effect('returns none when no persisted mode state exists', () =>
 		Effect.gen(function*() {
 			const persistence = yield* ModePersistence.Service;
 			const persisted = yield* persistence.load(
 				location({ ...dirs, scope: 'project' })
 			);
 
-			expect(persisted).toBeUndefined();
+			assertNone(persisted);
 		}).pipe(Effect.provide(testLayer)));
 
 	it.effect('round-trips persisted project mode state', () =>
@@ -81,7 +82,44 @@ describe('ModePersistence', () => {
 			yield* persistence.save(modeLocation, true);
 			const persisted = yield* persistence.load(modeLocation);
 
-			expect(persisted).toBe(true);
+			assertSome(persisted, true);
+		}).pipe(Effect.provide(testLayer)));
+
+	it.effect('loads project mode state from an ancestor session directory', () =>
+		Effect.gen(function*() {
+			const persistence = yield* ModePersistence.Service;
+			yield* persistence.save(
+				location({ ...dirs, scope: 'project' }),
+				true
+			);
+
+			const persisted = yield* persistence.load(
+				location({
+					...dirs,
+					sessionDir: '/session/2026-run/run-0',
+					sessionId: 'child-session',
+					scope: 'project'
+				})
+			);
+
+			assertSome(persisted, true);
+		}).pipe(Effect.provide(testLayer)));
+
+	it.effect('writes child session state without overwriting ancestor state', () =>
+		Effect.gen(function*() {
+			const persistence = yield* ModePersistence.Service;
+			const parentLocation = location({ ...dirs, scope: 'project' });
+			const childLocation = location({
+				...dirs,
+				sessionDir: '/session/2026-run/run-0',
+				sessionId: 'child-session',
+				scope: 'project'
+			});
+			yield* persistence.save(parentLocation, true);
+			yield* persistence.save(childLocation, false);
+
+			assertSome(yield* persistence.load(parentLocation), true);
+			assertSome(yield* persistence.load(childLocation), false);
 		}).pipe(Effect.provide(testLayer)));
 
 	it.effect('falls back to project persistence when branch scope has no git branch', () =>
