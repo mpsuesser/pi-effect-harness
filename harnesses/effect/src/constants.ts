@@ -2,7 +2,7 @@
 export const GITHUB_REPO = 'https://github.com/Effect-TS/effect-smol.git';
 
 /** Minimum number of effect-* skills required before writing Effect code. */
-export const MIN_EFFECT_SKILLS = 5;
+export const MIN_EFFECT_SKILLS = 4;
 
 /** Matches content containing Effect code (the word `Effect` or effect imports). */
 export const EFFECT_CODE_RE = /\bEffect\b|from\s+['"]effect(?:\/[^'"]*)?['"]/;

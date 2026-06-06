@@ -1,6 +1,6 @@
 # Agent Rules
 
-Load all relevant skills before writing or planning any code. Effect is a massive ecosystem — without loading skills you will write outdated v3 code or miss high-leverage libraries. Load AT LEAST 5 `effect-*` skills before any Effect work.
+Load all relevant skills before writing or planning any code. Effect is a massive ecosystem — without loading skills you will write outdated v3 code or miss high-leverage libraries. Load AT LEAST 4 `effect-*` skills before any Effect work.
 
 When skills leave any ambiguity, or when you encounter unfamiliar APIs during implementation, read from `~/.cache/effect-v4/` — the shared, user-scoped clone of the latest Effect v4 source. Treat this clone as the source of truth over `node_modules`, stale external docs, or memory.
 
