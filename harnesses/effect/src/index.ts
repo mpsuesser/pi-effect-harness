@@ -172,8 +172,13 @@ const notifyWarning = (
 };
 
 export default function effectEnforcer(pi: ExtensionAPI): void {
+	// The subagents extension sets PI_SUBAGENT_CHILD=1 for every spawned child
+	// session. In those forked worker sessions the skill gate is advisory only
+	// (see RequireLoadedSkillsForEffectWrites) so a narrow task is never deadlocked
+	// in a loop trying to satisfy the skill-read ritual.
+	const isSubagentChild = process.env.PI_SUBAGENT_CHILD === '1';
 	const runtime = ManagedRuntime.make(
-		EffectHarnessLayer.layer({ agentDir: getAgentDir() })
+		EffectHarnessLayer.layer({ agentDir: getAgentDir(), isSubagentChild })
 	);
 	type RuntimeServices = ManagedRuntime.ManagedRuntime.Services<
 		typeof runtime

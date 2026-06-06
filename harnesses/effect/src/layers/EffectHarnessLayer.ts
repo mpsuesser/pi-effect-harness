@@ -33,6 +33,12 @@ import { SkillReadTelemetry } from '../services/SkillReadTelemetry.ts';
 export namespace EffectHarnessLayer {
 	export interface Options {
 		readonly agentDir: string;
+		/**
+		 * True when the harness runs inside a spawned subagent child session
+		 * (e.g. a forked worker). The skill gate becomes advisory in that case so
+		 * a narrow worker task is never hard-blocked into a skill-reading loop.
+		 */
+		readonly isSubagentChild: boolean;
 	}
 
 	const nodePlatformLayer = NodeChildProcessSpawner.layer.pipe(
@@ -61,7 +67,8 @@ export namespace EffectHarnessLayer {
 				...packageRootSegments,
 				'guidance'
 			);
-			return GuidanceCatalog.layer(guidanceDir);
+			const skillsDir = path.resolve(...packageRootSegments, 'skills');
+			return GuidanceCatalog.layer(guidanceDir, skillsDir);
 		})
 	).pipe(Layer.provide(nodePlatformLayer));
 
@@ -73,9 +80,16 @@ export namespace EffectHarnessLayer {
 		Layer.provide(Layer.mergeAll(nodePlatformLayer, gitBranchLayer))
 	);
 
-	const skillCatalogLayer = SkillCatalog.layer.pipe(
-		Layer.provide(nodePlatformLayer)
-	);
+	const skillCatalogLayer = Layer.unwrap(
+		Effect.gen(function*() {
+			const path = yield* Path.Path;
+			const bundledSkillsDir = path.resolve(
+				...packageRootSegments,
+				'skills'
+			);
+			return SkillCatalog.layer(bundledSkillsDir);
+		})
+	).pipe(Layer.provide(nodePlatformLayer));
 
 	const skillReadTelemetryLayer = (options: Options) =>
 		Layer.unwrap(
@@ -119,7 +133,8 @@ export namespace EffectHarnessLayer {
 					requireLoadedSkillsForEffectWritesRule({
 						guidanceCatalog,
 						pendingSkillReads,
-						writeProjection
+						writeProjection,
+						isSubagentChild: options.isSubagentChild
 					}),
 					sendPatternFeedbackAfterWriteRule({
 						guidanceCatalog,

@@ -18,7 +18,9 @@ const nonPatternTests = new Set([
 	'mode-persistence.test.ts',
 	'pattern-enforcement.test.ts',
 	'prospective-tool-input.test.ts',
+	'skill-catalog-bundled.test.ts',
 	'skill-gate-projection.test.ts',
+	'skill-gate-subagent-child.test.ts',
 	'skill-read-backfill.test.ts',
 	'skill-read-telemetry.test.ts'
 ]);

@@ -34,6 +34,56 @@ interface CommandInfo {
 	};
 }
 
+const emptyDirEntries: ReadonlyArray<string> = [];
+
+const SKILL_FILE_NAME = 'SKILL.md';
+
+/**
+ * Discover the harness's own bundled effect-* skills directly from disk so the
+ * skill gate can credit reads even when Pi registered no `/skill:*` commands
+ * (e.g. children spawned with `--no-skills`). Without this, the catalog would be
+ * empty in those sessions and every skill read would go uncredited.
+ */
+const loadBundledSkillEntries = (
+	fileSystem: FileSystem.FileSystem,
+	path: Path.Path,
+	bundledSkillsDir: string
+) => Effect.gen(function*() {
+	const names = yield* fileSystem.readDirectory(bundledSkillsDir).pipe(
+		Effect.catchTag('PlatformError', () => Effect.succeed(emptyDirEntries))
+	);
+	const entries = yield* Effect.forEach(
+		names.filter((name) => name.startsWith('effect-')),
+		(name) => {
+			const skillDir = path.join(bundledSkillsDir, name);
+			const skillFilePath = path.join(skillDir, SKILL_FILE_NAME);
+			return fileSystem.exists(skillFilePath).pipe(
+				Effect.catchTag(
+					'PlatformError',
+					() => Effect.succeed(false)
+				),
+				Effect.map((exists) =>
+					exists
+						? Option.some(
+							new SkillIndexEntry.Value({
+								name,
+								skillFilePath,
+								skillDir
+							})
+						)
+						: Option.none<SkillIndexEntry.Value>()
+				)
+			);
+		}
+	);
+	return entries.flatMap((entry) =>
+		Option.match(entry, {
+			onNone: () => [],
+			onSome: (value) => [value]
+		})
+	);
+});
+
 const commandInfoFromUnknown = (value: unknown): CommandInfo | undefined => {
 	if (!Predicate.isReadonlyObject(value)) {
 		return undefined;
@@ -71,99 +121,117 @@ export namespace SkillCatalog {
 		'pi-effect-harness/effect/SkillCatalog'
 	) {}
 
-	export const layer = Layer.effect(
-		Service,
-		Effect.gen(function*() {
-			const fileSystem = yield* FileSystem.FileSystem;
-			const path = yield* Path.Path;
-			const entries = yield* Ref.make<
-				ReadonlyArray<SkillIndexEntry.Value>
-			>([]);
+	export const layer = (bundledSkillsDir: string) =>
+		Layer.effect(
+			Service,
+			Effect.gen(function*() {
+				const fileSystem = yield* FileSystem.FileSystem;
+				const path = yield* Path.Path;
+				// Self-discovered bundled skills are always present, independent of the
+				// `/skill:*` commands Pi registers for the session.
+				const bundledEntries = yield* loadBundledSkillEntries(
+					fileSystem,
+					path,
+					bundledSkillsDir
+				);
+				const entries = yield* Ref.make<
+					ReadonlyArray<SkillIndexEntry.Value>
+				>(sort(bundledEntries, skillIndexEntryOrder));
 
-			const normalize = (value: string, cwd: string) =>
-				normalizePath({ cwd, fileSystem, path, value });
+				const normalize = (value: string, cwd: string) =>
+					normalizePath({ cwd, fileSystem, path, value });
 
-			const toIndexEntry = (cwd: string, command: CommandInfo) =>
-				command.source !== 'skill' ||
-					typeof command.sourceInfo?.path !== 'string'
-					? Effect.succeed(Option.none<SkillIndexEntry.Value>())
-					: normalize(command.sourceInfo.path, cwd).pipe(
-						Effect.map((skillFilePath) => {
-							const skillDir = path.dirname(skillFilePath);
-							const name = path.basename(skillDir);
-							return name.startsWith('effect-')
-								? Option.some(
-									new SkillIndexEntry.Value({
-										name,
-										skillFilePath,
-										skillDir
-									})
-								)
-								: Option.none<SkillIndexEntry.Value>();
-						})
-					);
-
-			const rebuild = Effect.fn('SkillCatalog.rebuild')(function*(
-				commands: ReadonlyArray<unknown>,
-				cwd: string
-			) {
-				const typedCommands = commands.flatMap((command) => {
-					const info = commandInfoFromUnknown(command);
-					return info === undefined ? [] : [info];
-				});
-				const resolvedEntries = yield* Effect.forEach(
-					typedCommands,
-					(command) => toIndexEntry(cwd, command)
-				).pipe(
-					Effect.map((options) =>
-						options.flatMap((entry) =>
-							Option.match(entry, {
-								onNone: () => [],
-								onSome: (value) => [value]
+				const toIndexEntry = (cwd: string, command: CommandInfo) =>
+					command.source !== 'skill' ||
+						typeof command.sourceInfo?.path !== 'string'
+						? Effect.succeed(Option.none<SkillIndexEntry.Value>())
+						: normalize(command.sourceInfo.path, cwd).pipe(
+							Effect.map((skillFilePath) => {
+								const skillDir = path.dirname(skillFilePath);
+								const name = path.basename(skillDir);
+								return name.startsWith('effect-')
+									? Option.some(
+										new SkillIndexEntry.Value({
+											name,
+											skillFilePath,
+											skillDir
+										})
+									)
+									: Option.none<SkillIndexEntry.Value>();
 							})
+						);
+
+				const rebuild = Effect.fn('SkillCatalog.rebuild')(function*(
+					commands: ReadonlyArray<unknown>,
+					cwd: string
+				) {
+					const typedCommands = commands.flatMap((command) => {
+						const info = commandInfoFromUnknown(command);
+						return info === undefined ? [] : [info];
+					});
+					const resolvedEntries = yield* Effect.forEach(
+						typedCommands,
+						(command) => toIndexEntry(cwd, command)
+					).pipe(
+						Effect.map((options) =>
+							options.flatMap((entry) =>
+								Option.match(entry, {
+									onNone: () => [],
+									onSome: (value) => [value]
+								})
+							)
 						)
-					)
-				);
-				const deduped = [
-					...resolvedEntries.reduce<
-						Map<string, SkillIndexEntry.Value>
+					);
+					// Merge command-derived entries with the always-present bundled
+					// entries so crediting survives `--no-skills` child sessions.
+					const deduped = [
+						...[...bundledEntries, ...resolvedEntries].reduce<
+							Map<string, SkillIndexEntry.Value>
+						>(
+							(byName, entry) =>
+								new Map(byName).set(
+									entry.name,
+									chooseLongestPath(
+										byName.get(entry.name),
+										entry
+									)
+								),
+							new Map<string, SkillIndexEntry.Value>()
+						).values()
+					];
+					yield* Ref.set(
+						entries,
+						sort(deduped, skillIndexEntryOrder)
+					);
+				});
+
+				const matchPath = Effect.fn('SkillCatalog.matchPath')(function*(
+					absPath: string
+				) {
+					const currentEntries = yield* Ref.get(entries);
+					const matched = currentEntries.reduce<
+						SkillIndexEntry.Value | undefined
 					>(
-						(byName, entry) =>
-							new Map(byName).set(
-								entry.name,
-								chooseLongestPath(byName.get(entry.name), entry)
-							),
-						new Map<string, SkillIndexEntry.Value>()
-					).values()
-				];
-				yield* Ref.set(entries, sort(deduped, skillIndexEntryOrder));
-			});
+						(best, entry) =>
+							absPath !== entry.skillFilePath &&
+								!absPath.startsWith(
+									`${entry.skillDir}${path.sep}`
+								)
+								? best
+								: chooseLongestPath(best, entry),
+						undefined
+					);
+					return matched === undefined
+						? Option.none()
+						: Option.some(matched);
+				});
 
-			const matchPath = Effect.fn('SkillCatalog.matchPath')(function*(
-				absPath: string
-			) {
-				const currentEntries = yield* Ref.get(entries);
-				const matched = currentEntries.reduce<
-					SkillIndexEntry.Value | undefined
-				>(
-					(best, entry) =>
-						absPath !== entry.skillFilePath &&
-							!absPath.startsWith(`${entry.skillDir}${path.sep}`)
-							? best
-							: chooseLongestPath(best, entry),
-					undefined
-				);
-				return matched === undefined
-					? Option.none()
-					: Option.some(matched);
-			});
-
-			return Service.of({
-				rebuild,
-				entries: Ref.get(entries),
-				normalizePath: normalize,
-				matchPath
-			});
-		})
-	);
+				return Service.of({
+					rebuild,
+					entries: Ref.get(entries),
+					normalizePath: normalize,
+					matchPath
+				});
+			})
+		);
 }

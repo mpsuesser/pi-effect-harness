@@ -109,7 +109,9 @@ Three rules plus session/tool hooks. Session hooks keep the skill catalog and sh
 
 Effect v4 is wide. A model writing Effect cold — without any in-context skill — will reliably produce v3 patterns: `Effect.catchAll`, `Schema.parseJson`, `Data.TaggedError`, `OptionFromSelf`, `compose(...)` instead of `decodeTo(...)`, untraced `Effect.gen` everywhere. The skill gate exists to make the agent stop and read before writing.
 
-**What counts as a skill.** Each subdirectory under `skills/` has a `SKILL.md` with frontmatter. Pi exposes these as `/skill:effect-error-handling` commands. The harness watches every successful Read tool call: when the read path resolves to a known `effect-*` skill (matched against the live skill catalog), it remembers the pending read keyed by `toolCallId`. On `tool_result`, if the read succeeded, it appends an invisible branch-metadata entry shaped like:
+**What counts as a skill.** Each subdirectory under `skills/` has a `SKILL.md` with frontmatter. Pi exposes these as `/skill:effect-error-handling` commands. The harness watches every successful Read tool call: when the read path resolves to a known `effect-*` skill (matched against the live skill catalog), it remembers the pending read keyed by `toolCallId`.
+
+**Where the catalog comes from.** The skill catalog is seeded two ways: (1) the harness self-discovers its own bundled `skills/effect-*/SKILL.md` directories directly from disk, and (2) it merges in any `/skill:*` commands Pi registered for the session. Self-discovery matters for subagent children spawned with `--no-skills`: Pi registers no skill commands there, so a catalog built only from `pi.getCommands()` would be empty and every skill read would go uncredited (the gate would report 0 loaded skills forever and block all Effect writes). Because the bundled skills are always discovered, reads are credited in those child sessions too. On `tool_result`, if the read succeeded, it appends an invisible branch-metadata entry shaped like:
 
 ```ts
 {
@@ -131,7 +133,9 @@ Effect v4 is wide. A model writing Effect cold — without any in-context skill 
 
 **Why prospective projection matters.** The gate runs on `WriteProjection.prospective(cwd, writeIntent)`, which reconstructs *what the file will look like after the write/edit applies*. A change whose resulting file no longer matches `\bEffect\b|from\s+['"]effect.*['"]` is allowed through. A change whose resulting file contains Effect code is gated. This means deletion-only Effect cleanup can proceed without artificially incrementing the skill counter.
 
-**The block message** quotes the loaded count, the missing count, and a hint to read from `~/.cache/effect-v4/` if any API is unclear. The agent retries after loading more skills.
+**The block message** quotes the loaded count, the missing count, the absolute directory the `effect-*` skill files live in (so the agent reads them in place instead of hunting), and a hint to read from `~/.cache/effect-v4/` if any API is unclear. The agent retries after loading more skills.
+
+**The gate is advisory in subagent child sessions.** When the harness runs inside a spawned subagent child (detected via the `PI_SUBAGENT_CHILD=1` env var the subagents extension sets on every child), the gate never hard-blocks — it returns no block decision. A forked worker runs a narrow task with a limited turn budget and, in `systemPromptMode: replace` prompts, no `available_skills` catalog; hard-blocking it deadlocks it in a loop trying to satisfy the skill ritual for files it cannot see. The policy header still nudges the child to read skills (and now tells it exactly where they live), and `sendPatternFeedbackAfterWrite` still flags v3 patterns after each write — so guidance is preserved without the deadlock. The hard gate remains in force for the main interactive agent.
 
 **Skill read metrics.** Every successful `read` of a known `effect-*` skill is also recorded as a `pi-effect-harness:skill-read` session entry and appended to the global metrics log at `~/.pi/agent/pi-effect-harness/skill-reads.jsonl`. Explicit `/skill:effect-*` commands are recorded as `source: "skill-command"`. Run `/effect-skill-stats`, optionally with `--since 30d` or `--json`, to see most-read skills, least-read skills, skills read at least once, rare skills, and neglected skills from the current live skill catalog.
 

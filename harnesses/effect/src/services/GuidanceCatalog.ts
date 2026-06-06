@@ -87,7 +87,8 @@ const guidanceWithSkillHints = (pattern: Pattern.Value): string => {
 };
 
 export const buildPolicyHeader = (
-	loadedSkills: ReadonlySet<string>
+	loadedSkills: ReadonlySet<string>,
+	skillsDir?: string
 ): string => {
 	const loadedCount = loadedSkills.size;
 	const preview = sort([...loadedSkills], Order.String).slice(
@@ -107,6 +108,9 @@ export const buildPolicyHeader = (
 		} relevant effect-* skills. Loaded on this branch: ${
 			String(loadedCount)
 		}/${String(MIN_EFFECT_SKILLS)} (${loadedPreview}).`,
+		...(skillsDir === undefined ? [] : [
+			`- The effect-* skill files live in ${skillsDir} (read e.g. ${skillsDir}/effect-error-handling/SKILL.md). Do not go looking for them elsewhere.`
+		]),
 		'- If any Effect v4 API is unclear, read from the local Effect reference clone instead of guessing.',
 		'- Key reference paths:',
 		...EFFECT_REFERENCE_HINTS.map(
@@ -115,7 +119,10 @@ export const buildPolicyHeader = (
 	].join('\n');
 };
 
-export const buildSkillGateReason = (loadedCount: number): string => {
+export const buildSkillGateReason = (
+	loadedCount: number,
+	skillsDir?: string
+): string => {
 	const missing = Math.max(0, MIN_EFFECT_SKILLS - loadedCount);
 	return [
 		`pi-effect-harness blocked this write because it looks like Effect code and only ${
@@ -126,6 +133,9 @@ export const buildSkillGateReason = (loadedCount: number): string => {
 		`Read at least ${
 			String(missing)
 		} more relevant effect-* skill files before writing Effect code.`,
+		...(skillsDir === undefined ? [] : [
+			`The effect-* skill files live in ${skillsDir} (e.g. ${skillsDir}/effect-schema-v4/SKILL.md) — read them there directly.`
+		]),
 		'If an API is unclear, read from ~/.cache/effect-v4/ before continuing.'
 	].join(' ');
 };
@@ -198,11 +208,12 @@ const loadGuidanceDocs = (guidanceDir: string) =>
 
 export const buildPolicyHeaderWithDocs = (
 	docs: ReadonlyArray<string>,
-	loadedSkills: ReadonlySet<string>
+	loadedSkills: ReadonlySet<string>,
+	skillsDir?: string
 ): string =>
 	docs.length === 0
-		? buildPolicyHeader(loadedSkills)
-		: [...docs, buildPolicyHeader(loadedSkills)].join(
+		? buildPolicyHeader(loadedSkills, skillsDir)
+		: [...docs, buildPolicyHeader(loadedSkills, skillsDir)].join(
 			'\n\n---\n\n'
 		);
 
@@ -227,7 +238,7 @@ export namespace GuidanceCatalog {
 		'pi-effect-harness/effect/GuidanceCatalog'
 	) {}
 
-	export const layer = (guidanceDir: string) =>
+	export const layer = (guidanceDir: string, skillsDir?: string) =>
 		Layer.effect(
 			Service,
 			Effect.gen(function*() {
@@ -235,10 +246,16 @@ export namespace GuidanceCatalog {
 				return Service.of({
 					policyHeader: (loadedSkills) =>
 						Effect.succeed(
-							buildPolicyHeaderWithDocs(docs, loadedSkills)
+							buildPolicyHeaderWithDocs(
+								docs,
+								loadedSkills,
+								skillsDir
+							)
 						),
 					skillGateReason: (loadedCount: number) =>
-						Effect.succeed(buildSkillGateReason(loadedCount)),
+						Effect.succeed(
+							buildSkillGateReason(loadedCount, skillsDir)
+						),
 					selectPatternFeedback: (
 						patterns: ReadonlyArray<Pattern.Value>
 					) => Effect.succeed(selectPatternFeedback(patterns)),
