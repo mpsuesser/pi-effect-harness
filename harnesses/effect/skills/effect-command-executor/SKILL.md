@@ -387,7 +387,7 @@ import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 class DevToolsError extends Schema.TaggedErrorClass<DevToolsError>()(
 	'DevToolsError',
 	{
-		cause: Schema.Defect
+		cause: Schema.Defect()
 	}
 ) {}
 
@@ -539,7 +539,7 @@ const chunks = yield* Stream.runCollect(handle.stdout);
 
 ```typescript
 class MyError extends Schema.TaggedErrorClass<MyError>()('MyError', {
-	cause: Schema.Defect
+	cause: Schema.Defect()
 }) {}
 
 const result =

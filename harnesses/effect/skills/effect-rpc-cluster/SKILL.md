@@ -160,7 +160,7 @@ Rpc.make(tag, {
 	payload?:    Schema.Top | Schema.Struct.Fields,  // struct fields or a Schema
 	success?:    Schema.Top,                          // default Schema.Void
 	error?:      Schema.Top,                          // default Schema.Never
-	defect?:     Schema.Top,                          // default Schema.Defect
+	defect?:     Schema.Top,                          // default Schema.Defect()
 	stream?:     boolean,                             // default false
 	primaryKey?: (payload) => string                  // for cluster dedup / persistence
 })
@@ -187,7 +187,7 @@ Rpc.make('CreateUser', { payload: CreateUserInput, success: User });
 
 #### `defect` — custom defect schema (round-trip preservation)
 
-By default `Rpc.make` uses `Schema.Defect`, which round-trips defects as `unknown`. To keep stack traces, custom error names, or other defect properties intact across the wire, set an explicit defect schema:
+By default `Rpc.make` uses `Schema.Defect()`, which round-trips defects as `unknown`. To keep stack traces, custom error names, or other defect properties intact across the wire, set an explicit defect schema:
 
 ```ts
 import { Schema } from 'effect';
@@ -200,7 +200,7 @@ const DiagnosticDefect = Schema.Struct({
 
 const Risky = Rpc.make('Risky', {
 	success: Schema.Void,
-	defect: Schema.DefectWithStack // built-in convenience
+	defect: Schema.Defect({ includeStack: true })
 });
 ```
 
@@ -1571,7 +1571,7 @@ const usersByName = Effect.gen(function*() {
 - Pick `class extends Rpc.make(...)` for nominal types you import widely; pick `const` for ad-hoc ones.
 - Use `Schema.Class` for non-trivial payloads/successes/errors; let `Rpc.make` build a struct only for tiny inline payloads.
 - Use `Schema.TaggedErrorClass` (or `Schema.ErrorClass` with a `Schema.tag` field) for every rpc/middleware error.
-- Set `defect: Schema.DefectWithStack` on rpcs whose defects you want to debug across the wire.
+- Set `defect: Schema.Defect({ includeStack: true })` on rpcs whose defects you want to debug across the wire.
 - Set `primaryKey` on every rpc that gets persisted or retried; cluster will dedupe based on it.
 - Annotate persistent entities with `ClusterSchema.Persisted` (via `entity.annotateRpcs`).
 - Use `Rpc.fork` for read-only handlers that should run concurrently; otherwise let the per-entity `concurrency: 1` default protect state.

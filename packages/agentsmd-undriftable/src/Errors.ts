@@ -60,7 +60,7 @@ export class FsFailure extends Schema.TaggedErrorClass<FsFailure>()(
 	{
 		op: Schema.String,
 		path: Schema.String,
-		cause: Schema.Defect
+		cause: Schema.Defect()
 	},
 	{ description: 'A filesystem operation failed.' }
 ) {}
@@ -75,7 +75,7 @@ export class FsFailure extends Schema.TaggedErrorClass<FsFailure>()(
 export class ProjectLoadFailure
 	extends Schema.TaggedErrorClass<ProjectLoadFailure>()(
 		'ProjectLoadFailure',
-		{ tsConfig: Schema.String, cause: Schema.Defect },
+		{ tsConfig: Schema.String, cause: Schema.Defect() },
 		{ description: 'ts-morph failed to load the TypeScript project.' }
 	) {}
 
@@ -103,7 +103,7 @@ export class DriftFailure extends Schema.TaggedErrorClass<DriftFailure>()(
  */
 export class DriftNotFound extends Schema.TaggedErrorClass<DriftNotFound>()(
 	'DriftNotFound',
-	{ cause: Schema.Defect },
+	{ cause: Schema.Defect() },
 	{ description: 'The `drift` binary was not found on PATH.' }
 ) {}
 

@@ -400,7 +400,7 @@ When wrapping upstream errors in domain error classes, choose the `cause` field 
 
 | `cause` Schema   | When to use                                                    | Example                          |
 | ---------------- | -------------------------------------------------------------- | -------------------------------- |
-| `Schema.Defect`  | Wrapping unknown/untyped upstream errors (throwables, defects) | `DevToolsError`, `DatabaseError` |
+| `Schema.Defect()` | Wrapping unknown/untyped upstream errors (throwables, defects) | `DevToolsError`, `DatabaseError` |
 | `Schema.Unknown` | Preserving full upstream error structure for debugging         | `SubstackFetchError`             |
 | `Schema.String`  | Message-only wrapping where structure is irrelevant            | `AuthError`                      |
 | Omitted          | When the error tag + fields fully describe the failure         | `UserNotFound`, `Unauthorized`   |
@@ -414,7 +414,7 @@ export class DatabaseError extends Schema.TaggedErrorClass<DatabaseError>()(
 	{
 		operation: Schema.String,
 		message: Schema.String,
-		cause: Schema.Defect
+		cause: Schema.Defect()
 	},
 	{ description: 'Database operation failed.' }
 ) {}
@@ -1558,6 +1558,6 @@ Before completing error handling implementation:
 - [ ] No v3 API names used (catchAll, catchSome, \*Exception, etc.)
 - [ ] Errors with `reason` union consider `catchReason`/`catchReasons`/`unwrapReason`
 - [ ] HTTP-facing errors carry `httpApiStatus` annotation
-- [ ] Error wrapping uses appropriate `cause` field schema (`Schema.Defect`/`Schema.Unknown`/`Schema.String`)
+- [ ] Error wrapping uses appropriate `cause` field schema (`Schema.Defect()`/`Schema.Unknown`/`Schema.String`)
 
 Your error handling implementations should be type-safe, exhaustive, and maintain clear separation between expected failures and programmer errors. Always use v4 API names.
